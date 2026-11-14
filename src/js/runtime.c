@@ -429,9 +429,12 @@ embi_js_varray *embi_js_varray_grow(embi_js_runtime *rt, const embi_js_varray *a
     embi_js_varray *n = embi_js_varray_new(rt, new_len);
     uint32_t old_len = a->hdr.aux;
     uint32_t keep = old_len < new_len ? old_len : new_len;
+    /* Through plain pointers: gcc 15 otherwise bounds the store by the flexible array member of a cell it takes
+     * to hold no elements (a false -Warray-bounds on the copy), although n holds new_len >= keep of them. */
+    embi_js_value *dst = n->elems;
+    const embi_js_value *src = a->elems;
     for (uint32_t i = 0; i < keep; i++) {
-        EMBI_JS_WB(n, a->elems[i]);
-        EMBI_JS_STORE(n, n->elems[i], a->elems[i]);
+        EMBI_JS_STORE(n, dst[i], src[i]);
     }
     return n;
 }

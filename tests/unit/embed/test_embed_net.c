@@ -1169,7 +1169,7 @@ EMB_TEST(a_remote_page_cannot_reach_local_schemes_and_an_app_page_can)
     site_open(&g_site, nullptr, nullptr);
     EMB_REQUIRE(g_site.srv != nullptr);
     /* a real local script: it must not run from a remote page */
-    char *dir = SDL_strdup(SDL_GetCurrentDirectory());
+    char *dir = SDL_GetCurrentDirectory();
     char fpath[600];
     SDL_snprintf(fpath, sizeof fpath, "%slocal_ran_n1d.js", dir);
     SDL_free(dir);

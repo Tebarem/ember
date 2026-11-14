@@ -149,6 +149,7 @@ typedef struct rig {
 
 static bool rig_open(rig *r, const char *html)
 {
+    memset(r, 0, sizeof *r); /* rig_close runs after a failed open too */
     if (!host_open(&r->h)) {
         return false;
     }

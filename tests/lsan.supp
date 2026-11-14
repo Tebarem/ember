@@ -5,3 +5,5 @@ leak:libLLVM
 leak:libEGL
 leak:libGLX
 leak:libdbus
+# vkEnumeratePhysicalDevices in the Vulkan loader leaks its device list (called from this SDL function).
+leak:VULKAN_INTERNAL_DeterminePhysicalDevice

@@ -374,13 +374,16 @@ EMB_TEST(drop_shadow_draws_the_tinted_blurred_alpha_under_the_source)
 }
 
 /* A layer filled with one opaque colour, blurred with edge mode duplicate (clamp) or transparent edges. */
-static void edge_case(bool clamp, bool *border_kept)
+/* *ran is false when there is no GPU device (nothing was checked): EMB_SKIP here would only leave this helper, the
+ * test must skip itself. */
+static void edge_case(bool clamp, bool *border_kept, bool *ran)
 {
     fx_rig r;
+    *ran = false;
     if (!fx_rig_open(&r)) {
-        EMB_SKIP("no GPU device");
         return;
     }
+    *ran = true;
     const uint32_t w = 48, h = 48;
     embi_layer src, dst;
     EMB_REQUIRE(embi_layer_acquire(r.k.pool, w, h, &src));
@@ -416,7 +419,11 @@ EMB_TEST(blur_edge_duplicate_keeps_a_uniform_layer_opaque_to_the_border)
 {
     size_t live = embi_mem_live();
     bool kept = false;
-    edge_case(true, &kept);
+    bool ran;
+    edge_case(true, &kept, &ran);
+    if (!ran) {
+        EMB_SKIP("no GPU device");
+    }
     EMB_CHECK(kept);
     EMB_CHECK(embi_mem_live() == live);
 }
@@ -425,7 +432,11 @@ EMB_TEST(blur_without_edge_duplicate_fades_out_at_the_border)
 {
     size_t live = embi_mem_live();
     bool kept = true;
-    edge_case(false, &kept);
+    bool ran;
+    edge_case(false, &kept, &ran);
+    if (!ran) {
+        EMB_SKIP("no GPU device");
+    }
     EMB_CHECK(!kept);
     EMB_CHECK(embi_mem_live() == live);
 }

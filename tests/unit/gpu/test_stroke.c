@@ -721,7 +721,7 @@ EMB_TEST(stroke_random_polylines_against_polygon_reference)
     rng_seed_from_env();
     int total_bad = 0;
     for (int it = 0; it < (EMB_TEST_ASAN ? 16 : rnd_iters(120)); it++) {
-        float pt[12];
+        float pt[12] = {0};
         const int n = 2 + (int)rnd(0, 4);
         for (int i = 0; i < 2 * n; i++) {
             pt[i] = rnd(6, 58);
