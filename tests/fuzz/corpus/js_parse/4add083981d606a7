@@ -1,0 +1,10 @@
+// This file was procedurally generated from the following sources:
+// - src/identifier-names/new-escaped.case
+// - src/identifier-names/default/member-expr.template
+
+
+var obj = {};
+
+obj.n\u0065w = 42;
+
+assert.sameValue(obj['new'], 42, 'property exists');

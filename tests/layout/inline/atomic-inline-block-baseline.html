@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>Inline layout: an inline-block sits on its last line box baseline</title>
+<script src="/resources/testharness.js"></script>
+<script src="/resources/testharnessreport.js"></script>
+<script src="/resources/check-layout-th.js"></script>
+<link rel="stylesheet" href="/fonts/ahem.css">
+<style>
+body { margin: 0 } .a { font: 20px/40px Ahem } #d { width: 200px }
+</style>
+<body onload="checkLayout('#d')">
+<!-- Derivation: the strut has line-height 40px over a 20px content area, so the half-leading is 10px:
+26px above the baseline and 14px below. The inline-block has one 20px line (line-height 20px) whose
+baseline is 16px below its top, so it has 16px above the baseline and 4px below. Its top is 26 - 16 =
+10px. The line box is 40px tall, and the inline-block starts at x 40 after the two-glyph text. -->
+<div id="d" class="a" data-expected-width="200" data-expected-height="40">XX<span id="b" style="display:inline-block;width:60px;line-height:20px" data-offset-x="40" data-offset-y="10" data-expected-width="60" data-expected-height="20">XX</span></div>
+</body>

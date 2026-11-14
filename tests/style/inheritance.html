@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  #outer { color: rgb(10, 20, 30); font-weight: 700; }
+  #inner { color: inherit; font-weight: normal; }
+  #reset { border-width: 3px; }
+  #leaf { }
+</style>
+</head>
+<body>
+<div id="outer"><span id="inner"><b id="leaf">x</b></span></div>
+<div id="box" style="width: 10px; height: 20px;"></div>
+<!-- expect: inner color rgb(10, 20, 30) -->
+<!-- expect: leaf color rgb(10, 20, 30) -->
+<!-- expect: leaf font-weight 700 -->
+<!-- expect: inner font-weight 400 -->
+<!-- expect: box width 10px -->
+<!-- expect: box height 20px -->

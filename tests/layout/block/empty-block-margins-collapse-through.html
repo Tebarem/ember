@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>An empty block collapses its margins through itself</title>
+<script src="/resources/testharness.js"></script>
+<script src="/resources/testharnessreport.js"></script>
+<script src="/resources/check-layout-th.js"></script>
+<style>
+body { margin: 0 }
+</style>
+<body onload="checkLayout('body > div')">
+<!-- Derivation: CSS 2.1 8.3.1. #e has no height, padding, border or content, so its top and bottom margins
+(10px each) collapse together into one 10px margin that passes through #e. That margin collapses
+with the top margin of #f (0) and with body's, so the body sits at y = 10 and so do #e and #f: #e
+has no height and #f starts where the collapsed margin ends. #e is at y = 10 and 0px tall, #f is at
+y = 10 and 5px tall. Both offsets are document coordinates because body is the offsetParent. -->
+<div id="e" style="margin: 10px 0" data-offset-y="10" data-expected-height="0"></div>
+<div id="f" style="height: 5px; margin: 0" data-offset-y="10" data-expected-height="5"></div>
+</body>

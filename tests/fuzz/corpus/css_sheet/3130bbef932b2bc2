@@ -1,0 +1,11 @@
+<![CDATA[
+  div
+  {
+  border: black solid 5px;
+  height: 1in;
+  text-align: right;
+  width: 2in;
+  }
+
+  img {vertical-align: top;}
+  ]]>

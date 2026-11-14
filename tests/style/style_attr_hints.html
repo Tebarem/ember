@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html id="root">
+<head>
+<style>
+  #s { color: rgb(255, 0, 0) !important; }
+  #t { width: 100px; }
+  #u { color: rgb(255, 0, 0) !important; }
+  #v { color: rgb(0, 128, 0); }
+  @layer L { #w { color: rgb(1, 1, 1) !important; } #x { color: rgb(1, 1, 1); } #y { color: rgb(1, 1, 1) !important; } }
+  #y { color: rgb(2, 2, 2) !important; }
+</style>
+</head>
+<body>
+<p id="s" style="color: rgb(0, 0, 255) !important"></p>
+<p id="u" style="color: rgb(0, 0, 255)"></p>
+<table id="t" width="50"></table>
+<p id="v" style="color: rgb(0, 0, 255)"></p>
+<center id="c"></center>
+<p id="w" style="color: rgb(9, 9, 9) !important"></p>
+<p id="x" style="color: rgb(9, 9, 9)"></p>
+<p id="y" style="color: rgb(9, 9, 9) !important"></p>
+<!-- expect: s color rgb(0, 0, 255) -->
+<!-- expect: u color rgb(255, 0, 0) -->
+<!-- expect: t width 100px -->
+<!-- expect: v color rgb(0, 0, 255) -->
+<!-- expect: c text-align center -->
+<!-- expect: w color rgb(9, 9, 9) -->
+<!-- expect: x color rgb(9, 9, 9) -->
+<!-- expect: y color rgb(9, 9, 9) -->
+</body>
+</html>

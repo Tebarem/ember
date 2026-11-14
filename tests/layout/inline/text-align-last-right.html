@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>Inline layout: text-align-last sets the alignment of the last line</title>
+<script src="/resources/testharness.js"></script>
+<script src="/resources/testharnessreport.js"></script>
+<script src="/resources/check-layout-th.js"></script>
+<link rel="stylesheet" href="/fonts/ahem.css">
+<style>
+body { margin: 0 } .a { font: 20px/20px Ahem } #d { width: 120px; text-align: justify; text-align-last: right }
+</style>
+<body onload="checkLayout('#d')">
+<!-- Derivation: CSS Text 3 section 7.2. The last line is aligned by text-align-last: right. Its XX (40px) sits
+at 120 - 40 = 80. The first line is justified as in justify-spaces.html. -->
+<div id="d" class="a" data-expected-width="120" data-expected-height="40"><span id="a">XX</span> <span id="b">XX</span> <span id="c" data-offset-x="80" data-offset-y="20" data-expected-width="40" data-expected-height="20">XX</span></div>
+</body>

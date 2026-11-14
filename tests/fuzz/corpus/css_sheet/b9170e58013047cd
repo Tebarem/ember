@@ -1,0 +1,7 @@
+<![CDATA[
+  body {background: white; color: black; font-size: 14px}
+  span {display: inline-block}
+  #container {background: green; height: 70px; min-height: 140px}
+  #child1 {background: #66F; width: 70px; height: inherit} /* Inherits 70px */
+  #child2 {background: #AAF; width: 70px; height: 70px}
+  ]]>

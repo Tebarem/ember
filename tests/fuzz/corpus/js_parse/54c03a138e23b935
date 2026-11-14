@@ -1,0 +1,11 @@
+// Copyright (C) 2015 André Bargull. All rights reserved.
+// This code is governed by the BSD license found in the LICENSE file.
+
+
+
+verifyProperty(DataView.prototype.getUint32, "name", {
+  value: "getUint32",
+  writable: false,
+  enumerable: false,
+  configurable: true
+});

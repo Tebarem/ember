@@ -1,0 +1,10 @@
+// Copyright (C) 2015 the V8 project authors. All rights reserved.
+// This code is governed by the BSD license found in the LICENSE file.
+
+
+
+var r = /./g;
+
+r.lastIndex = 1;
+
+assert.sameValue(r[Symbol.replace]('aa', 'x'), 'xx');

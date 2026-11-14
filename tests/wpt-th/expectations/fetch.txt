@@ -1,0 +1,3 @@
+# Expected failures of the testharness.js run in fetch (generated; see tests/wpt-th/README.md).
+fetch/api/request/request-consume-empty.any.html :: Consume empty FormData request body as text :: not-applicable contradicts response-form-data.html 'Empty form data' and the Fetch standard assert_equals: Resolved value should be empty expected 0 but got 43
+fetch/api/response/response-consume-empty.any.html :: Consume empty FormData response body as text :: not-applicable contradicts response-form-data.html 'Empty form data' and the Fetch standard assert_equals: Resolved value should be empty expected 0 but got 43

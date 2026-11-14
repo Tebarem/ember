@@ -1,0 +1,58 @@
+# Expected failures of the testharness.js run in html/canvas/element (R4b; see tests/wpt-th/README.md).
+html/canvas/element/2d.text-root-font-relative-units.html not-yet font-relative units of ctx.font are not resolved against the root/parent style at set time (rem, rex, rch, rcap, ric)
+html/canvas/element/color-type/2d.color.type.u8p3.to.u8srgb.to.u8p3.html out-of-scope Display P3 canvas storage (colorType/pixelFormat float16 and the p3 round trips) is outside the scope of R4b
+html/canvas/element/color-type/2d.color.type.u8srgb.to.u8p3.to.u8srgb.html out-of-scope Display P3 canvas storage (colorType/pixelFormat float16 and the p3 round trips) is outside the scope of R4b
+html/canvas/element/drawing-images-to-the-canvas/2d.drawImage.svg.html not-yet img/SVG image loading state (complete, broken, decoded size) is not wired to the canvas bindings, so images that finish loading later or fail are not distinguishable
+html/canvas/element/drawing-images-to-the-canvas/2d.drawImage.zerosource.image.html not-yet img/SVG image loading state (complete, broken, decoded size) is not wired to the canvas bindings, so images that finish loading later or fail are not distinguishable
+html/canvas/element/fill-and-stroke-styles/2d.fillStyle.CSSHSL.html not-yet CSS Typed OM color objects (CSSRGB, CSSHSL, CSSColorValue) do not exist
+html/canvas/element/fill-and-stroke-styles/2d.fillStyle.CSSRGB.html not-yet CSS Typed OM color objects (CSSRGB, CSSHSL, CSSColorValue) do not exist
+html/canvas/element/fill-and-stroke-styles/2d.fillStyle.colorObject.html not-yet CSS Typed OM color objects (CSSRGB, CSSHSL, CSSColorValue) do not exist
+html/canvas/element/fill-and-stroke-styles/2d.fillStyle.colorObject.transparency.html not-yet CSS Typed OM color objects (CSSRGB, CSSHSL, CSSColorValue) do not exist
+html/canvas/element/fill-and-stroke-styles/2d.fillStyle.colormix.currentcolor.html not-yet CSS Color 5 color-mix(), relative colors, system colors and the color() serialization of the canvas color parser
+html/canvas/element/fill-and-stroke-styles/2d.fillStyle.colormix.html not-yet CSS Color 5 color-mix(), relative colors, system colors and the color() serialization of the canvas color parser
+html/canvas/element/fill-and-stroke-styles/2d.fillStyle.parse.system.html not-yet CSS Color 5 color-mix(), relative colors, system colors and the color() serialization of the canvas color parser
+html/canvas/element/fill-and-stroke-styles/2d.fillStyle.relativecolor.currentcolor.html not-yet CSS Color 5 color-mix(), relative colors, system colors and the color() serialization of the canvas color parser
+html/canvas/element/fill-and-stroke-styles/2d.fillStyle.relativecolor.html not-yet CSS Color 5 color-mix(), relative colors, system colors and the color() serialization of the canvas color parser
+html/canvas/element/fill-and-stroke-styles/2d.gradient.colormix.html not-yet CSS Color 5 color-mix(), relative colors, system colors and the color() serialization of the canvas color parser
+html/canvas/element/fill-and-stroke-styles/2d.gradient.interpolate.overlap2.html bug open defect; first failure: assert_equals: Red channel of the pixel at (30, 25) expected 0 but got 255
+html/canvas/element/fill-and-stroke-styles/2d.gradient.object.current.html bug open defect; first failure: assert_approx_equals: Red channel of the pixel at (50, 25) expected 0 +/- 2 but got 255
+html/canvas/element/fill-and-stroke-styles/2d.gradient.relativecolor.html not-yet CSS Color 5 color-mix(), relative colors, system colors and the color() serialization of the canvas color parser
+html/canvas/element/fill-and-stroke-styles/2d.pattern.image.broken.html not-yet img/SVG image loading state (complete, broken, decoded size) is not wired to the canvas bindings, so images that finish loading later or fail are not distinguishable
+html/canvas/element/fill-and-stroke-styles/2d.pattern.modify.image1.html not-yet img/SVG image loading state (complete, broken, decoded size) is not wired to the canvas bindings, so images that finish loading later or fail are not distinguishable
+html/canvas/element/fill-and-stroke-styles/2d.pattern.modify.image2.html not-yet img/SVG image loading state (complete, broken, decoded size) is not wired to the canvas bindings, so images that finish loading later or fail are not distinguishable
+html/canvas/element/fill-and-stroke-styles/2d.pattern.svgimage.nonexistent.html not-yet img/SVG image loading state (complete, broken, decoded size) is not wired to the canvas bindings, so images that finish loading later or fail are not distinguishable
+html/canvas/element/fill-and-stroke-styles/2d.strokeStyle.colorObject.html not-yet CSS Typed OM color objects (CSSRGB, CSSHSL, CSSColorValue) do not exist
+html/canvas/element/fill-and-stroke-styles/2d.strokeStyle.colorObject.transparency.html not-yet CSS Typed OM color objects (CSSRGB, CSSHSL, CSSColorValue) do not exist
+html/canvas/element/fill-and-stroke-styles/2d.strokeStyle.colormix.html not-yet CSS Color 5 color-mix(), relative colors, system colors and the color() serialization of the canvas color parser
+html/canvas/element/fill-and-stroke-styles/2d.strokeStyle.relativecolor.html not-yet CSS Color 5 color-mix(), relative colors, system colors and the color() serialization of the canvas color parser
+html/canvas/element/filters/2d.filter.value.html out-of-scope the context filter is stored and read back but never applied (outside the scope of R4b)
+html/canvas/element/layers/2d.layer.malformed-operations-with-promises.html not-yet beginLayer/endLayer keep the state semantics only; the promise-based malformed-operation checks of layers are not implemented
+html/canvas/element/line-styles/2d.line.join.round.html bug open defect; first failure: assert_equals: Red channel of the pixel at (86, 14) expected 0 but got 255
+html/canvas/element/path-objects/2d.path.arc.scale.2.html bug open defect; first failure: assert_equals: Red channel of the pixel at (98, 1) expected 0 but got 255
+html/canvas/element/path-objects/2d.path.arc.shape.3.html bug open defect; first failure: assert_equals: Red channel of the pixel at (1, 48) expected 0 but got 65
+html/canvas/element/path-objects/2d.path.isPointInPath.basic.html bug open defect; first failure: assert_equals: ctx.isPointInPath(0, 0, 'nonzero') === true (got false[boolean], expected true[boolean]) expect
+html/canvas/element/path-objects/2d.path.isPointInStroke.scaleddashes.html bug open defect; first failure: assert_equals: ctx.isPointInStroke(11*scale, 10*scale) === true (got false[boolean], expected true[boolean]) e
+html/canvas/element/pixel-manipulation/2d.imageData.createImageBitmap.srgb.rgba.float16.html not-yet ImageData pixelFormat rgba-float16 (half float storage) is not implemented; only rgba-unorm8
+html/canvas/element/pixel-manipulation/2d.imageData.object.ctor.basics.html bug open defect; first failure: assert_throws_js: function "function() { new ImageData(self, 4, 4); }" threw object "IndexSizeError: The sourc
+html/canvas/element/pixel-manipulation/2d.imageData.object.ctor.pixelFormat.html not-yet ImageData pixelFormat rgba-float16 (half float storage) is not implemented; only rgba-unorm8
+html/canvas/element/pixel-manipulation/2d.imageData.put.basic.rgba.float16.html not-yet ImageData pixelFormat rgba-float16 (half float storage) is not implemented; only rgba-unorm8
+html/canvas/element/shadows/2d.shadow.stroke.join.3.html bug open defect; first failure: assert_equals: Red channel of the pixel at (1, 1) expected 0 but got 255
+html/canvas/element/text/2d.text.draw.align.center.complex-shaping.html not-yet measureText control and whitespace edge cases, and the complex-script alignment case
+html/canvas/element/text/2d.text.draw.baseline.hanging.html not-yet the hanging and ideographic baselines come from the BASE table of the font, which the text module does not read
+html/canvas/element/text/2d.text.draw.baseline.ideographic.html not-yet the hanging and ideographic baselines come from the BASE table of the font, which the text module does not read
+html/canvas/element/text/2d.text.drawing.style.font-relative.spacing.html not-yet the ic and other rare font-relative units of letterSpacing/wordSpacing are not resolved
+html/canvas/element/text/2d.text.lang.default.html not-yet CanvasRenderingContext2D.lang and language-dependent shaping are not implemented
+html/canvas/element/text/2d.text.measure.baselines.html not-yet the hanging and ideographic baselines come from the BASE table of the font, which the text module does not read
+html/canvas/element/text/2d.text.measure.lang.html not-yet CanvasRenderingContext2D.lang and language-dependent shaping are not implemented
+html/canvas/element/text/2d.text.measure.lang.inherit.html not-yet CanvasRenderingContext2D.lang and language-dependent shaping are not implemented
+html/canvas/element/text/2d.text.measure.width.nullCharacter.html not-yet measureText control and whitespace edge cases, and the complex-script alignment case
+html/canvas/element/text/parent-style-relative-units.html not-yet font-relative units of ctx.font are not resolved against the root/parent style at set time (rem, rex, rch, rcap, ric)
+html/canvas/element/video/2d.video.invalid.html out-of-scope HTMLVideoElement does not exist in Ember
+html/canvas/element/wide-gamut-canvas/2d.color.space.getImageData.convert.html out-of-scope Display P3 and the color-space conversions of getImageData/toBlob are outside the scope of R4b (colorSpace is always srgb)
+html/canvas/element/wide-gamut-canvas/2d.color.space.p3.fillText.html out-of-scope Display P3 and the color-space conversions of getImageData/toBlob are outside the scope of R4b (colorSpace is always srgb)
+html/canvas/element/wide-gamut-canvas/2d.color.space.p3.fillText.shadow.html out-of-scope Display P3 and the color-space conversions of getImageData/toBlob are outside the scope of R4b (colorSpace is always srgb)
+html/canvas/element/wide-gamut-canvas/2d.color.space.p3.strokeText.html out-of-scope Display P3 and the color-space conversions of getImageData/toBlob are outside the scope of R4b (colorSpace is always srgb)
+html/canvas/element/wide-gamut-canvas/2d.color.space.toBlob.convert.html out-of-scope Display P3 and the color-space conversions of getImageData/toBlob are outside the scope of R4b (colorSpace is always srgb)
+html/canvas/element/wide-gamut-canvas/2d.color.space.toDataURL.convert.html out-of-scope Display P3 and the color-space conversions of getImageData/toBlob are outside the scope of R4b (colorSpace is always srgb)
+html/canvas/element/text/2d.text.drawing.style.measure.rtl.text.html :: Measurement should follow canvas direction instead text direction :: platform assert_true: metrics.actualBoundingBoxLeft < metrics.actualBoundingBoxRight expected true got false
+html/canvas/element/text/2d.text.measure.actualBoundingBox.whitespace.html :: Testing actualBoundingBox with leading/trailing whitespace :: platform assert_true: Math.abs(ctx.measureText(whitespace + 'A').actualBoundingBoxLeft) >= 49 expected true g

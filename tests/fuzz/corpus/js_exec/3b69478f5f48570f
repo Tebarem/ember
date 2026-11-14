@@ -1,0 +1,30 @@
+var Test262Error=function(m){this.message=m};Test262Error.prototype.toString=function(){return 'T'};var assert=function(c,m){if(c!==true)throw new Test262Error(m)};assert.sameValue=function(a,b,m){if(a!==b&&(a===a||b===b))throw new Test262Error(m)};assert.notSameValue=function(a,b,m){if(a===b)throw new Test262Error(m)};assert.throws=function(E,f,m){try{f()}catch(e){return}throw new Test262Error(m)};var $DONOTEVALUATE=function(){throw 'x'};var print=function(){};
+// This file was procedurally generated from the following sources:
+// - src/dstr-assignment/array-elision-iter-nrml-close-err.case
+// - src/dstr-assignment/error/assignment-expr.template
+
+var nextCount = 0;
+var returnCount = 0;
+var iterable = {};
+var iterator = {
+  next: function() {
+    nextCount += 1;
+    // Set an upper-bound to limit unnecessary iteration in non-conformant
+    // implementations
+    return { done: nextCount > 10 };
+  },
+  return: function() {
+    returnCount += 1;
+    throw new Test262Error();
+  }
+};
+iterable[Symbol.iterator] = function() {
+  return iterator;
+};
+
+assert.throws(Test262Error, function() {
+  0, [ , ] = iterable;
+});
+
+assert.sameValue(nextCount, 1);
+assert.sameValue(returnCount, 1);

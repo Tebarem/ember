@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>A stretched item with an aspect ratio gets its main size from the stretched cross size</title>
+<script src="/resources/testharness.js"></script>
+<script src="/resources/testharnessreport.js"></script>
+<script src="/resources/check-layout-th.js"></script>
+<style>
+body { margin: 0 }
+#c { display: flex; width: 0; height: 100px }
+#c > div { aspect-ratio: 2 / 1; min-width: 0 }
+</style>
+<body onload="checkLayout('#c > div')">
+<!-- Derivation (CSS Flexbox 1 9.8 and 9.2 step 3 B; CSS Sizing 4 5): the container is single-line with a
+definite height of 100px, so the stretched item has a definite cross size of 100px, which the ratio 2/1
+transfers into a flex base size of 200px. min-width is 0 (not auto) and the container is 0px wide, so the
+item shrinks: flex-shrink scales 200px by (0 - 200) / 200 to a target of 0px. With min-width: auto the item
+would keep its 200px (the transferred size suggestion), so the test uses min-width: 0 for the shrunk case
+and a second container with auto for the kept case.
+Provenance: hand-derived; not run in Chromium (none available here). The vendored WPT
+flex-aspect-ratio-img-row-013.html asserts the same transfer for images and passes. -->
+<div id="c"><div data-expected-width="0" data-expected-height="100"></div></div>
+<div style="display: flex; width: 0; height: 100px"><div style="aspect-ratio: 2 / 1" data-expected-width="200" data-expected-height="100"></div></div>
+</body>

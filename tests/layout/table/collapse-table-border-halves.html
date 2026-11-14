@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<script src="/resources/testharness.js"></script>
+<script src="/resources/testharnessreport.js"></script>
+<script src="/resources/check-layout-th.js"></script>
+<title>border-collapse: collapse uses half of the table border</title>
+<style>body { margin: 0 } table { border-spacing: 0; padding: 20px }</style>
+<body onload="checkLayout('table')">
+<!-- Derivation (W4f, Chromium's NGTableBorders and the WPT border-*-applies-to reftests): in the collapsing model the
+table has no padding, and each outer edge is split between the cell at it and the table. The edge is 10px: the cell
+takes 5 (floor of half) inside it and the table the other 5. The one cell is 50px wide and 20px tall inside its
+borders, so its border box is 50 + 5 + 5 = 60 wide and 20 + 5 + 5 = 30 tall, and the table is that plus 5 + 5 and
+5 + 5: 70 wide and 40 tall. The cell sits at x = 0 and y = 0 inside the table's padding edge, which is 5px in from
+the border-box. -->
+<table style="border-collapse: collapse; border: 10px solid black" data-expected-width="70" data-expected-height="40">
+  <tr><td style="width: 50px; height: 20px; padding: 0" data-offset-x="0" data-offset-y="0" data-expected-width="60" data-expected-height="30"></td></tr>
+</table>
+</body>

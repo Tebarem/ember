@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>Only the border box of a BFC block keeps out of the float margin boxes</title>
+<script src="/resources/testharness.js"></script>
+<script src="/resources/testharnessreport.js"></script>
+<script src="/resources/check-layout-th.js"></script>
+<style>
+body { margin: 0 } .c { position: relative; width: 200px; height: 40px } .b { overflow: hidden; height: 10px }
+</style>
+<body onload="checkLayout('.c > .b')">
+<!-- Derivation (CSS 2.1 9.5, values checked against Chromium): the border box starts at the later of the
+float's edge and the margin edge. Left float 50px, margin 0 5px: x = 50, width 200 - 50 - 5 = 145 (the
+5px on the float side is absorbed). Right float, margin 0 5px: x = 5, width 150 - 5 = 145. Left float,
+margin-left -20px: the margin cannot push the box over the float, x = 50, width 150. -->
+<div class="c"><div style="float: left; width: 50px; height: 30px"></div><div class="b" style="margin: 0 5px" data-offset-x="50" data-expected-width="145"></div></div>
+<div class="c"><div style="float: right; width: 50px; height: 30px"></div><div class="b" style="margin: 0 5px" data-offset-x="5" data-expected-width="145"></div></div>
+<div class="c"><div style="float: left; width: 50px; height: 30px"></div><div class="b" style="margin-left: -20px" data-offset-x="50" data-expected-width="150"></div></div>
+</body>

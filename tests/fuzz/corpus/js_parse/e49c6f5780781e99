@@ -1,0 +1,36 @@
+// Copyright (c) 2012 Ecma International.  All rights reserved.
+// This code is governed by the BSD license found in the LICENSE file.
+
+
+
+var obj = {};
+
+var getFunc = function() {
+  return 1001;
+};
+
+var verifySetFunc = "data";
+var setFunc = function(value) {
+  verifySetFunc = value;
+};
+
+Object.defineProperty(obj, "prop", {
+  get: getFunc,
+  set: setFunc,
+  enumerable: false,
+  configurable: false
+});
+
+try {
+  Object.defineProperty(obj, "prop", {
+    configurable: true
+  });
+
+  throw new Test262Error("Expected TypeError");
+} catch (e) {
+  assert(e instanceof TypeError);
+}
+
+verifyProperty(obj, "prop", {
+  configurable: false,
+});

@@ -1,0 +1,10 @@
+// Copyright 2022 Igalia, S.L. All rights reserved.
+// This code is governed by the BSD license found in the LICENSE file.
+
+
+
+verifyProperty(Intl.DurationFormat.prototype, "constructor", {
+  writable: true,
+  enumerable: false,
+  configurable: true,
+});

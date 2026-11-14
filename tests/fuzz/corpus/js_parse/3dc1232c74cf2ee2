@@ -1,0 +1,7 @@
+// This file was procedurally generated from the following sources:
+// - src/top-level-await/await-expr-null.case
+// - src/top-level-await/syntax/while-expr.template
+
+
+
+while (await null) { break; }

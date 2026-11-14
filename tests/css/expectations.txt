@@ -1,0 +1,5 @@
+# Expected failures for tests/unit/css/test_syntax_fixtures.c.
+# Format: <fixture file> <case index> <reason>. Case index counts input/expected pairs from 0.
+# A listed case that passes is an error, so this list stays exact.
+#
+# Empty: every css-parsing-tests case passes (ISO-8859-2, ISO-8859-5 and windows-1252 decode).

@@ -1,0 +1,6 @@
+[
+  { "id": 1, "name": "Ada Lovelace", "city": "London" },
+  { "id": 2, "name": "Grace Hopper", "city": "New York" },
+  { "id": 3, "name": "Edsger Dijkstra", "city": "Nuenen" },
+  { "id": 4, "name": "Barbara Liskov", "city": "Boston" }
+]

@@ -1,0 +1,82 @@
+css/css-overflow/line-clamp/block-ellipsis-007.html not-yet ::first-line is not implemented (the test needs the first line styled and the block ellipsis outside it)
+css/css-overflow/line-clamp/block-ellipsis-008.html not-yet ::first-line is not implemented (the test needs the first line styled and the block ellipsis outside it)
+css/css-overflow/line-clamp/block-ellipsis-009.html not-yet ::first-line is not implemented (the test needs the first line styled and the block ellipsis outside it)
+css/css-overflow/line-clamp/block-ellipsis-030.html not-yet layout matches the reference (123 and the ellipsis, the U+1680 before it dropped); the synthetic ellipsis run paints as a notdef box with the Ahem-style monospace font where the reference text node paints blank, so pixels differ
+css/css-overflow/line-clamp/block-ellipsis-035.html not-yet hanging-punctuation is not implemented (the block ellipsis ")" should hang)
+css/css-overflow/line-clamp/block-ellipsis-bidi-003.html not-yet unicode-bidi: plaintext paragraph direction is not applied to the block ellipsis (it should follow its paragraph, not the container)
+css/css-overflow/line-clamp/block-ellipsis-bidi-004.html not-yet the block ellipsis is not a bidi isolate: a string that starts with a strong rtl character after an ltr line should keep its own direction, ours uses the paragraph direction
+css/css-overflow/line-clamp/discard/discard-multicol-001.html not-yet line-clamp in multicol and fragmentation (columns do not clamp)
+css/css-overflow/line-clamp/discard/discard-multicol-002.html not-yet line-clamp in multicol and fragmentation (columns do not clamp)
+css/css-overflow/line-clamp/discard/discard-multicol-003.html not-yet line-clamp in multicol and fragmentation (columns do not clamp)
+css/css-overflow/line-clamp/discard/discard-multicol-004.html not-yet line-clamp in multicol and fragmentation (columns do not clamp)
+css/css-overflow/line-clamp/line-clamp-027.html not-yet ruby is not laid out (annotations take no space), so the clamped size and the ellipsis differ by a few pixels
+css/css-overflow/line-clamp/line-clamp-028.html not-yet ruby is not laid out (annotations take no space), so the clamped size and the ellipsis differ by a few pixels
+css/css-overflow/line-clamp/line-clamp-auto-032.html not-yet 30 px anti-aliasing difference: the layout equals the reference but the block ellipsis is its own text run next to the last word, where the reference has one run
+css/css-overflow/line-clamp/line-clamp-auto-043.html not-yet 18 px anti-aliasing difference: the layout equals the reference but the block ellipsis is its own text run next to the last word, where the reference has one run
+css/css-overflow/line-clamp/line-clamp-auto-063.html not-yet line-clamp edge cases (block-ellipsis sizing and bidi, auto with nested fixed sizes, balance corners, floats, buttons)
+css/css-overflow/line-clamp/line-clamp-auto-with-ruby-005.tentative.html not-yet line-clamp with ruby (no ruby layout)
+css/css-overflow/line-clamp/line-clamp-balance-003.html not-yet pass 1 of the clamp lays out with text-wrap: balance, so the height based clamp point is chosen from balanced lines (the specification balances after clamping): the second line is lost
+css/css-overflow/line-clamp/line-clamp-balance-006.html not-yet pass 1 of the clamp lays out with text-wrap: balance, so the height based clamp point is chosen from balanced lines (the specification balances after clamping)
+css/css-overflow/line-clamp/line-clamp-form-button-001.tentative.html not-yet line-clamp edge cases (block-ellipsis sizing and bidi, auto with nested fixed sizes, balance corners, floats, buttons)
+css/css-overflow/line-clamp/line-clamp-with-abspos-024.html not-yet line-clamp edge cases (block-ellipsis sizing and bidi, auto with nested fixed sizes, balance corners, floats, buttons)
+css/css-overflow/line-clamp/line-clamp-with-floats-008.html not-yet line-clamp edge cases (block-ellipsis sizing and bidi, auto with nested fixed sizes, balance corners, floats, buttons)
+css/css-overflow/line-clamp/line-clamp-with-floats-009.html not-yet line-clamp edge cases (block-ellipsis sizing and bidi, auto with nested fixed sizes, balance corners, floats, buttons)
+css/css-overflow/line-clamp/line-clamp-with-floats-012.html not-yet line-clamp edge cases (block-ellipsis sizing and bidi, auto with nested fixed sizes, balance corners, floats, buttons)
+css/css-overflow/line-clamp/line-clamp-with-text-overflow-grapheme-001.html not-yet the test measures with 4.5ch of a monospace font that also gives combining accents a full cell; our fallback font shapes e + U+0301 narrower, so the block ellipsis fits next to the content and nothing is truncated
+css/css-overflow/line-clamp/line-clamp-with-text-overflow-string-006.html not-yet unicode-bidi: plaintext paragraph direction is not applied to the ellipsis units of the clamped line (the block ellipsis and the text-overflow string should follow the direction of their own paragraph)
+css/css-overflow/line-clamp/line-clamp-with-text-overflow-string-009.html not-yet unicode-bidi: plaintext paragraph direction is not applied to the ellipsis units of the clamped line (the block ellipsis and the text-overflow string should follow the direction of their own paragraph)
+css/css-overflow/overflow-clip-margin-010.html bug
+css/css-overflow/overflow-clip-margin-visual-box-and-value-with-border-radius.html bug
+css/css-overflow/overflow-img-scroll-non-replaced.html bug
+css/css-overflow/scroll-markers/column-scroll-marker-001.html not-yet scroll markers (::scroll-marker, scroll-marker-group)
+css/css-overflow/scroll-markers/column-scroll-marker-004.html not-yet scroll markers (::scroll-marker, scroll-marker-group)
+css/css-overflow/scroll-markers/column-scroll-marker-006.html not-yet scroll markers (::scroll-marker, scroll-marker-group)
+css/css-overflow/scroll-markers/column-scroll-marker-008.html not-yet scroll markers (::scroll-marker, scroll-marker-group)
+css/css-overflow/scroll-markers/column-scroll-marker-counters.html not-yet scroll markers (::scroll-marker, scroll-marker-group)
+css/css-overflow/scroll-markers/column-scroll-marker-reattach-target-current.html not-yet scroll markers (::scroll-marker, scroll-marker-group)
+css/css-overflow/scroll-markers/root-scroll-button.html not-yet scroll markers (::scroll-marker, scroll-marker-group)
+css/css-overflow/scroll-markers/root-scroll-marker.html not-yet scroll markers (::scroll-marker, scroll-marker-group)
+css/css-overflow/scroll-markers/scroll-buttons-001.html not-yet scroll markers (::scroll-marker, scroll-marker-group)
+css/css-overflow/scroll-markers/scroll-buttons-003.html not-yet scroll markers (::scroll-marker, scroll-marker-group)
+css/css-overflow/scroll-markers/scroll-buttons-004.html not-yet scroll markers (::scroll-marker, scroll-marker-group)
+css/css-overflow/scroll-markers/scroll-buttons-appearance.html not-yet scroll markers (::scroll-marker, scroll-marker-group)
+css/css-overflow/scroll-markers/scroll-buttons-contents-appearance.html not-yet scroll markers (::scroll-marker, scroll-marker-group)
+css/css-overflow/scroll-markers/scroll-buttons-counter-appearance.html not-yet scroll markers (::scroll-marker, scroll-marker-group)
+css/css-overflow/scroll-markers/scroll-buttons-enabled-rtl.html not-yet scroll markers (::scroll-marker, scroll-marker-group)
+css/css-overflow/scroll-markers/scroll-buttons-enabled.html not-yet scroll markers (::scroll-marker, scroll-marker-group)
+css/css-overflow/scroll-markers/scroll-buttons-layout-parent.html not-yet scroll markers (::scroll-marker, scroll-marker-group)
+css/css-overflow/scroll-markers/scroll-marker-001.html not-yet scroll markers (::scroll-marker, scroll-marker-group)
+css/css-overflow/scroll-markers/scroll-marker-002.html not-yet scroll markers (::scroll-marker, scroll-marker-group)
+css/css-overflow/scroll-markers/scroll-marker-003.html not-yet scroll markers (::scroll-marker, scroll-marker-group)
+css/css-overflow/scroll-markers/scroll-marker-004.html not-yet scroll markers (::scroll-marker, scroll-marker-group)
+css/css-overflow/scroll-markers/scroll-marker-005.html not-yet scroll markers (::scroll-marker, scroll-marker-group)
+css/css-overflow/scroll-markers/scroll-marker-006.html not-yet scroll markers (::scroll-marker, scroll-marker-group)
+css/css-overflow/scroll-markers/scroll-marker-007.html not-yet scroll markers (::scroll-marker, scroll-marker-group)
+css/css-overflow/scroll-markers/scroll-marker-008.html not-yet scroll markers (::scroll-marker, scroll-marker-group)
+css/css-overflow/scroll-markers/scroll-marker-009.html not-yet scroll markers (::scroll-marker, scroll-marker-group)
+css/css-overflow/scroll-markers/scroll-marker-010.html not-yet scroll markers (::scroll-marker, scroll-marker-group)
+css/css-overflow/scroll-markers/scroll-marker-011.html not-yet scroll markers (::scroll-marker, scroll-marker-group)
+css/css-overflow/scroll-markers/scroll-marker-012.html not-yet scroll markers (::scroll-marker, scroll-marker-group)
+css/css-overflow/scroll-markers/scroll-marker-counters.html not-yet scroll markers (::scroll-marker, scroll-marker-group)
+css/css-overflow/scroll-markers/scroll-marker-group-001.html not-yet scroll markers (::scroll-marker, scroll-marker-group)
+css/css-overflow/scroll-markers/scroll-marker-group-011.html not-yet scroll markers (::scroll-marker, scroll-marker-group)
+css/css-overflow/scroll-markers/scroll-marker-group-013.html not-yet scroll markers (::scroll-marker, scroll-marker-group)
+css/css-overflow/scroll-markers/scroll-marker-group-015.html not-yet scroll markers (::scroll-marker, scroll-marker-group)
+css/css-overflow/scroll-markers/scroll-marker-group-016.html not-yet scroll markers (::scroll-marker, scroll-marker-group)
+css/css-overflow/scroll-markers/scroll-marker-group-017.html not-yet scroll markers (::scroll-marker, scroll-marker-group)
+css/css-overflow/scroll-markers/scroll-marker-group-018.html not-yet scroll markers (::scroll-marker, scroll-marker-group)
+css/css-overflow/scroll-markers/scroll-marker-group-019.html not-yet scroll markers (::scroll-marker, scroll-marker-group)
+css/css-overflow/scroll-markers/scroll-marker-group-020.html not-yet scroll markers (::scroll-marker, scroll-marker-group)
+css/css-overflow/scroll-markers/scroll-marker-group-layout-parent.html not-yet scroll markers (::scroll-marker, scroll-marker-group)
+css/css-overflow/scroll-markers/scroll-target-group-001.html not-yet scroll markers (::scroll-marker, scroll-marker-group)
+css/css-overflow/scroll-markers/scroll-target-group-004.html not-yet scroll markers (::scroll-marker, scroll-marker-group)
+css/css-overflow/text-overflow-006.html bug
+css/css-overflow/text-overflow-013.html bug
+css/css-overflow/text-overflow-029.html bug
+css/css-overflow/text-overflow-ellipsis-bidi-grapheme-001.html not-yet generic-fonts (monospace maps to Ahem in the runner, which has no system fonts; the page relies on glyphs or metrics Ahem does not have)
+css/css-overflow/text-overflow-ellipsis-first-line.html not-yet ::first-line
+css/css-overflow/text-overflow-ruby.html not-yet ruby layout
+css/css-overflow/text-overflow-string-005.html bug
+css/css-overflow/text-overflow-string-006.html bug
+css/css-overflow/text-overflow-string-008.html bug
+css/css-overflow/text-overflow-string-in-input.html not-yet form controls

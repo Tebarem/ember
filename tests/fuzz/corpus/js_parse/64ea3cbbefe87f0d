@@ -1,0 +1,25 @@
+// Copyright (C) 2019 Leo Balter. All rights reserved.
+// This code is governed by the BSD license found in the LICENSE file.
+
+
+
+var x;
+function poison() {
+    throw new Test262Error('should not evaluate poison');
+}
+
+x = undefined;
+x = undefined ?? 42 ?? undefined ?? poison();
+assert.sameValue(x, 42);
+
+x = undefined;
+x = 42 ?? undefined ?? poison();
+assert.sameValue(x, 42);
+
+x = undefined;
+x = undefined ?? 42 ?? poison();
+assert.sameValue(x, 42);
+
+x = undefined;
+x = 42 ?? poison();
+assert.sameValue(x, 42);

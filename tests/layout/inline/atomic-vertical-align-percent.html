@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>Inline layout: vertical-align percentage on an atomic inline uses its own line-height</title>
+<script src="/resources/testharness.js"></script>
+<script src="/resources/testharnessreport.js"></script>
+<script src="/resources/check-layout-th.js"></script>
+<link rel="stylesheet" href="/fonts/ahem.css">
+<style>
+body { margin: 0 } .a { font: 20px/20px Ahem } #d { width: 100px }
+</style>
+<body onload="checkLayout('#d')">
+<!-- UNVERIFIED (derived by hand, not checked in Chromium). Derivation: CSS 2.1 10.8.1. A percentage raises the box by that share of the element's own
+line-height. The inline-block's line-height is normal, which is 20px for Ahem, so 50% is 10px. Its
+margin box is 20px above the baseline (its bottom margin edge is the baseline), so after the raise it
+reaches 30px above the line's baseline. The line box is 30 + 4 = 34px and the box's top is at 0. -->
+<div id="d" class="a" data-expected-width="100" data-expected-height="34"><span id="p" style="display:inline-block;width:20px;height:20px;vertical-align:50%" data-offset-x="0" data-offset-y="0" data-expected-width="20" data-expected-height="20"></span></div>
+</body>

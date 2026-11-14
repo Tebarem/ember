@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>Opacity: a group composites as one, a single box folds into its color</title>
+<link rel="match" href="opacity-group-ref.html">
+<meta name="fuzzy" content="maxDifference=0-2;totalPixels=0-40000">
+<style>
+body { margin: 0; background: #fff }
+.g { position: absolute; left: 20px; top: 20px; width: 100px; height: 100px; opacity: .5 }
+.g > div { position: absolute; width: 60px; height: 60px }
+/* two overlapping children: the overlap shows the upper child blended once with the page, not twice */
+#a { left: 0; top: 0; background: #f00 }
+#b { left: 40px; top: 40px; background: #00f }
+/* one box: opacity folds into its background */
+#solo { position: absolute; left: 160px; top: 20px; width: 80px; height: 80px; background: #0a0; opacity: .5 }
+</style>
+<div class="g"><div id="a"></div><div id="b"></div></div>
+<div id="solo"></div>

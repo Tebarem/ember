@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>anim-60fps</title>
+<!--
+  W6 benchmark and test page: a list of 200 items whose transform and opacity transition (compositor-only properties: no
+  relayout in steady state) plus one bar whose width animates (the one layout-affecting animation). A script flips the items
+  every 400 ms from a requestAnimationFrame loop, so the page animates for as long as it is open. window.__flips counts the
+  flips and window.__frames the rAF callbacks.
+-->
+<style>
+  html, body { margin: 0; padding: 0; background: #fff; font: 14px/20px sans-serif; }
+  #bar { height: 12px; width: 100px; background: #36c; animation: grow 1.6s ease-in-out infinite alternate; }
+  @keyframes grow { from { width: 100px; } to { width: 600px; } }
+  #list { margin: 0; padding: 0; list-style: none; width: 760px; }
+  .item {
+    height: 20px; margin: 0; padding: 0 8px; background: #eef; border-bottom: 1px solid #ccd;
+    opacity: 1; transform: translateX(0);
+    transition: transform 300ms ease-out, opacity 300ms linear;
+  }
+  .item:nth-child(3n) { background: #fee; }
+  #list.flip .item { opacity: 0.35; transform: translateX(40px); }
+  #list.flip .item:nth-child(2n) { transform: translateX(-20px); }
+</style>
+</head>
+<body>
+<div id="bar"></div>
+<ul id="list"></ul>
+<script>
+  var list = document.getElementById('list');
+  var frag = document.createDocumentFragment();
+  for (var i = 0; i < 200; i++) {
+    var li = document.createElement('li');
+    li.className = 'item';
+    li.textContent = 'Item ' + (i + 1);
+    frag.appendChild(li);
+  }
+  list.appendChild(frag);
+  window.__flips = 0;
+  window.__frames = 0;
+  var last = 0;
+  function tick(t) {
+    window.__frames++;
+    if (t - last >= 400) {
+      last = t;
+      window.__flips++;
+      list.classList.toggle('flip');
+    }
+    requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+</script>
+</body>
+</html>

@@ -1,0 +1,34 @@
+// This file was procedurally generated from the following sources:
+// - src/computed-property-names/computed-property-name-from-null.case
+// - src/computed-property-names/evaluation/class-declaration-fields-methods.template
+
+
+
+let C = class {
+  [null] = () => {
+    return null;
+  };
+
+  static [null] = () => {
+    return null;
+  };
+};
+
+let c = new C();
+
+assert.sameValue(
+  c[null](),
+  null
+);
+assert.sameValue(
+  C[null](),
+  null
+);
+assert.sameValue(
+  c[String(null)](),
+  null
+);
+assert.sameValue(
+  C[String(null)](),
+  null
+);

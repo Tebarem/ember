@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>Inline layout: vertical-align middle centers a box on the parent baseline plus half its x-height</title>
+<script src="/resources/testharness.js"></script>
+<script src="/resources/testharnessreport.js"></script>
+<script src="/resources/check-layout-th.js"></script>
+<link rel="stylesheet" href="/fonts/ahem.css">
+<style>
+body { margin: 0 } .a { font: 20px/20px Ahem } #d { width: 300px }
+</style>
+<body onload="checkLayout('#d')">
+<!-- UNVERIFIED: derived by hand from the specs, not yet checked in Chromium. Derivation: CSS 2.1 10.8.1. Ahem has an x-height of 0.8em, 16px at 20px. The span has font-size 10px (ascent 8, descent 2) and the inherited line-height of 20px, so its inline box reaches 13 above its baseline and 7 below (leading 5 on each side); its content area is centered on that box. Its midpoint is raised to half the parent's x-height, 8px, above the parent baseline: the span baseline is 8 - 3 = 5px above the parent baseline (3 is the midpoint of the content area above the span baseline, (8 - 2) / 2). The line box reaches 5 + 13 = 18 above the baseline (the strut reaches 16) and 4 below, so it is 22px tall with the baseline at 18. The plain span x is at y 2. The span s has baseline at 18 - 5 = 13, so its content area, 8 above it, starts at y 5 and is 10px tall. -->
+<div id="d" class="a" data-expected-width="300" data-expected-height="22"><span id="x" data-offset-x="0" data-offset-y="2" data-expected-width="40" data-expected-height="20">XX</span><span id="s" style="vertical-align:middle;font-size:10px" data-offset-x="40" data-offset-y="5" data-expected-width="20" data-expected-height="10">YY</span></div>
+</body>

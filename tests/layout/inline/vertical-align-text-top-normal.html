@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>Inline layout: vertical-align text-top with line-height normal</title>
+<script src="/resources/testharness.js"></script>
+<script src="/resources/testharnessreport.js"></script>
+<script src="/resources/check-layout-th.js"></script>
+<link rel="stylesheet" href="/fonts/ahem.css">
+<style>
+body { margin: 0 } .a { font: 20px/normal Ahem } #d { width: 300px }
+</style>
+<body onload="checkLayout('#d')">
+<!-- UNVERIFIED: derived by hand from the specs, not yet checked in Chromium. Derivation: CSS 2.1 10.8.1 (the parent's content area is its font's ascent and descent). Ahem has no line gap, so line-height normal is 20px at 20px (ascent 16, descent 4) and 10px at 10px (ascent 8, descent 2). Text-top puts the top of the span's box at the top of the parent's content area, 16px above the parent baseline: the span baseline is 16 - 8 = 8px above it. The line box stays 20px tall with the baseline at 16, and the span starts at y 16 - 8 - 8 = 0. -->
+<div id="d" class="a" data-expected-width="300" data-expected-height="20"><span id="x" data-offset-x="0" data-offset-y="0" data-expected-width="40" data-expected-height="20">XX</span><span id="s" style="vertical-align:text-top;font-size:10px" data-offset-x="40" data-offset-y="0" data-expected-width="20" data-expected-height="10">YY</span></div>
+</body>

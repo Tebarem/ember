@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>Inline layout: overflow-wrap break-word keeps the min-content width at the longest word</title>
+<script src="/resources/testharness.js"></script>
+<script src="/resources/testharnessreport.js"></script>
+<script src="/resources/check-layout-th.js"></script>
+<link rel="stylesheet" href="/fonts/ahem.css">
+<style>
+body { margin: 0 } .a { font: 20px/20px Ahem } #d { width: 50px } #f { float: left; overflow-wrap: break-word }
+</style>
+<body onload="checkLayout('#d')">
+<!-- UNVERIFIED: derived by hand from the specs, not yet checked in Chromium. Derivation: CSS Text 3 section 5.5. Unlike anywhere, break-word does not lower min-content: it is the word's 160px, which is also the max-content. The shrink-to-fit width is min(max(160, 50), 160) = 160px, so the word fits on one 20px line. -->
+<div id="d" class="a"><div id="f" class="a" data-expected-width="160" data-expected-height="20">XXXXXXXX</div></div>
+</body>

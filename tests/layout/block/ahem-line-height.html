@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>A line of Ahem text: line-height normal is 1em and each glyph is 1em wide</title>
+<script src="/resources/testharness.js"></script>
+<script src="/resources/testharnessreport.js"></script>
+<script src="/resources/check-layout-th.js"></script>
+<link rel="stylesheet" href="/fonts/ahem.css">
+<style>
+body { margin: 0 } .a { font: 20px/normal Ahem }
+</style>
+<body onload="checkLayout('#d')">
+<!-- Derivation: Ahem has ascent 0.8em, descent 0.2em and no line gap, so line-height: normal is 1em = 20px.
+The text XXX is three glyphs of 1em each. The block is as wide as its container (800px), so only its
+height is checked: one line of 20px. The inline span #s is the width of the text, 3 * 20 = 60px,
+and as tall as the font's content area (ascent + descent = 20px). -->
+<div id="d" class="a" data-expected-width="800" data-expected-height="20"><span id="s" data-expected-width="60" data-expected-height="20" data-offset-x="0" data-offset-y="0">XXX</span></div>
+</body>

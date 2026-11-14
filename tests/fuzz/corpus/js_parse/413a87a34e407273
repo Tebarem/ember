@@ -1,0 +1,11 @@
+// Copyright (C) 2016 André Bargull. All rights reserved.
+// This code is governed by the BSD license found in the LICENSE file.
+
+
+
+verifyProperty(Intl.DateTimeFormat.prototype.resolvedOptions, "name", {
+  value: "resolvedOptions",
+  writable: false,
+  enumerable: false,
+  configurable: true,
+});

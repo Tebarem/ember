@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>Paint order: every layer of CSS 2.1 Appendix E, in z-index order</title>
+<link rel="match" href="paint-order-zindex-ref.html">
+<style>
+body { margin: 0; padding-top: 100px; background: #fff }
+.b { position: absolute; width: 60px; height: 60px }
+/* z-index auto: step 8, in tree order, above the block and float layers */
+#root-bg { left: 10px; top: 10px; width: 300px; height: 80px; background: #ccc }
+/* negative z-index: below everything else of the root stacking context, so the gray panel hides it */
+#neg { left: 20px; top: 20px; background: #f00; z-index: -1 }
+/* a float is painted above the blocks' backgrounds */
+#flt { float: left; margin-left: 80px; width: 60px; height: 60px; background: #0a0 }
+/* the in-flow block background: step 4, below the float */
+#flow { margin-left: 40px; width: 60px; height: 60px; background: #00f }
+#pos0 { left: 120px; top: 40px; background: #f80 }
+/* positive z-index: the lower first */
+#z2 { left: 170px; top: 40px; background: #0cc; z-index: 2 }
+#z1 { left: 150px; top: 20px; background: #808; z-index: 1 }
+</style>
+<div id="root-bg" class="b"></div>
+<div id="neg" class="b"></div>
+<div id="flt"></div>
+<div id="flow"></div>
+<div id="pos0" class="b"></div>
+<div id="z2" class="b"></div>
+<div id="z1" class="b"></div>

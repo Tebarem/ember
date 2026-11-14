@@ -1,0 +1,9 @@
+# Expected failures of the testharness.js run in resize-observer (generated; see tests/wpt-th/README.md).
+resize-observer/observe-006.html not-yet ResizeObserver boxes of vertical writing modes and fragmented (multicol) boxes harness status 2
+resize-observer/svg.html :: test9: observe svg:text :: not-yet SVG element boxes in the observers (no bounding box of SVG graphics elements) assert_unreached: Timed out waiting for notification. (1000ms) Reached unreachable code
+resize-observer/svg.html :: test15: observe svg:text content and border box :: not-yet SVG element boxes in the observers (no bounding box of SVG graphics elements) assert_unreached: Timed out waiting for notification. (1000ms) Reached unreachable code
+resize-observer/fragments.html :: Adding 2nd fragment :: not-yet ResizeObserver boxes of vertical writing modes and fragmented (multicol) boxes assert_equals: number of fragments expected 2 but got 1
+resize-observer/fragments.html :: Resizing 2nd fragment :: not-yet ResizeObserver boxes of vertical writing modes and fragmented (multicol) boxes assert_equals: number of fragments expected 2 but got 1
+resize-observer/fragments.html :: Resizing all fragments :: not-yet ResizeObserver boxes of vertical writing modes and fragmented (multicol) boxes assert_equals: number of fragments expected 2 but got 1
+resize-observer/observe-020.html not-yet ResizeObserver boxes of vertical writing modes and fragmented (multicol) boxes harness status 2
+resize-observer/notify.html not-yet ResizeObserver boxes of vertical writing modes and fragmented (multicol) boxes harness status 1

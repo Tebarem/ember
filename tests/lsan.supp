@@ -1,0 +1,7 @@
+# Leaks inside system GPU drivers / loaders (not ours) under ASan on CI.
+leak:libvulkan
+leak:libvulkan_lvp
+leak:libLLVM
+leak:libEGL
+leak:libGLX
+leak:libdbus

@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>Inline layout: vertical-align top aligns the box with the line box top</title>
+<script src="/resources/testharness.js"></script>
+<script src="/resources/testharnessreport.js"></script>
+<script src="/resources/check-layout-th.js"></script>
+<link rel="stylesheet" href="/fonts/ahem.css">
+<style>
+body { margin: 0 } .a { font: 20px/20px Ahem } #d { width: 300px }
+</style>
+<body onload="checkLayout('#d')">
+<!-- UNVERIFIED: derived by hand from the specs, not yet checked in Chromium. Derivation: CSS 2.1 10.8.1. The span has font-size 10px and line-height 40px, so its inline box is 40px tall: 23 above its baseline and 17 below (ascent 8 + 15, descent 2 + 15). Top aligns that box with the top of the line box, which is 40px tall because the span is the tallest item. The strut stays at the top with its baseline at 16, so the plain span x is at y 0. The span's baseline is 23px from the top and its content area (8 above the baseline) starts at y 15 and is 10px tall. -->
+<div id="d" class="a" data-expected-width="300" data-expected-height="40"><span id="x" data-offset-x="0" data-offset-y="0" data-expected-width="40" data-expected-height="20">XX</span><span id="s" style="vertical-align:top;font-size:10px;line-height:40px" data-offset-x="40" data-offset-y="15" data-expected-width="20" data-expected-height="10">YY</span></div>
+</body>

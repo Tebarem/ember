@@ -1,0 +1,3 @@
+svg/pservers/reftests/css-color-visited-currentcolor-svg-fill.html not-yet :visited styling is not exposed to the SVG paint server
+svg/pservers/reftests/gradient-color-interpolation.svg not-yet color-interpolation linearRGB (SVG 1.1 section 12.2)
+svg/pservers/reftests/percent-encoded-fragment-fill-stroke.html not-yet percent-encoded fragment identifiers in url() are not decoded

@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  #d1 { display: revert !important; }
+  #d2 { display: inline !important; }
+  #d2 { display: revert; }
+</style>
+</head>
+<body>
+<div id="d1"></div><div id="d2"></div>
+<!-- expect: d1 display block -->
+<!-- expect: d2 display inline -->
+</body>
+</html>

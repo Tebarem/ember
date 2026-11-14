@@ -1,0 +1,11 @@
+// This file was procedurally generated from the following sources:
+// - src/dynamic-import/import-defer-assignment-expr-not-optional.case
+// - src/dynamic-import/syntax/invalid/nested-do-while.template
+
+
+$DONOTEVALUATE();
+
+do {
+  import.defer();
+} while (false);
+

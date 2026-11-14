@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>Inline layout: an inline-block with margin-bottom sits on its margin edge</title>
+<script src="/resources/testharness.js"></script>
+<script src="/resources/testharnessreport.js"></script>
+<script src="/resources/check-layout-th.js"></script>
+<link rel="stylesheet" href="/fonts/ahem.css">
+<style>
+body { margin: 0 } .a { font: 20px/20px Ahem } #d { width: 100px }
+</style>
+<body onload="checkLayout('#d')">
+<!-- Derivation: CSS 2.1 10.8.1. An atomic inline with no line boxes has its baseline at the bottom
+margin edge. The 20px box with a 10px bottom margin has 30px above the baseline and 0px below it. The
+strut has 16px above and 4px below. The line box is 30 + 4 = 34px tall, and the box's top is at y 0. -->
+<div id="d" class="a" data-expected-width="100" data-expected-height="34"><span id="i" style="display:inline-block;width:20px;height:20px;margin-bottom:10px" data-offset-x="0" data-offset-y="0" data-expected-width="20" data-expected-height="20"></span></div>
+</body>

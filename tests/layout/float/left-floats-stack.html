@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>Left floats sit side by side, and one that does not fit moves below them</title>
+<script src="/resources/testharness.js"></script>
+<script src="/resources/testharnessreport.js"></script>
+<script src="/resources/check-layout-th.js"></script>
+<style>
+body { margin: 0 } #c { position: relative; width: 200px } .f { float: left; height: 20px }
+</style>
+<body onload="checkLayout('#c')">
+<!-- Derivation (CSS 2.1 9.5.1): a and b are 50px wide and sit side by side at the top (rules 4 and 5), so
+the free width is 200 - 100 = 100px. c is 150px and fits nowhere on the first line (rule 5), so it moves to
+the lowest bottom of the floats in its way, 20px, and goes to the left edge. -->
+<div id="c">
+  <div class="f" style="width: 50px" data-offset-x="0" data-offset-y="0" data-expected-width="50" data-expected-height="20"></div>
+  <div class="f" style="width: 50px" data-offset-x="50" data-offset-y="0" data-expected-width="50" data-expected-height="20"></div>
+  <div class="f" style="width: 150px" data-offset-x="0" data-offset-y="20" data-expected-width="150" data-expected-height="20"></div>
+</div>
+</body>

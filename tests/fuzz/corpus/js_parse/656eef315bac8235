@@ -1,0 +1,18 @@
+// Copyright (c) 2012 Ecma International.  All rights reserved.
+// This code is governed by the BSD license found in the LICENSE file.
+
+
+
+assert.throws(TypeError, function() {
+  (function() {
+    "use strict";
+    var f = function() {
+      gNonStrict();
+    }
+    f();
+  })();
+});
+
+function gNonStrict() {
+  return gNonStrict.caller || gNonStrict.caller.throwTypeError;
+}

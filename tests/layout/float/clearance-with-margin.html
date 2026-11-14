@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>Clearance does not add the block's own margin on top of the float's bottom</title>
+<script src="/resources/testharness.js"></script>
+<script src="/resources/testharnessreport.js"></script>
+<script src="/resources/check-layout-th.js"></script>
+<style>
+body { margin: 0 } #c { position: relative; width: 200px } .clr { clear: left; margin-top: 10px; height: 10px }
+</style>
+<body onload="checkLayout('#c > div')">
+<!-- Derivation (CSS 2.1 9.5.2): the hypothetical position of the block, with its own 10px margin, is 10px.
+The float's bottom is 40px, so the clearance takes the border top to 40px. The margin is inside the
+clearance, so the block is at y = 40, not 50. -->
+<div id="c">
+  <div style="float: left; width: 50px; height: 40px" data-offset-x="0" data-offset-y="0" data-expected-width="50" data-expected-height="40"></div>
+  <div class="clr" data-offset-x="0" data-offset-y="40" data-expected-width="200" data-expected-height="10"></div>
+</div>
+</body>

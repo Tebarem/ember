@@ -1,0 +1,20 @@
+// Copyright (C) 2025 Sony Interactive Entertainment Inc. All rights reserved.
+// This code is governed by the BSD license found in the LICENSE file.
+
+
+
+var fCalled = false;
+var fValueOfCalled = false;
+function f() {
+  fCalled = true;
+  return {
+    valueOf() { fValueOfCalled = true; return 1; }
+  };
+}
+
+assert.throws(ReferenceError, function() {
+  f()++;
+});
+
+assert(fCalled);
+assert(!fValueOfCalled);

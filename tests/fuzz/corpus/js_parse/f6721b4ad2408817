@@ -1,0 +1,9 @@
+// This file was procedurally generated from the following sources:
+// - src/invalid-private-names/call-expression-bad-reference.case
+// - src/invalid-private-names/default/top-level-modulebody.template
+
+
+
+$DONOTEVALUATE();
+
+(() => {})().#x

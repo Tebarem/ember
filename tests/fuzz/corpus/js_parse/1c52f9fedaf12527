@@ -1,0 +1,23 @@
+// This file was procedurally generated from the following sources:
+// - src/async-functions/returns-async-arrow-returns-newtarget.case
+// - src/async-functions/evaluation/async-class-expr-method.template
+
+let count = 0;
+
+
+var C = class {
+  async method(x) {
+    return async () => new.target;
+  }
+};
+// Stores a reference `asyncFn` for case evaluation
+let c = new C();
+let asyncFn = c.method.bind(c);
+
+asyncFn().then(retFn => {
+  count++;
+  return retFn();
+}).then(result => {
+  assert.sameValue(result, undefined);
+  assert.sameValue(count, 1);
+}).then($DONE, $DONE);

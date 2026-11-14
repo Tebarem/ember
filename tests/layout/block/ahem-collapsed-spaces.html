@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>White space collapsing: runs of spaces become one, and pre keeps them</title>
+<script src="/resources/testharness.js"></script>
+<script src="/resources/testharnessreport.js"></script>
+<script src="/resources/check-layout-th.js"></script>
+<link rel="stylesheet" href="/fonts/ahem.css">
+<style>
+body { margin: 0 } .a { font: 10px/10px Ahem } #n { white-space: normal } #p { white-space: pre }
+</style>
+<body onload="checkLayout('div')">
+<!-- Derivation: CSS Text 3 4.1.1. Ahem glyphs, including the space, are 1em = 10px wide. In the normal
+span the text is "X<4 spaces>X"; the 4 spaces collapse to one and the leading and trailing
+collapsible spaces of the line are removed: "X X" is 3 glyphs, 30px. With white-space: pre the
+4 spaces stay: "X    X" is 6 glyphs, 60px. A newline in normal text is a space that collapses too.
+The second div has "X<newline><spaces>X" in a normal span: it is also "X X", 30px. -->
+<div class="a"><span id="n" data-expected-width="30">  X    X  </span></div>
+<div class="a"><span id="p" data-expected-width="60">X    X</span></div>
+<div class="a"><span id="m" data-expected-width="30">X
+        X</span></div>
+</body>

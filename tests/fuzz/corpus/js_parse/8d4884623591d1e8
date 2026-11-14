@@ -1,0 +1,10 @@
+// Copyright 2019 Mike Pennisi.  All rights reserved.
+// This code is governed by the BSD license found in the LICENSE file.
+
+
+
+
+var supreme = 5
+var count;
+
+for(count=0;;) {if (count===supreme)break;else count++; }

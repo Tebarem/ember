@@ -1,0 +1,12 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>Opacity reference: the blended colors written out</title>
+<style>
+body { margin: 0; background: #fff }
+.r { position: absolute }
+</style>
+<!-- red at .5 over white: #ff8080; blue at .5 over white: #8080ff; the overlap shows blue's #8080ff only -->
+<div class="r" style="left:20px;top:20px;width:60px;height:60px;background:#ff8080"></div>
+<div class="r" style="left:60px;top:60px;width:60px;height:60px;background:#8080ff"></div>
+<!-- the box, not the group: green #0a0 at .5 over white -->
+<div class="r" style="left:160px;top:20px;width:80px;height:80px;background:rgba(0,170,0,.5)"></div>

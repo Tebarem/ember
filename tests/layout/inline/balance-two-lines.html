@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>Inline layout: text-wrap balance narrows the lines</title>
+<script src="/resources/testharness.js"></script>
+<script src="/resources/testharnessreport.js"></script>
+<script src="/resources/check-layout-th.js"></script>
+<link rel="stylesheet" href="/fonts/ahem.css">
+<style>
+body { margin: 0 } .a { font: 20px/20px Ahem } #d { width: 220px; text-wrap: balance }
+</style>
+<body onload="checkLayout('#d')">
+<!-- UNVERIFIED (derived by hand, not checked in Chromium). Derivation: CSS Text 4 section 4.1. Greedy wrapping at 220px gives XXXXXXXX XX / XX (220 then 40). Balancing
+finds the narrowest width that keeps two lines: 160px, since XXXXXXXX (160) and XX XX (100) both fit. The
+lines are XXXXXXXX and XX XX, height 40. -->
+<div id="d" class="a" data-expected-width="220" data-expected-height="40">XXXXXXXX <span id="a" data-offset-x="0" data-offset-y="20" data-expected-width="40" data-expected-height="20">XX</span> <span id="b" data-offset-x="60" data-offset-y="20" data-expected-width="40" data-expected-height="20">XX</span></div>
+</body>

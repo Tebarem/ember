@@ -1,0 +1,13 @@
+# color conformance expectations: "<file> <case index> <reason>" per line (case index = pair index in the file).
+# hwb gray cases are no longer listed: test_color_suite compares numbers with a 2e-6 tolerance
+# (the reference prints hwb grays 1e-7..6e-7 higher, far below one 8-bit step).
+# custom profile: color(<dashed-ident> ...) needs an @color-profile rule (CSS Color 5). Tracked gap,
+# owned by W2d (at-rules): the profile registry lives with the stylesheet, so W2c's embi_color_parse
+# cannot resolve a dashed-ident colorspace on its own.
+color_functions_5.json 10 custom color profile (dashed-ident colorspace) not supported
+color_functions_5.json 11 custom color profile (dashed-ident colorspace) not supported
+color_functions_5.json 12 custom color profile (dashed-ident colorspace) not supported
+color_functions_5.json 13 custom color profile (dashed-ident colorspace) not supported
+color_functions_5.json 14 custom color profile (dashed-ident colorspace) not supported
+color_functions_5.json 15 custom color profile (dashed-ident colorspace) not supported
+color_functions_5.json 17 custom color profile (dashed-ident colorspace) not supported

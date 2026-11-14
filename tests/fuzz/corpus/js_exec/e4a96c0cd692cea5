@@ -1,0 +1,10 @@
+// This file was procedurally generated from the following sources:
+// - src/identifier-names/class-escaped.case
+// - src/identifier-names/default/obj-prop-name.template
+
+
+var obj = {
+  cl\u0061ss: 42
+};
+
+assert.sameValue(obj['class'], 42, 'property exists');

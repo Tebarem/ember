@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>text-transform changes the number of glyphs that are laid out</title>
+<script src="/resources/testharness.js"></script>
+<script src="/resources/testharnessreport.js"></script>
+<script src="/resources/check-layout-th.js"></script>
+<link rel="stylesheet" href="/fonts/ahem.css">
+<style>
+body { margin: 0 } .a { font: 10px/10px Ahem }
+</style>
+<body onload="checkLayout('div')">
+<!-- Derivation: CSS Text 3 2.1 and Unicode SpecialCasing. Every Ahem glyph is 1em = 10px wide, so the
+width counts the glyphs. The sharp s (U+00DF) uppercases to two letters, "SS": the transform must
+ADD a glyph, which text-transform: none would not. "ab" stays 2 glyphs (20px) whatever its case, so
+the same words with text-transform: none, lowercase and uppercase give 20px, 20px and 20px, while
+"ß" gives 10px (none, lowercase) and 20px (uppercase, capitalize at the word start). -->
+<div class="a"><span style="text-transform: none" data-expected-width="10">&szlig;</span></div>
+<div class="a"><span style="text-transform: lowercase" data-expected-width="10">&szlig;</span></div>
+<div class="a"><span style="text-transform: uppercase" data-expected-width="20">&szlig;</span></div>
+<div class="a"><span style="text-transform: uppercase" data-expected-width="30">a&szlig;</span></div>
+<div class="a"><span style="text-transform: capitalize" data-expected-width="30">&szlig;a</span></div>
+<div class="a"><span style="text-transform: uppercase" data-expected-width="20">ab</span></div>
+</body>

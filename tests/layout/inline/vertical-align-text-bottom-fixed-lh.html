@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>Inline layout: vertical-align text-bottom with a fixed line-height</title>
+<script src="/resources/testharness.js"></script>
+<script src="/resources/testharnessreport.js"></script>
+<script src="/resources/check-layout-th.js"></script>
+<link rel="stylesheet" href="/fonts/ahem.css">
+<style>
+body { margin: 0 } .a { font: 20px/40px Ahem } #d { width: 300px }
+</style>
+<body onload="checkLayout('#d')">
+<!-- Derivation: CSS 2.1 10.8.1 and the WPT reftests vertical-align-117a, -118a and -negative-leading-001. Same boxes as vertical-align-text-top-fixed-lh. Text-bottom aligns the bottom of the span's inline box, its half-leading included (17 below its baseline), with the bottom of the parent's content area (4 below the parent baseline), so the span baseline is 13px above the parent baseline. The span's box reaches 23 + 13 = 36 above the parent baseline (the strut reaches 26) and 4 below (the strut reaches 14). The line box is 36 + 14 = 50px tall with the baseline at 36. The plain span x starts at y 36 - 16 = 20 and the span s at y 36 - 13 - 8 = 15. -->
+<div id="d" class="a" data-expected-width="300" data-expected-height="50"><span id="x" data-offset-x="0" data-offset-y="20" data-expected-width="40" data-expected-height="20">XX</span><span id="s" style="vertical-align:text-bottom;font-size:10px" data-offset-x="40" data-offset-y="15" data-expected-width="20" data-expected-height="10">YY</span></div>
+</body>

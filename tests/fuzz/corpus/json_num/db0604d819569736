@@ -1,0 +1,4 @@
+{
+  "message": "Loaded from data.json",
+  "items": ["alpha", "beta", "gamma"]
+}

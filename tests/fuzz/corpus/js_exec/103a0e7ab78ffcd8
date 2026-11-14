@@ -1,0 +1,28 @@
+var Test262Error=function(m){this.message=m};Test262Error.prototype.toString=function(){return 'T'};var assert=function(c,m){if(c!==true)throw new Test262Error(m)};assert.sameValue=function(a,b,m){if(a!==b&&(a===a||b===b))throw new Test262Error(m)};assert.notSameValue=function(a,b,m){if(a===b)throw new Test262Error(m)};assert.throws=function(E,f,m){try{f()}catch(e){return}throw new Test262Error(m)};var $DONOTEVALUATE=function(){throw 'x'};var print=function(){};
+// Copyright 2009 the Sputnik authors.  All rights reserved.
+// This code is governed by the BSD license found in the LICENSE file.
+
+
+assertRelativeDateMs(new Date(1899, 11), -2211667200000);
+
+assertRelativeDateMs(new Date(1899, 12), -2208988800000);
+
+assertRelativeDateMs(new Date(1900, 0), -2208988800000);
+
+assertRelativeDateMs(new Date(1969, 11), -2678400000);
+
+assertRelativeDateMs(new Date(1969, 12), 0);
+
+assertRelativeDateMs(new Date(1970, 0), 0);
+
+assertRelativeDateMs(new Date(1999, 11), 944006400000);
+
+assertRelativeDateMs(new Date(1999, 12), 946684800000);
+
+assertRelativeDateMs(new Date(2000, 0), 946684800000);
+
+assertRelativeDateMs(new Date(2099, 11), 4099766400000);
+
+assertRelativeDateMs(new Date(2099, 12), 4102444800000);
+
+assertRelativeDateMs(new Date(2100, 0), 4102444800000);

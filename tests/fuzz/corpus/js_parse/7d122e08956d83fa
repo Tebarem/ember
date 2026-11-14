@@ -1,0 +1,7 @@
+// This file was procedurally generated from the following sources:
+// - src/dstr-assignment/obj-id-init-simple-strict.case
+// - src/dstr-assignment/syntax/for-in.template
+
+$DONOTEVALUATE();
+
+for ({ eval = 0 } in [{}]) ;

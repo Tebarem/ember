@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>Inline layout: text-wrap pretty avoids a one-word last line</title>
+<script src="/resources/testharness.js"></script>
+<script src="/resources/testharnessreport.js"></script>
+<script src="/resources/check-layout-th.js"></script>
+<link rel="stylesheet" href="/fonts/ahem.css">
+<style>
+body { margin: 0 } .a { font: 20px/20px Ahem } #d { width: 100px; text-wrap: pretty }
+</style>
+<body onload="checkLayout('#d')">
+<!-- UNVERIFIED (derived by hand, not checked in Chromium). Derivation: CSS Text 4 section 4.3. Greedy wrapping gives XX XX / XX, leaving one word on the last line. Pretty
+moves the second XX down, giving XX / XX XX (the second line is 100px, which fits). Height 40. -->
+<div id="d" class="a" data-expected-width="100" data-expected-height="40"><span id="a" data-offset-x="0" data-offset-y="0" data-expected-width="40" data-expected-height="20">XX</span> <span id="b" data-offset-x="0" data-offset-y="20" data-expected-width="40" data-expected-height="20">XX</span> <span id="c" data-offset-x="60" data-offset-y="20" data-expected-width="40" data-expected-height="20">XX</span></div>
+</body>

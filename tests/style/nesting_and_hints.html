@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  .card { color: red; & .title { color: green; } &:hover { color: blue; } }
+  #legacy { }
+</style>
+</head>
+<body>
+<div class="card" id="card"><span class="title" id="title">T</span></div>
+<table id="tbl" border="2" bgcolor="#ff0000"><tr><td id="td" nowrap valign="top" align="center" width="50%">c</td></tr></table>
+<!-- expect: title color rgb(0, 128, 0) -->
+<!-- expect: td text-wrap-mode nowrap -->
+<!-- expect: td vertical-align top -->
+<!-- expect: tbl background-color rgb(255, 0, 0) -->

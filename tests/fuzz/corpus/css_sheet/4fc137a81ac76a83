@@ -1,0 +1,17 @@
+<![CDATA[
+  body
+  {
+  background: white url(support/square-teal.png) repeat-x center 20px;
+  border: blue solid 3px;
+  color: white;
+  margin: 17px;
+  padding: 17px;
+  }
+
+  div
+  {
+  background: green url(support/square-purple.png) center top no-repeat;
+  border: lime solid;
+  padding: 2em;
+  }
+  ]]>

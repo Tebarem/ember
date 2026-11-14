@@ -1,0 +1,15 @@
+div
+            {
+                height: 1in;
+            }
+            #div1
+            {
+                border-right: 3px solid red;
+                padding-right: +96px;
+                width: 0;
+            }
+            div div
+            {
+                border-right: 3px solid black;
+                margin-right: -99px;
+            }

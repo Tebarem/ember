@@ -1,0 +1,19 @@
+<![CDATA[
+  body {margin: 8px;}
+
+  p
+  {
+  font: 1em/1.25 serif;
+  margin: 1em 0em;
+  }
+
+  div
+  {
+  background-color: green;
+  height: 164px;
+  left: 63px;
+  position: relative;
+  top: 47px;
+  width: 200px;
+  }
+  ]]>

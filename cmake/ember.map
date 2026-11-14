@@ -1,0 +1,7 @@
+/* Linker version script for the shared libember on ELF: the public API (include/ember/*.h) is emb_*. */
+{
+  global:
+    emb_*;
+  local:
+    *;
+};

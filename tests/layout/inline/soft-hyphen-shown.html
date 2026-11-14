@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>Inline layout: a soft hyphen shows a hyphen when a line breaks at it</title>
+<script src="/resources/testharness.js"></script>
+<script src="/resources/testharnessreport.js"></script>
+<script src="/resources/check-layout-th.js"></script>
+<link rel="stylesheet" href="/fonts/ahem.css">
+<style>
+body { margin: 0 } .a { font: 20px/20px Ahem } #d { width: 100px }
+</style>
+<body onload="checkLayout('#d')">
+<!-- UNVERIFIED (derived by hand, not checked in Chromium). Derivation: CSS Text 3 section 5.3 and 4.1.3 with hyphens manual. XXXX plus the soft hyphen fits 100px
+only with the hyphen, which is 20px: 80 + 20 = 100. Line 1 is XXXX- and line 2 is XXXX at y 20. -->
+<div id="d" class="a" data-expected-width="100" data-expected-height="40">XXXX&shy;<span id="b" data-offset-x="0" data-offset-y="20" data-expected-width="80" data-expected-height="20">XXXX</span></div>
+</body>

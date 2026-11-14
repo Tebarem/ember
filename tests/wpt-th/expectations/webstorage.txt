@@ -1,0 +1,1 @@
+# Expected failures of the testharness.js run in webstorage (generated; see tests/wpt-th/README.md).

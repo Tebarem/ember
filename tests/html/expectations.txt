@@ -1,0 +1,14 @@
+# Known tree-construction mismatches for tests/unit/html/test_tree_dat.c.
+# One run per line: "<file>#<index>/<on|off>" (index is the 1-based test number in the file).
+# Lines starting with "#" are comments. Each listed run must fail (a listed run that passes fails
+# the test, so remove it), and each line must name a run that exists. Every other run must pass.
+# The list is capped in test_tree_dat.c. Keep it as small as possible.
+
+# Group B: scripted tests (#script-on). They expect DOM script side effects, and this build has no
+# JS runtime to run scripts, so the expected trees are not reached.
+scripted_adoption01.dat#1/on
+scripted_ark.dat#1/on
+scripted_foster01.dat#1/on
+scripted_foster01.dat#2/on
+scripted_webkit01.dat#1/on
+scripted_webkit01.dat#2/on

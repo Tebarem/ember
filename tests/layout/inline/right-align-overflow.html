@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>Inline layout: right-aligned overflow starts at the start edge</title>
+<script src="/resources/testharness.js"></script>
+<script src="/resources/testharnessreport.js"></script>
+<script src="/resources/check-layout-th.js"></script>
+<link rel="stylesheet" href="/fonts/ahem.css">
+<style>
+body { margin: 0 } .a { font: 20px/20px Ahem } #d { width: 40px; text-align: right; white-space: nowrap }
+</style>
+<body onload="checkLayout('#d')">
+<!-- Derivation: CSS Text 3 section 7.1. The 80px nowrap span does not fit in 40px, so the content is
+start-aligned and overflows the end edge: its left edge is at 0 (offsetLeft 0), not at -40. -->
+<div id="d" class="a" data-expected-width="40" data-expected-height="20"><span id="s" data-offset-x="0" data-offset-y="0" data-expected-width="80" data-expected-height="20">XXXX</span></div>
+</body>

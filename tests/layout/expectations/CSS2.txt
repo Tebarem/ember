@@ -1,0 +1,6 @@
+# css/CSS2 expected failures (W3c inline layout).
+# Line: <WPT path> <reason> [note]. Reasons: not-yet <task>, writing-mode, multicol, needs-js,
+# font-metrics, out-of-scope <what>, bug (capped at 3%% of the directory). Generated from a full
+# run (EMBER_LAYOUT_REGEN); a listed test that passes fails the run, so a task removes its own
+# not-yet lines when it fixes them.
+css/CSS2/linebox/inline-negative-margin-001.html font-metrics ch unit falls back to 0.5em (the style engine has no ch metric; W2); the inline part passes now (W3c)

@@ -1,0 +1,12 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>backdrop-filter: invert() filters what is under the box, clipped to it</title>
+<link rel="match" href="fx-backdrop-invert-ref.html">
+<meta name="fuzzy" content="maxDifference=0-2;totalPixels=0-40000">
+<style>
+body { margin: 0; background: #fff }
+.a { position: absolute }
+</style>
+<div class="a" style="left:0px;top:0px;width:100px;height:160px;background:#f00"></div>
+<div class="a" style="left:100px;top:0px;width:100px;height:160px;background:#00f"></div>
+<div class="a" style="left:50px;top:40px;width:100px;height:60px;backdrop-filter:invert(1)"></div>

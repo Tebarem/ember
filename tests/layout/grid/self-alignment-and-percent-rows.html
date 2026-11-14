@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>Grid: self alignment in a fixed area, and a percentage row in an auto-height grid</title>
+<script src="/resources/testharness.js"></script>
+<script src="/resources/testharnessreport.js"></script>
+<script src="/resources/check-layout-th.js"></script>
+<style>
+body { margin: 0 }
+#g { display: grid; position: relative; width: 200px; height: 100px; grid-template-columns: 200px;
+     grid-template-rows: 100px }
+#a { width: 50px; height: 20px; justify-self: end; align-self: center }
+#p { display: grid; position: relative; width: 100px; grid-template-rows: 50%; grid-template-columns: 100px }
+#q { height: 20px }
+</style>
+<body onload="checkLayout('#g > div, #p > div')">
+<!--
+Derivation (CSS Box Alignment 3 and CSS Grid 2 section 12.4). #g has one 200 x 100 area. #a is 50 x 20 with
+justify-self: end (x = 200 - 50 = 150) and align-self: center (y = (100 - 20) / 2 = 40).
+#p has grid-template-rows: 50% with an auto height, so the percentage has an indefinite basis and the row is
+auto: it sizes to #q (20px). Expected #q height 20 and the grid is 20px tall, so #q is at y 0.
+Provenance: derived by hand; not run in Chromium in this environment.
+-->
+<div id="g">
+  <div id="a" data-expected-width="50" data-expected-height="20" data-offset-x="150" data-offset-y="40"></div>
+</div>
+<div id="p">
+  <div id="q" data-expected-width="100" data-expected-height="20" data-offset-x="0" data-offset-y="0"></div>
+</div>
+</body>

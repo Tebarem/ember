@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>clear on floats: the border top goes below the floats on the cleared sides</title>
+<script src="/resources/testharness.js"></script>
+<script src="/resources/testharnessreport.js"></script>
+<script src="/resources/check-layout-th.js"></script>
+<style>
+body { margin: 0 } #c { position: relative; width: 200px } .l { float: left; width: 50px }
+.r { float: right; width: 50px }
+</style>
+<body onload="checkLayout('#c > div')">
+<!-- Derivation (CSS 2.1 9.5.1 and 9.5.2), all floats 50 wide, the container 200 wide:
+A: left, no earlier float: (0, 0), height 20.
+B: left, clear: left. A's bottom is 20, so its top is at least 20; the left side is free at 20. (0, 20), height 20.
+C: right, no clear. Rule 6 keeps it at or below 20 (B's top). B blocks the left side at 20..40, the right
+   side is free: (150, 20), height 40 (bottom 60).
+D: right, clear: right. C's bottom is 60, so its top is at least 60: (150, 60), height 10 (bottom 70).
+E: left, clear: both. The lowest bottom of the left floats is 40 and of the right floats 70, so its top is
+   at least 70: (0, 70), height 5. -->
+<div id="c">
+  <div class="l" style="height: 20px" data-offset-x="0" data-offset-y="0" data-expected-width="50" data-expected-height="20"></div>
+  <div class="l" style="height: 20px; clear: left" data-offset-x="0" data-offset-y="20" data-expected-width="50" data-expected-height="20"></div>
+  <div class="r" style="height: 40px" data-offset-x="150" data-offset-y="20" data-expected-width="50" data-expected-height="40"></div>
+  <div class="r" style="height: 10px; clear: right" data-offset-x="150" data-offset-y="60" data-expected-width="50" data-expected-height="10"></div>
+  <div class="l" style="height: 5px; clear: both" data-offset-x="0" data-offset-y="70" data-expected-width="50" data-expected-height="5"></div>
+</div>
+</body>

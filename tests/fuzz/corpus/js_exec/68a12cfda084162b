@@ -1,0 +1,10 @@
+// Copyright (C) 2018 André Bargull. All rights reserved.
+// This code is governed by the BSD license found in the LICENSE file.
+
+
+
+// Throws ReferenceError because reference for "async" cannot be resolved.
+assert.throws(ReferenceError, function() {
+  \u0061sync
+  p => {}
+});

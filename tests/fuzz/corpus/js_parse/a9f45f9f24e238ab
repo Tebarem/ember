@@ -1,0 +1,8 @@
+// This file was procedurally generated from the following sources:
+// - src/assignment-target-type/equalityexpression-abstract-equal-relationalexpression-2.case
+// - src/assignment-target-type/invalid/parenthesized.template
+
+
+$DONOTEVALUATE();
+
+(true == false) = 1;

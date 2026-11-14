@@ -1,0 +1,24 @@
+css/css-masking/clip-path/animations/clip-path-path-interpolation-with-zoom.html not-yet the zoom property (the animation runs; zoom is not applied)
+css/css-masking/clip-path/animations/clip-path-shape-interpolation-with-zoom.html not-yet the zoom property (the animation runs; zoom is not applied)
+css/css-masking/clip-path/clip-path-blending-offset.html layout an absolutely positioned descendant of a stacking context that is not its containing block is painted in the scope of its containing block, outside the context group (the same with opacity)
+css/css-masking/clip-path/clip-path-circle-closest-corner.html not-yet circle() closest-corner (not in CSS Shapes 1: the declaration is dropped)
+css/css-masking/clip-path/clip-path-circle-farthest-corner.html not-yet circle() farthest-corner (not in CSS Shapes 1: the declaration is dropped)
+css/css-masking/clip-path/clip-path-ellipse-001.html paint the reference draws elliptical border-radius corners coarsely (at the top of the 150x100 ellipse it is 2 px fuller than the exact ellipse), the clip-path ellipse is exact
+css/css-masking/clip-path/clip-path-ellipse-002.html paint the reference draws elliptical border-radius corners coarsely (at the top of the 150x100 ellipse it is 2 px fuller than the exact ellipse), the clip-path ellipse is exact
+css/css-masking/clip-path/clip-path-ellipse-004.html paint the reference draws elliptical border-radius corners coarsely (at the top of the 150x100 ellipse it is 2 px fuller than the exact ellipse), the clip-path ellipse is exact
+css/css-masking/clip-path/clip-path-ellipse-005.html paint the reference draws elliptical border-radius corners coarsely (at the top of the 150x100 ellipse it is 2 px fuller than the exact ellipse), the clip-path ellipse is exact
+css/css-masking/clip-path/clip-path-ellipse-006.html paint the reference draws elliptical border-radius corners coarsely (at the top of the 150x100 ellipse it is 2 px fuller than the exact ellipse), the clip-path ellipse is exact
+css/css-masking/clip-path/clip-path-ellipse-007.html paint the reference draws elliptical border-radius corners coarsely (at the top of the 150x100 ellipse it is 2 px fuller than the exact ellipse), the clip-path ellipse is exact
+css/css-masking/clip-path/clip-path-ellipse-008.html paint the reference draws elliptical border-radius corners coarsely (at the top of the 150x100 ellipse it is 2 px fuller than the exact ellipse), the clip-path ellipse is exact
+css/css-masking/clip-path/clip-path-inline-007.html paint clip-path circle on an inline box: the edge of the circle differs from the reference by up to 63 levels (332 px); not analysed further
+css/css-masking/clip-path/clip-path-inline-008.html layout clip-path: margin-box on an inline float box: the margin box of the box differs from the reference
+css/css-masking/clip-path/clip-path-inline-010.html paint clip-path circle on an inline box: the edge of the circle differs from the reference by up to 63 levels (332 px); not analysed further
+css/css-masking/clip-path/clip-path-path-with-zoom-001.html not-yet the zoom property (CSS Viewport: path() coordinates scale with it)
+css/css-masking/clip-path/clip-path-polygon-013.html font-metrics ex units are half an em here, not the x-height of the font (Ahem 0.8 em for the reference width)
+css/css-masking/clip-path/clip-path-polygon-014.html not-yet polygon() round (CSS Shapes 2 corner rounding)
+css/css-masking/clip-path/clip-path-reference-box-004.html layout clip-path on an inline box: the reference box of an inline is the union of its line fragments
+css/css-masking/clip/clip-fixed-pos-transform-descendant-001.html layout the clip property does not clip a fixed-position descendant whose containing block is the viewport
+css/css-masking/mask-image/mask-image-6.html layout a mask on an inline box: the mask image positions against the first line fragment only
+css/css-masking/mask-image/mask-image-ib-split-2.html layout a mask on an inline split by a block (block-in-inline): the continuation fragments are not joined
+css/css-masking/mask-image/mask-image-ib-split.html paint mask-image on an inline split around a block inside columns: the pieces are painted unmasked
+css/css-masking/mask-image/mask-image-inline-sliced-1.html layout a mask on an inline box split into fragments (box-decoration-break: slice)

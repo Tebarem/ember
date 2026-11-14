@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>Flex grow with margins and column-gap</title>
+<script src="/resources/testharness.js"></script>
+<script src="/resources/testharnessreport.js"></script>
+<script src="/resources/check-layout-th.js"></script>
+<style>
+body { margin: 0 } #c { display: flex; width: 300px; column-gap: 10px } .i { flex: 1 1 0; height: 10px; margin: 0 5px }
+</style>
+<body onload="checkLayout('#c, #c > div')">
+<!-- Derivation (CSS Flexbox 1 9.2 and 9.7): both items have flex-basis 0 and margins of 5px on each side, so
+the outer sizes are 10px of margin each. Free space = 300 - (0 + 10) - (0 + 10) - gap 10 = 270. Grow factors
+1 and 2 give #a 90px and #b 180px. #a's margin box starts at 0: border 5..95, margin to 100, gap to 110,
+and #b's border starts at 110 + 5 = 115 and ends at 295, leaving its 5px margin to fill 300. Provenance: derived by hand from CSS Flexbox 1 9.7 (not run in Chromium, none is available here); the same arithmetic appears in the vendored WPT flex-grow and gap tests, which pass. -->
+<div id="c" data-expected-width="300" data-expected-height="10">
+  <div id="a" class="i" style="flex-grow: 1" data-expected-width="90" data-expected-height="10" data-offset-x="5" data-offset-y="0"></div>
+  <div id="b" class="i" style="flex-grow: 2" data-expected-width="180" data-expected-height="10" data-offset-x="115" data-offset-y="0"></div>
+</div>
+</body>

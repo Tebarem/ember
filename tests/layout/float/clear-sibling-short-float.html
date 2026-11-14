@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>A cleared block after a shorter float keeps its margin when the float is above the margin</title>
+<script src="/resources/testharness.js"></script>
+<script src="/resources/testharnessreport.js"></script>
+<script src="/resources/check-layout-th.js"></script>
+<style>
+body { margin: 0 } #c { position: relative; width: 200px } .clr { clear: left; margin-top: 10px; height: 10px }
+</style>
+<body onload="checkLayout('#c > div')">
+<!-- Derivation (CSS 2.1 9.5.2): the first block is 10 tall (0..10). The float is 5 tall at 10 (10..15). The
+cleared block's hypothetical border top is 10 + its 10px margin = 20, which is below the float's bottom 15,
+so no clearance is needed and it sits at 20. -->
+<div id="c">
+  <div style="height: 10px" data-offset-x="0" data-offset-y="0" data-expected-width="200" data-expected-height="10"></div>
+  <div style="float: left; width: 50px; height: 5px" data-offset-x="0" data-offset-y="10" data-expected-width="50" data-expected-height="5"></div>
+  <div class="clr" data-offset-x="0" data-offset-y="20" data-expected-width="200" data-expected-height="10"></div>
+</div>
+</body>

@@ -1,0 +1,20 @@
+cacert.pem: Mozilla's CA root list as extracted by curl (https://curl.se/docs/caextract.html).
+
+  Source:       https://curl.se/ca/cacert.pem
+  Mozilla data: Thu Nov  5 04:12:01 2026 GMT (the bundle's own header; Last-Modified of the download is the same)
+  Fetched:      2026-11-12
+  SHA-256:      427c064216761a1e72a8b30f0d954d08cb6e4435a82091fb865afd20c8497285 (matches https://curl.se/ca/cacert.pem.sha256)
+  Certificates: 118
+  License:      the certificate data is Mozilla's, MPL-2.0 (https://www.mozilla.org/MPL/2.0/)
+
+The file is embedded with #embed in src/net/tls.c and parsed lazily on the first https connection. It is used as is:
+do not edit it by hand.
+
+Updating (manual, a few times a year, or when Mozilla removes a root):
+  1. curl -fsSL -o third_party/cacert/cacert.pem https://curl.se/ca/cacert.pem
+  2. curl -fsSL https://curl.se/ca/cacert.pem.sha256 and compare with sha256sum of the file.
+  3. Update the date, SHA-256 and count above (grep -c "BEGIN CERTIFICATE" third_party/cacert/cacert.pem).
+  4. Rebuild and run ctest (the net tests do not use these roots; they use their own test CA), and check the size
+     (the file is about 200 KB and is part of the EMBER_NET budget, the size limit for builds with networking).
+  5. Commit the file with the new date in the message.
+Embedders that need a different set call emb_runtime_net_use_bundled_roots(rt, false) and emb_runtime_net_add_root.

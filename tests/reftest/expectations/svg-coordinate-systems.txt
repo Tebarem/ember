@@ -1,0 +1,1 @@
+svg/coordinate-systems/outer-svg-transform-attribute-zoom-002.html platform passes on D3D12; on Mesa llvmpipe 2 antialiasing pixels of the scaled box edge differ (at most 42 levels)

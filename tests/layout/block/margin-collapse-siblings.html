@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>Adjacent sibling margins collapse to the larger one</title>
+<script src="/resources/testharness.js"></script>
+<script src="/resources/testharnessreport.js"></script>
+<script src="/resources/check-layout-th.js"></script>
+<style>
+body { margin: 0 } div { height: 10px }
+</style>
+<body onload="checkLayout('body > div')">
+<!-- Derivation: CSS 2.1 8.3.1. #a has margin 20px 0 and #b has margin 30px 0. The gap between them is the
+collapse of 20px and 30px, which is 30px. body has no padding or border, so #a's top margin
+collapses through body and #a sits at y = 20px. #b starts at 20 + 10 (a's height) + 30 = 60px. -->
+<div id="a" style="margin: 20px 0" data-offset-y="20" data-expected-height="10"></div>
+<div id="b" style="margin: 30px 0" data-offset-y="60" data-expected-height="10"></div>
+</body>

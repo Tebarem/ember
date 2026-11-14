@@ -1,0 +1,5 @@
+/*
+   Shrink wrap just like floating.
+   max(min-content, min(max-content, fill-available))
+*/
+.fit-content

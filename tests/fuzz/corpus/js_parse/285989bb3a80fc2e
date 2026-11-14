@@ -1,0 +1,12 @@
+// This file was procedurally generated from the following sources:
+// - src/annex-b-fns/eval-global-existing-block-fn-no-init.case
+// - src/annex-b-fns/eval-global/direct-if-decl-else-decl-a.template
+
+
+eval(
+  'assert.sameValue(f, undefined);\
+  \
+  {\
+    function f() {}\
+  }if (true) function f() {  } else function _f() {}'
+);

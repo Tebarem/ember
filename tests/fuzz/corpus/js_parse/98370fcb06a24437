@@ -1,0 +1,13 @@
+// This file was procedurally generated from the following sources:
+// - src/class-elements/grammar-static-private-gen-meth-super.case
+// - src/class-elements/syntax/invalid/cls-expr-elements-invalid-syntax.template
+
+
+
+$DONOTEVALUATE();
+
+var C = class extends Function{
+  static * #method() {
+      super();
+  }
+};

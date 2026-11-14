@@ -1,0 +1,29 @@
+css/css-sizing/aspect-ratio/abspos-014.html bug
+css/css-sizing/aspect-ratio/grid-aspect-ratio-016.html layout not multicol: grid item with aspect-ratio and a min-content size (grid track sizing)
+css/css-sizing/aspect-ratio/grid-aspect-ratio-025.html bug
+css/css-sizing/aspect-ratio/grid-aspect-ratio-027.html bug
+css/css-sizing/aspect-ratio/replaced-element-012.html bug
+css/css-sizing/aspect-ratio/select-element-001.html not-yet form controls
+css/css-sizing/aspect-ratio/table-element-001.html bug
+css/css-sizing/border-box-and-max-content-002.html bug
+css/css-sizing/contain-intrinsic-size/contain-intrinsic-size-001.html not-yet contain-intrinsic-size
+css/css-sizing/contain-intrinsic-size/contain-intrinsic-size-002.html not-yet contain-intrinsic-size
+css/css-sizing/contain-intrinsic-size/contain-intrinsic-size-003.html not-yet contain-intrinsic-size
+css/css-sizing/contain-intrinsic-size/contain-intrinsic-size-004.html not-yet contain-intrinsic-size
+css/css-sizing/contain-intrinsic-size/contain-intrinsic-size-005.html not-yet contain-intrinsic-size
+css/css-sizing/contain-intrinsic-size/contain-intrinsic-size-006.html not-yet contain-intrinsic-size
+css/css-sizing/contain-intrinsic-size/contain-intrinsic-size-007.html not-yet contain-intrinsic-size
+css/css-sizing/contain-intrinsic-size/contain-intrinsic-size-010.html not-yet contain-intrinsic-size
+css/css-sizing/contain-intrinsic-size/contain-intrinsic-size-011.html not-yet contain-intrinsic-size
+css/css-sizing/contain-intrinsic-size/contain-intrinsic-size-014.html not-yet contain-intrinsic-size
+css/css-sizing/contain-intrinsic-size/contain-intrinsic-size-015.html not-yet contain-intrinsic-size
+css/css-sizing/contain-intrinsic-size/contain-intrinsic-size-016.html not-yet contain-intrinsic-size
+css/css-sizing/contain-intrinsic-size/contain-intrinsic-size-019.html not-yet contain-intrinsic-size
+css/css-sizing/contain-intrinsic-size/contain-intrinsic-size-021.html not-yet contain-intrinsic-size
+css/css-sizing/contain-intrinsic-size/contain-intrinsic-size-022.html not-yet contain-intrinsic-size
+css/css-sizing/contain-intrinsic-size/contain-intrinsic-size-023.html not-yet contain-intrinsic-size
+css/css-sizing/contain-intrinsic-size/contain-intrinsic-size-024.html not-yet contain-intrinsic-size
+css/css-sizing/contain-intrinsic-size/contain-intrinsic-size-025.html not-yet contain-intrinsic-size
+css/css-sizing/contain-intrinsic-size/contain-intrinsic-size-026.html not-yet contain-intrinsic-size
+css/css-sizing/intrinsic-percent-replaced-017.html bug
+css/css-sizing/range-percent-intrinsic-size-1.html not-yet form controls

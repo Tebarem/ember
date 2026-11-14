@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  #a { border-style: solid; }
+  #b { border-style: none; border-width: 5px; }
+  #c { outline-style: solid; }
+  #d { outline-style: none; outline-width: 5px; }
+  #e { border-style: solid; border-width: initial; }
+  #f { border-style: solid; border-width: 0; }
+  #g { border-top-style: dashed; border-top-width: unset; }
+  #h { border-style: hidden; border-width: 7px; }
+  #i { border-width: 4px; }
+  #j { border-left: solid; }
+  #k { outline-style: solid; outline-width: initial; }
+  #l { border-style: solid; border-width: thin; }
+</style>
+</head>
+<body>
+<div id="a"></div><div id="b"></div><div id="c"></div><div id="d"></div><div id="e"></div>
+<div id="f"></div><div id="g"></div><div id="h"></div><div id="i"></div><div id="j"></div>
+<div id="k"></div><div id="l"></div>
+<!-- expect: a border-top-width 3px -->
+<!-- expect: a border-left-width 3px -->
+<!-- expect: b border-top-width 0px -->
+<!-- expect: c outline-width 3px -->
+<!-- expect: d outline-width 5px -->
+<!-- expect: e border-top-width 3px -->
+<!-- expect: f border-top-width 0px -->
+<!-- expect: g border-top-width 3px -->
+<!-- expect: g border-bottom-width 0px -->
+<!-- expect: h border-top-width 0px -->
+<!-- expect: i border-top-width 0px -->
+<!-- expect: j border-left-width 3px -->
+<!-- expect: j border-right-width 0px -->
+<!-- expect: k outline-width 3px -->
+<!-- expect: l border-top-width 1px -->
+</body>
+</html>

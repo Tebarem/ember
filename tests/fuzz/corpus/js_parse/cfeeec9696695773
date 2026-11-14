@@ -1,0 +1,9 @@
+// This file was procedurally generated from the following sources:
+// - src/declarations/class.case
+// - src/declarations/redeclare/block-attempt-to-redeclare-class-declaration.template
+
+
+
+$DONOTEVALUATE();
+
+{ class f {} class f {} }

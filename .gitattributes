@@ -1,0 +1,21 @@
+* text=auto eol=lf
+*.spv binary
+*.dxil binary
+*.metallib binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.ttf binary
+*.otf binary
+*.woff binary
+*.woff2 binary
+*.pdf binary
+*.zip binary
+*.bin binary
+*.bmp binary
+*.dat -text
+tests/data/** -text
+tests/wpt/** -text

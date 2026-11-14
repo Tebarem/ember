@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>Inline layout: an ltr run inside an rtl line keeps its order</title>
+<script src="/resources/testharness.js"></script>
+<script src="/resources/testharnessreport.js"></script>
+<script src="/resources/check-layout-th.js"></script>
+<link rel="stylesheet" href="/fonts/ahem.css">
+<style>
+body { margin: 0 } .a { font: 20px/20px Ahem } #d { width: 200px; direction: rtl }
+</style>
+<body onload="checkLayout('#d')">
+<!-- Derivation: UAX 9. The rtl paragraph holds XX then the ltr span YY. Both are left-to-right letters at
+level 2, so they reverse twice and read XX then YY from left to right. The line is 80px and starts at the
+right: XX at 120 to 160, YY at 160 to 200. -->
+<div id="d" class="a" data-expected-width="200" data-expected-height="20">XX<span id="y" style="direction:ltr" data-offset-x="160" data-offset-y="0" data-expected-width="40" data-expected-height="20">YY</span></div>
+</body>

@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<script src="/resources/testharness.js"></script>
+<script src="/resources/testharnessreport.js"></script>
+<script src="/resources/check-layout-th.js"></script>
+<title>rowspan 0 spans the rest of its row group</title>
+<style>body { margin: 0 } table { border-spacing: 0 } td { padding: 0 }</style>
+<body onload="checkLayout('table, td')">
+<!-- Derivation: HTML table processing, a rowspan of 0 covers every row to the end of its row group. The
+first cell is empty and 30px wide, it spans both rows, so its height is row one (10px) plus row two (20px).
+The cell in row two is in column two and sits at x = 30, y = 10. -->
+<table data-expected-width="50" data-expected-height="30">
+  <tbody>
+    <tr>
+      <td rowspan="0" style="width: 30px" data-expected-height="30" data-expected-width="30"></td>
+      <td data-expected-height="10"><div style="width: 20px; height: 10px"></div></td>
+    </tr>
+    <tr>
+      <td data-offset-x="30" data-offset-y="10" data-expected-height="20"><div style="width: 20px; height: 20px"></div></td>
+    </tr>
+  </tbody>
+</table>
+</body>

@@ -1,0 +1,8 @@
+// This file was procedurally generated from the following sources:
+// - src/dstr-binding/ary-ptrn-elem-ary-val-null.case
+// - src/dstr-binding/error/const-stmt.template
+
+
+assert.throws(TypeError, function() {
+  const [[x]] = [null];
+});

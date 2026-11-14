@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html id="root">
+<head>
+<style>
+  @layer outer { #a { color: rgb(255, 0, 0); } @layer inner { #a { color: rgb(0, 0, 255); } } }
+  @layer a {}
+  @layer c { #p { color: rgb(0, 128, 0); } }
+  @layer a { @layer b { #p { color: rgb(0, 0, 255); } } }
+  @layer lo { #r { color: rgb(255, 0, 0) !important; } }
+  @layer hi { #r { color: rgb(0, 0, 255) !important; } }
+  @layer x1 { #s { color: rgb(255, 0, 0); } }
+  @layer x2 { #s { color: rgb(0, 0, 255); } }
+  #s { color: rgb(0, 128, 0); }
+  @layer l1 { #rv { color: rgb(255, 0, 0); } }
+  @layer l2 { #rv { color: rgb(0, 0, 255); } #rv { color: revert-layer; } }
+</style>
+</head>
+<body>
+<div id="a"></div>
+<div id="p"></div>
+<div id="r"></div>
+<div id="s"></div>
+<div id="rv"></div>
+<!-- expect: a color rgb(255, 0, 0) -->
+<!-- expect: p color rgb(0, 128, 0) -->
+<!-- expect: r color rgb(255, 0, 0) -->
+<!-- expect: s color rgb(0, 128, 0) -->
+<!-- expect: rv color rgb(255, 0, 0) -->
+</body>
+</html>

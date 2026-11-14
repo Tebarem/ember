@@ -1,0 +1,6 @@
+# Expected failures of the testharness.js run in dom-events (generated; see tests/wpt-th/README.md).
+dom/events/event-global-event-targets.html :: window.event is set when dispatching on FileReader :: not-yet FileReader is not defined
+dom/events/Event-dispatch-single-activation-behavior.html forms 121 of 132 subtests fail: assert_array_equals: lengths differ, expected array [Element node <input class="click activates container test0" type="chec.
+dom/events/Event-isTrusted.any.html :: Event-isTrusted :: bug assert_not_equals: got disallowed value undefined
+dom/events/Event-dispatch-click.html forms harness status 2
+dom/events/mouse-event-retarget.html :: offsetX is correctly adjusted :: layout assert_equals: expected 42 but got 50

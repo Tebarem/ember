@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>A transformed box is the containing block of its fixed-position descendants</title>
+<script src="/resources/testharness.js"></script>
+<script src="/resources/testharnessreport.js"></script>
+<script src="/resources/check-layout-th.js"></script>
+<style>
+body { margin: 0 } #t { transform: translateX(0); margin-left: 30px; width: 100px; height: 100px }
+</style>
+<body onload="checkLayout('#f')">
+<!-- Derivation (CSS Transforms 1 section 3 and CSS Position 3 section 2): #t has a transform, so it is the
+containing block of the fixed box #f. Its padding box starts at (30, 0), so left 5 and top 7 put #f at
+x = 35 and y = 7. A fixed box has no offsetParent, so offsetLeft and offsetTop are measured from the
+initial containing block and ignore the transform of #t (CSSOM View). Without the transform the
+viewport would give x = 5. -->
+<div id="t">
+  <div id="f" style="position: fixed; left: 5px; top: 7px; width: 10px; height: 10px" data-offset-x="35" data-offset-y="7" data-expected-width="10" data-expected-height="10"></div>
+</div>
+</body>

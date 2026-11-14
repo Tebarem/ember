@@ -1,0 +1,30 @@
+// Copyright (c) 2012 Ecma International.  All rights reserved.
+// This code is governed by the BSD license found in the LICENSE file.
+
+
+
+var obj = {};
+
+var getFunc = function() {
+  return 1001;
+};
+
+Object.defineProperty(obj, "prop", {
+  get: getFunc,
+  set: undefined,
+  enumerable: true,
+  configurable: true
+});
+var desc1 = Object.getOwnPropertyDescriptor(obj, "prop");
+
+Object.defineProperty(obj, "prop", {
+  configurable: false
+});
+
+assert.sameValue(desc1.configurable, true);
+
+verifyNotWritable(obj, "prop");
+
+verifyProperty(obj, "prop", {
+  configurable: false,
+});

@@ -1,0 +1,385 @@
+# Ember CI: build and test on Windows (MSYS2 UCRT64 gcc), Linux (gcc-15, clang-19,
+# clang-19 ASan+UBSan) and macOS (Homebrew llvm clang).
+
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  SLANG_VERSION: v2026.10.2
+
+jobs:
+  build-and-test:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: windows-2025-msys2-gcc
+            os: windows-2025
+            cc: gcc
+            build_type: Release
+            sanitize: OFF
+            shell: "msys2 {0}"
+            slang_asset: slang-2026.10.2-windows-x86_64.zip
+          - name: ubuntu-24.04-gcc-15
+            os: ubuntu-24.04
+            cc: gcc-15
+            build_type: Release
+            sanitize: OFF
+            shell: bash
+            slang_asset: slang-2026.10.2-linux-x86_64.tar.gz
+          - name: ubuntu-24.04-clang-19
+            os: ubuntu-24.04
+            cc: clang-19
+            build_type: Release
+            sanitize: OFF
+            shell: bash
+            slang_asset: slang-2026.10.2-linux-x86_64.tar.gz
+          - name: ubuntu-24.04-clang-19-asan-ubsan
+            os: ubuntu-24.04
+            cc: clang-19
+            build_type: Debug
+            sanitize: ON
+            shell: bash
+            slang_asset: slang-2026.10.2-linux-x86_64.tar.gz
+          - name: macos-15-llvm-clang
+            os: macos-15
+            cc: clang
+            build_type: Release
+            sanitize: OFF
+            shell: bash
+            slang_asset: slang-2026.10.2-macos-aarch64.tar.gz
+
+    defaults:
+      run:
+        # bash everywhere; MSYS2's bash on Windows (set up by the first toolchain step).
+        shell: ${{ matrix.shell }}
+
+    steps:
+      - name: Checkout (with submodules)
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      # ---- Toolchain: Windows (MSYS2 UCRT64) -------------------------------
+      - name: Set up MSYS2 UCRT64 toolchain
+        if: runner.os == 'Windows'
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          path-type: inherit
+          install: >-
+            mingw-w64-ucrt-x86_64-gcc
+            mingw-w64-ucrt-x86_64-cmake
+            mingw-w64-ucrt-x86_64-ninja
+
+      # ---- Toolchain: Linux ------------------------------------------------
+      - name: Install Linux packages
+        if: runner.os == 'Linux'
+        run: |
+          # gcc-15+ is required for C23 #embed (ubuntu-24.04 ships gcc-14).
+          sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            cmake ninja-build pkg-config binutils \
+            gcc-15 clang-19 libclang-rt-19-dev llvm-19 \
+            libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxi-dev \
+            libxfixes-dev libxss-dev libxtst-dev libxkbcommon-dev \
+            libwayland-dev wayland-protocols libdecor-0-dev \
+            libegl-dev libgl-dev libdbus-1-dev libudev-dev \
+            libvulkan-dev mesa-vulkan-drivers
+
+      # ---- Toolchain: macOS ------------------------------------------------
+      - name: Install macOS packages (Homebrew llvm)
+        if: runner.os == 'macOS'
+        run: |
+          brew install llvm ninja
+          LLVM_PREFIX="$(brew --prefix llvm)"
+          # Homebrew clang must come before Apple clang so `clang` is C23 + #embed capable.
+          echo "${LLVM_PREFIX}/bin" >> "$GITHUB_PATH"
+          echo "SDKROOT=$(xcrun --show-sdk-path)" >> "$GITHUB_ENV"
+
+      # ---- Slang (cached) --------------------------------------------------
+      - name: Restore Slang cache
+        id: slang-cache
+        uses: actions/cache@v4
+        with:
+          path: slang
+          key: slang-${{ env.SLANG_VERSION }}-${{ matrix.slang_asset }}
+
+      - name: Download Slang
+        if: steps.slang-cache.outputs.cache-hit != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p slang-dl
+          gh release download "$SLANG_VERSION" \
+            --repo shader-slang/slang \
+            --pattern "${{ matrix.slang_asset }}" \
+            --dir slang-dl \
+            --clobber
+
+      - name: Extract Slang
+        if: steps.slang-cache.outputs.cache-hit != 'true'
+        run: |
+          archive="slang-dl/${{ matrix.slang_asset }}"
+          rm -rf slang
+          mkdir -p slang
+          case "$archive" in
+            *.zip)
+              pwsh -NoProfile -Command "Expand-Archive -LiteralPath '$archive' -DestinationPath 'slang' -Force"
+              ;;
+            *.tar.gz)
+              tar -xzf "$archive" -C slang
+              ;;
+            *)
+              echo "Unknown Slang archive type: $archive" >&2
+              exit 1
+              ;;
+          esac
+          rm -rf slang-dl
+
+      - name: Locate slangc and export EMBER_SLANGC
+        run: |
+          slangc="slang/bin/slangc"
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            slangc="slang/bin/slangc.exe"
+          fi
+          test -f "$slangc" || { echo "slangc not found at $slangc" >&2; exit 1; }
+          # Use Windows-style absolute paths on Windows so native tools (slangc, cmake) accept them.
+          if abs_dir=$(cd slang/bin && pwd -W 2>/dev/null); then :; else abs_dir=$(cd slang/bin && pwd); fi
+          echo "EMBER_SLANGC=${abs_dir}/$(basename "$slangc")" >> "$GITHUB_ENV"
+
+      # ---- DXC (Windows only; from the runner's Windows SDK) ---------------
+      - name: Locate DXC from Windows SDK
+        if: runner.os == 'Windows'
+        run: |
+          kits="/c/Program Files (x86)/Windows Kits/10/bin"
+          dxc=$(ls -d "$kits"/*/x64 2>/dev/null | sort -V | tail -n 1)
+          test -n "$dxc" || { echo "No Windows SDK x64 bin directory found" >&2; exit 1; }
+          test -f "$dxc/dxcompiler.dll" || { echo "dxcompiler.dll missing in $dxc" >&2; exit 1; }
+          test -f "$dxc/dxil.dll" || { echo "dxil.dll missing in $dxc" >&2; exit 1; }
+          dxc_win=$(cd "$dxc" && pwd -W)
+          echo "EMBER_DXC_DIR=${dxc_win}" >> "$GITHUB_ENV"
+          # slangc finds DXC through PATH.
+          echo "$dxc_win" >> "$GITHUB_PATH"
+
+      # ---- Configure, build, test ------------------------------------------
+      - name: Configure
+        env:
+          CC: ${{ matrix.cc }}
+        run: |
+          dxc_args=()
+          if [ -n "${EMBER_DXC_DIR:-}" ]; then
+            dxc_args+=("-DEMBER_DXC_DIR=${EMBER_DXC_DIR}")
+          fi
+          cmake -S . -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+            -DEMBER_SLANGC="${EMBER_SLANGC}" \
+            -DEMBER_SANITIZE=${{ matrix.sanitize }} \
+            "${dxc_args[@]}"
+
+      - name: Build
+        run: cmake --build build
+
+      - name: Test
+        env:
+          UBSAN_OPTIONS: print_stacktrace=1:halt_on_error=1
+          # Conservative GC stack scanning is incompatible with ASan fake stacks.
+          ASAN_OPTIONS: detect_stack_use_after_return=0
+          ASAN_SYMBOLIZER_PATH: /usr/lib/llvm-19/bin/llvm-symbolizer
+          LSAN_OPTIONS: suppressions=${{ github.workspace }}/tests/lsan.supp:print_suppressions=0
+        run: ctest --test-dir build --output-on-failure --no-tests=error
+
+      # ---- Framework gate: the six apps of tests/apps and vite-vanilla, strict ------------------
+      # ctest above skips the GPU tests where no video driver is set (the Linux runners have no display). This step runs the
+      # canary and the scenario player of every app on a headless device: Mesa llvmpipe through the offscreen video driver
+      # on Linux, the runner's default GPU driver on Windows and macOS (the test skips, exit code 77, without a device).
+      # Strict by default: a failed scenario step, a library error or a golden mismatch fails the job.
+      - name: Framework scenarios (strict)
+        env:
+          SDL_VIDEO_DRIVER: ${{ runner.os == 'Linux' && 'offscreen' || '' }}
+          LP_NUM_THREADS: 4
+          UBSAN_OPTIONS: print_stacktrace=1:halt_on_error=1
+          # Mesa leaks a little inside the driver (unsymbolized frames), so the GPU tests run without leak detection.
+          ASAN_OPTIONS: detect_stack_use_after_return=0:detect_leaks=0
+          ASAN_SYMBOLIZER_PATH: /usr/lib/llvm-19/bin/llvm-symbolizer
+        run: ctest --test-dir build -R '^test_embed_(apps|hit_point|form_events)$' --output-on-failure --no-tests=error
+
+      # ---- Compressed assets (Linux gcc-15 only) --------------------------------------------------------------
+      # EMBER_COMPRESS_ASSETS stores the shader blobs, the prelude scripts and the UA style sheet LZ-compressed and expands
+      # them where they are used (the default under EMBER_MIN_SIZE). The default test build above does not compress, so this
+      # builds the tests once with it and runs the ones that expand each kind: the LZ and asset tests (the UA sheet and a
+      # prelude compared with their source files, the shader blobs against the driver's magic numbers), the style tests
+      # (UA sheet), the bindings that evaluate the preludes (fetch streams, XHR, animation, CSS namespace), and the embed and
+      # render tests that create pipelines (shader blobs) on a headless device (llvmpipe).
+      #
+      # this build is also the CI build of the size configuration's feature set: EMBER_CANVAS, EMBER_SVG and
+      # EMBER_DEFAULT_FONT are OFF (what EMBER_MIN_SIZE defaults to), with the tests on. The default build above is the one with
+      # everything on. The subset adds the tests of the "off" behaviour; tests that need a disabled feature are not built, and
+      # the font comes to the other tests through tests/support/test_default_font.c.
+      - name: Compressed assets (build and test subset)
+        if: runner.os == 'Linux' && matrix.name == 'ubuntu-24.04-gcc-15'
+        env:
+          CC: gcc-15
+          SDL_VIDEO_DRIVER: offscreen
+          LP_NUM_THREADS: 4
+        run: |
+          cmake -S . -B build-lz -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DEMBER_COMPRESS_ASSETS=ON \
+            -DEMBER_CANVAS=OFF -DEMBER_SVG=OFF -DEMBER_DEFAULT_FONT=OFF \
+            -DEMBER_EXAMPLES=OFF \
+            -DEMBER_SLANGC="${EMBER_SLANGC}"
+          cmake --build build-lz
+          ctest --test-dir build-lz --output-on-failure --no-tests=error -j2 \
+            -R '^test_(base_lz|base_lz_assets|gpu_blob_lz|gpu_render_(fill|frame|image|gold)|style_|bindings_bind_(anim|features|dom|loader_stream|loader_wstream|loader_fetch|xhr|canvas_off|svg_off)|text_nofont|embed_(apps|view|script_view|vite|nofont)|codec_brotli|net_tls|js_j6a|js_es_regexp_literal)'
+          # A mixed configuration: SVG off alone, canvas and the default font on.
+          cmake -S . -B build-nosvg -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DEMBER_SVG=OFF \
+            -DEMBER_EXAMPLES=OFF \
+            -DEMBER_SLANGC="${EMBER_SLANGC}"
+          cmake --build build-nosvg
+          ctest --test-dir build-nosvg --output-on-failure --no-tests=error -j2 \
+            -R '^test_(bindings_bind_(canvas|dom|svg_off)|embed_(apps|canvas|view)|layout_)'
+
+      - name: Upload golden-image failures
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gold-out-${{ matrix.name }}
+          path: build/tests/gold-out
+          if-no-files-found: ignore
+
+      # ---- Size report (Linux gcc-15 only) ---------------------------------
+      - name: Report stripped libember size
+        if: runner.os == 'Linux' && matrix.name == 'ubuntu-24.04-gcc-15'
+        env:
+          CC: gcc-15
+        run: |
+          # Size-only build: no tests or examples, so the library is the only thing built.
+          cmake -S . -B build-shared -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DEMBER_SHARED=ON \
+            -DEMBER_TESTS=OFF \
+            -DEMBER_EXAMPLES=OFF \
+            -DEMBER_SLANGC="${EMBER_SLANGC}"
+          cmake --build build-shared
+          lib=$(find build-shared -type f -name 'libember*.so*' | head -n 1)
+          test -n "$lib" || { echo "libember shared library not found in build-shared" >&2; exit 1; }
+          stripped="libember-stripped.so"
+          cp "$lib" "$stripped"
+          strip --strip-all "$stripped"
+          bytes=$(stat -c %s "$stripped")
+          {
+            echo "### libember (shared, stripped)"
+            echo ""
+            echo "| Artifact | Size |"
+            echo "| --- | --- |"
+            echo "| \`$(basename "$lib")\` | ${bytes} bytes ($(( bytes / 1024 )) KiB) |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # ---- Budget configuration: size gate and export list (Linux gcc-15 only) ---------------------------------
+      # The size budget (library < 3.2 MiB stripped, excluding SDL3) is measured on EMBER_MIN_SIZE=ON, EMBER_NET=OFF with
+      # SDL3 and SDL_image left out (EMBER_SDL_EXTERNAL=ON), so the stripped size is Ember's own part. One configure, one
+      # LTO build. See tools/libsize.sh.
+      #  * Size: gated at +5% over the line "ci-linux-gcc15-min ember_only_bytes" of tools/bench/budget_baseline.txt. The
+      #    line is not there yet (the gcc-15 number is not measured: the clang-19 numbers differ), so the step is
+      #    REPORT ONLY until it is added: it prints the line to add.
+      #  * Exports: the dynamic symbols the library defines must be exactly the EMB_API functions of include/ember/*.h (the
+      #    version script cmake/ember.map exports emb_* only, so a new emb_* function that is not in a header, or an EMB_API
+      #    declaration that is not built, is a mistake). Gated.
+      - name: Budget configuration size and exports
+        if: runner.os == 'Linux' && matrix.name == 'ubuntu-24.04-gcc-15'
+        env:
+          CC: gcc-15
+        run: |
+          cmake -S . -B build-min -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DEMBER_SHARED=ON \
+            -DEMBER_MIN_SIZE=ON \
+            -DEMBER_NET=OFF \
+            -DEMBER_SDL_EXTERNAL=ON \
+            -DEMBER_TESTS=OFF \
+            -DEMBER_EXAMPLES=OFF \
+            -DEMBER_SLANGC="${EMBER_SLANGC}"
+          cmake --build build-min --target ember
+          lib=$(find build-min -maxdepth 1 -name 'libember*.so' | head -n 1)
+          test -n "$lib" || { echo "libember shared library not found in build-min" >&2; exit 1; }
+
+          # Exports against the public header.
+          nm -D --defined-only "$lib" | awk '{ print $NF }' | sort -u > exported.txt
+          grep -h '^EMB_API' include/ember/*.h | sed -E 's/\(.*//; s/.*[ *]([A-Za-z0-9_]+)$/\1/' | sort -u > declared.txt
+          exports_ok=true
+          if ! diff -u declared.txt exported.txt > exports.diff; then exports_ok=false; fi
+
+          # Size against the baseline line.
+          bytes=$(sh tools/libsize.sh total "$lib" | awk 'NR == 1 { print $3 }')
+          base=$(awk '$1 == "ci-linux-gcc15-min" && $2 == "ember_only_bytes" { print $3 }' tools/bench/budget_baseline.txt)
+          size_ok=true
+          {
+            echo "### libember, budget configuration (MIN_SIZE, NET off, Ember only: SDL left to the host)"
+            echo ""
+            echo '```'
+            echo "stripped size: ${bytes} bytes"
+            if [ -n "$base" ]; then
+              echo "baseline:      ${base} bytes (gate: +5%)"
+              if [ $(( bytes * 100 )) -gt $(( base * 105 )) ]; then size_ok=false; echo "FAIL: more than 5% over the baseline"; fi
+            else
+              echo "no baseline yet (report only). Add this line to tools/bench/budget_baseline.txt to gate it:"
+              echo "ci-linux-gcc15-min ember_only_bytes ${bytes}"
+            fi
+            echo "exported symbols: $(wc -l < exported.txt), EMB_API declarations: $(wc -l < declared.txt)"
+            if [ "$exports_ok" != true ]; then echo "FAIL: exports differ from the EMB_API declarations (< declared, > exported):"; cat exports.diff; fi
+            echo '```'
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+          $exports_ok && $size_ok
+
+      # ---- Embedding budgets (Linux gcc-15 only) -----------------------------
+      # The page numbers are a report. The app numbers (bench_view --app on react-todomvc, the reference app)
+      # are gated against tools/bench/budget_baseline.txt: the library size and the heap per view (deterministic) fail the
+      # job when they grow by more than 5%; the wall-clock numbers are printed with their change but not enforced, because a
+      # shared runner with a software rasterizer varies by more than 5% from run to run.
+      - name: Embedding budgets
+        if: runner.os == 'Linux' && matrix.name == 'ubuntu-24.04-gcc-15'
+        env:
+          SDL_VIDEO_DRIVER: offscreen
+          LP_NUM_THREADS: 4
+        run: |
+          # The page run prints first paint, scroll, heap per view and the library size against their budgets and always
+          # exits 0. The app run (react-todomvc) exits 1 when a gated metric regressed against the baseline; without a GPU
+          # device on the runner both print that and exit 0.
+          bench=$(find build -type f -name bench_view -perm -u+x | head -n 1)
+          size=$(stat -c %s libember-stripped.so 2>/dev/null || echo 0)
+          {
+            echo "### Embedding budgets"
+            echo ""
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          rc=0
+          if [ -n "$bench" ]; then
+            "$bench" --lib-bytes "$size" 2>&1 | tee -a "$GITHUB_STEP_SUMMARY" || true
+            "$bench" --app tests/apps/react-todomvc/dist --todomvc todos-react --lib-bytes "$size" \
+              --baseline tools/bench/budget_baseline.txt --key ci-linux-gcc15 2>&1 | tee -a "$GITHUB_STEP_SUMMARY"
+            rc=${PIPESTATUS[0]}
+          else
+            echo "bench_view not built" | tee -a "$GITHUB_STEP_SUMMARY"
+          fi
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          exit $rc

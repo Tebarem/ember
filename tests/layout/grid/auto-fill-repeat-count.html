@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>Grid: repeat(auto-fill) counts the gutters</title>
+<script src="/resources/testharness.js"></script>
+<script src="/resources/testharnessreport.js"></script>
+<script src="/resources/check-layout-th.js"></script>
+<style>
+body { margin: 0 }
+#g { display: grid; position: relative; width: 200px; height: 20px; grid-template-columns: repeat(auto-fill, 50px);
+     column-gap: 10px }
+#a { grid-column: 1 / -1; grid-row: 1 }
+#h { display: grid; position: relative; width: 200px; height: 20px; grid-template-columns: repeat(auto-fill, 60px) }
+#k { grid-column: 1 / -1; grid-row: 1 }
+</style>
+<body onload="checkLayout('#g > div, #h > div')">
+<!--
+Derivation (CSS Grid 2 section 7.2.3.2): with a 10px gap, repeat(auto-fill, 50px) in 200px fits
+floor((200 + 10) / (50 + 10)) = 3 repetitions, so the spanning item #a is 3 * 50 + 2 * 10 = 170px wide. Without
+a gap the count would be floor(200 / 50) = 4 and the width 200. The second grid has no gap: floor(200 / 60) = 3
+repetitions of 60px, and #k spans them all: 180px.
+Provenance: derived by hand; not run in Chromium in this environment.
+-->
+<div id="g">
+  <div id="a" data-expected-width="170" data-expected-height="20" data-offset-x="0" data-offset-y="0"></div>
+</div>
+<div id="h">
+  <div id="k" data-expected-width="180" data-expected-height="20" data-offset-x="0" data-offset-y="0"></div>
+</div>
+</body>

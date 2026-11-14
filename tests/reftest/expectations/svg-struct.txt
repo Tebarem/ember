@@ -1,0 +1,9 @@
+svg/struct/reftests/use-external-html-resource-with-content-type-svg.html not-yet external-resource <use> (a reference to another document) is not fetched; SVG 2 section 5.6
+svg/struct/reftests/use-external-html-resource-with-doctype.html not-yet external-resource <use> (a reference to another document) is not fetched; SVG 2 section 5.6
+svg/struct/reftests/use-external-html-resource.html not-yet external-resource <use> (a reference to another document) is not fetched; SVG 2 section 5.6
+svg/struct/reftests/use-external-resource-nested-image.html not-yet external-resource <use> (a reference to another document) is not fetched; SVG 2 section 5.6
+svg/struct/reftests/use-external-resource-nested-symbol.html not-yet external-resource <use> (a reference to another document) is not fetched; SVG 2 section 5.6
+svg/struct/reftests/use-external-resource-no-svg-root.html not-yet external-resource <use> (a reference to another document) is not fetched; SVG 2 section 5.6
+svg/struct/reftests/use-external-resource-target-pseudo-001.html not-yet external-resource <use> (a reference to another document) is not fetched; SVG 2 section 5.6
+svg/struct/reftests/use-external-resource-target-pseudo-002.html not-yet external-resource <use> (a reference to another document) is not fetched; SVG 2 section 5.6
+svg/struct/reftests/use-external-svg-resource-no-fragment-id.html not-yet external-resource <use> (a reference to another document) is not fetched; SVG 2 section 5.6

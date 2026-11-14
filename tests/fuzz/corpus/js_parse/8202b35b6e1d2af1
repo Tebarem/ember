@@ -1,0 +1,14 @@
+// This file was procedurally generated from the following sources:
+// - src/dstr-binding/ary-ptrn-rest-id.case
+// - src/dstr-binding/default/let-stmt.template
+
+var values = [1, 2, 3];
+
+let [...x] = values;
+
+assert(Array.isArray(x));
+assert.sameValue(x.length, 3);
+assert.sameValue(x[0], 1);
+assert.sameValue(x[1], 2);
+assert.sameValue(x[2], 3);
+assert.notSameValue(x, values);

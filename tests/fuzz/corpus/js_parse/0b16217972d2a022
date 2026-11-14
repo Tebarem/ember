@@ -1,0 +1,12 @@
+// Copyright (C) 2017 André Bargull. All rights reserved.
+// This code is governed by the BSD license found in the LICENSE file.
+
+
+
+$DONOTEVALUATE();
+
+// Wrapped in an if-statement to avoid reference errors at runtime.
+if (false) {
+    with ({}) let
+    [a] = 0;
+}

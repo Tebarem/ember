@@ -1,0 +1,185 @@
+css/css-text/boundary-shaping/boundary-shaping-001.html bug
+css/css-text/boundary-shaping/boundary-shaping-003.html bug
+css/css-text/boundary-shaping/boundary-shaping-004.html bug
+css/css-text/boundary-shaping/boundary-shaping-005.html bug
+css/css-text/hanging-punctuation/hanging-punctuation-allow-end-001.xht not-yet hanging-punctuation
+css/css-text/hanging-punctuation/hanging-punctuation-allow-end-basic.html not-yet hanging-punctuation
+css/css-text/hanging-punctuation/hanging-punctuation-allow-end-inlines.html not-yet hanging-punctuation
+css/css-text/hanging-punctuation/hanging-punctuation-allow-end.html not-yet hanging-punctuation
+css/css-text/hanging-punctuation/hanging-punctuation-block-bound-001.html not-yet hanging-punctuation
+css/css-text/hanging-punctuation/hanging-punctuation-first-and-last-together.html not-yet hanging-punctuation
+css/css-text/hanging-punctuation/hanging-punctuation-first-rtl.html not-yet hanging-punctuation
+css/css-text/hanging-punctuation/hanging-punctuation-first-whitespace.html not-yet hanging-punctuation
+css/css-text/hanging-punctuation/hanging-punctuation-first.html not-yet hanging-punctuation
+css/css-text/hanging-punctuation/hanging-punctuation-force-end-001.xht not-yet hanging-punctuation
+css/css-text/hanging-punctuation/hanging-punctuation-inline-bound-001.html not-yet hanging-punctuation
+css/css-text/hanging-punctuation/hanging-punctuation-last-ascii-quote.html not-yet hanging-punctuation
+css/css-text/hanging-punctuation/hanging-punctuation-variable-font-size.html not-yet hanging-punctuation
+css/css-text/hyphens/hyphenate-character-001.html not-yet hyphens: auto needs hyphenation dictionaries
+css/css-text/hyphens/hyphenate-character-002.html not-yet hyphens: auto needs hyphenation dictionaries
+css/css-text/hyphens/hyphenate-character-004.html not-yet hyphens: auto needs hyphenation dictionaries
+css/css-text/hyphens/hyphenate-character-005.html not-yet hyphens: auto needs hyphenation dictionaries
+css/css-text/hyphens/hyphenate-limit-chars-001.html not-yet hyphens: auto needs hyphenation dictionaries
+css/css-text/hyphens/hyphenate-limit-lines-001.html not-yet hyphens: auto needs hyphenation dictionaries
+css/css-text/hyphens/hyphens-auto-004.html not-yet hyphens: auto needs hyphenation dictionaries
+css/css-text/hyphens/hyphens-auto-005.html not-yet hyphens: auto needs hyphenation dictionaries
+css/css-text/hyphens/hyphens-auto-010.html not-yet hyphens: auto needs hyphenation dictionaries
+css/css-text/hyphens/hyphens-auto-inline-010.html not-yet hyphens: auto needs hyphenation dictionaries
+css/css-text/hyphens/hyphens-auto-last-word-001.html not-yet hyphens: auto needs hyphenation dictionaries
+css/css-text/hyphens/hyphens-punctuation-001.html not-yet hyphens: auto needs hyphenation dictionaries
+css/css-text/hyphens/hyphens-shaping-001.html not-yet hyphens: auto needs hyphenation dictionaries
+css/css-text/hyphens/hyphens-vs-float-clearance-001.html not-yet hyphens: auto needs hyphenation dictionaries
+css/css-text/hyphens/hyphens-vs-float-clearance-002.html not-yet hyphens: auto needs hyphenation dictionaries
+css/css-text/hyphens/i18n/hyphens-i18n-auto-001.html not-yet hyphens: auto needs hyphenation dictionaries
+css/css-text/hyphens/i18n/hyphens-i18n-auto-002.html not-yet hyphens: auto needs hyphenation dictionaries
+css/css-text/hyphens/i18n/hyphens-i18n-auto-003.html not-yet hyphens: auto needs hyphenation dictionaries
+css/css-text/hyphens/i18n/hyphens-i18n-auto-004.html not-yet hyphens: auto needs hyphenation dictionaries
+css/css-text/hyphens/i18n/hyphens-i18n-auto-006.html not-yet hyphens: auto needs hyphenation dictionaries
+css/css-text/letter-spacing/letter-spacing-201.html bug
+css/css-text/letter-spacing/letter-spacing-202.html bug
+css/css-text/letter-spacing/letter-spacing-204.html bug
+css/css-text/letter-spacing/letter-spacing-205.html bug
+css/css-text/letter-spacing/letter-spacing-206.html bug
+css/css-text/letter-spacing/letter-spacing-212.html not-yet ruby layout
+css/css-text/letter-spacing/letter-spacing-bidi-001.html not-yet generic-fonts (monospace maps to Ahem in the runner, which has no system fonts; the page relies on glyphs or metrics Ahem does not have)
+css/css-text/letter-spacing/letter-spacing-bidi-002.html not-yet generic-fonts (monospace maps to Ahem in the runner, which has no system fonts; the page relies on glyphs or metrics Ahem does not have)
+css/css-text/letter-spacing/letter-spacing-bidi-003.xht writing-mode
+css/css-text/letter-spacing/letter-spacing-bidi-004.xht bug
+css/css-text/letter-spacing/letter-spacing-bidi-005.xht bug
+css/css-text/letter-spacing/letter-spacing-control-chars-001.html bug
+css/css-text/letter-spacing/letter-spacing-nesting-003.xht bug
+css/css-text/line-break/line-break-anywhere-and-white-space-006.html bug
+css/css-text/line-break/line-break-anywhere-and-white-space-007.html bug
+css/css-text/line-break/line-break-anywhere-overrides-uax-behavior-013.html bug
+css/css-text/line-break/line-break-anywhere-overrides-uax-behavior-014.html bug
+css/css-text/line-breaking/line-breaking-022.html bug
+css/css-text/line-breaking/line-breaking-text-001.html layout not multicol: line breaking of a box 1ch or 4ch wide: no-break characters around a hyphen, and Thai and CJK words broken per character
+css/css-text/shaping/shaping_lig-000.html bug
+css/css-text/tab-size/tab-size-block-ancestor.html not-yet tab-size
+css/css-text/tab-size/tab-size-integer-004.html not-yet tab-size
+css/css-text/tab-size/tab-size-integer-005.html not-yet tab-size
+css/css-text/tab-size/tab-size-spacing-001.html not-yet tab-size
+css/css-text/text-autospace/text-autospace-001.html not-yet text-autospace
+css/css-text/text-autospace/text-autospace-002.html not-yet text-autospace
+css/css-text/text-autospace/text-autospace-003.html not-yet text-autospace
+css/css-text/text-autospace/text-autospace-break-001.html not-yet text-autospace
+css/css-text/text-autospace/text-autospace-combining-marks.html not-yet text-autospace
+css/css-text/text-autospace/text-autospace-elements-001.html not-yet text-autospace
+css/css-text/text-autospace/text-autospace-elements-004.html not-yet text-autospace
+css/css-text/text-autospace/text-autospace-elements-005.html not-yet text-autospace
+css/css-text/text-autospace/text-autospace-elements-005b.html not-yet text-autospace
+css/css-text/text-autospace/text-autospace-elements-007.html not-yet text-autospace
+css/css-text/text-autospace/text-autospace-first-line-001.html not-yet text-autospace
+css/css-text/text-autospace/text-autospace-ideogram-alpha-001.html not-yet text-autospace
+css/css-text/text-autospace/text-autospace-ideograph-numeric-001.html not-yet text-autospace
+css/css-text/text-autospace/text-autospace-ligature-001.html not-yet text-autospace
+css/css-text/text-autospace/text-autospace-mixed-001.html not-yet text-autospace
+css/css-text/text-autospace/text-autospace-no-001.html not-yet text-autospace
+css/css-text/text-autospace/text-autospace-preformatted-001.html not-yet text-autospace
+css/css-text/text-autospace/text-autospace-size-001.html not-yet text-autospace
+css/css-text/text-autospace/text-autospace-supplementary-ideograph.html not-yet text-autospace
+css/css-text/text-autospace/text-autospace-vs-001.html not-yet text-autospace
+css/css-text/text-autospace/text-autospace-zh-001.html not-yet text-autospace
+css/css-text/text-encoding/shaping-tatweel-002.html bug
+css/css-text/text-fit/grow-consistent.html not-yet text-fit
+css/css-text/text-fit/grow-per-line-all-line-height.html not-yet text-fit
+css/css-text/text-fit/grow-per-line-all.html not-yet text-fit
+css/css-text/text-fit/grow-per-line.html not-yet text-fit
+css/css-text/text-fit/shrink-consistent.html not-yet text-fit
+css/css-text/text-fit/shrink-per-line-all.html not-yet text-fit
+css/css-text/text-fit/spacing.html not-yet text-fit
+css/css-text/text-fit/text-align.html not-yet text-fit
+css/css-text/text-fit/text-box.html not-yet text-fit
+css/css-text/text-indent/below-float3.html not-yet ::first-line
+css/css-text/text-indent/text-indent-with-absolute-pos-child.html bug
+css/css-text/text-justify/text-justify-001.html not-yet text-justify
+css/css-text/text-justify/text-justify-006.html not-yet text-justify
+css/css-text/text-justify/text-justify-distribute-001.html not-yet text-justify
+css/css-text/text-justify/text-justify-inter-character-001.html not-yet text-justify
+css/css-text/text-justify/text-justify-inter-character-atomic-inline.html not-yet text-justify
+css/css-text/text-justify/text-justify-none-001.html not-yet text-justify
+css/css-text/text-justify/text-justify-word-separators.html not-yet text-justify
+css/css-text/white-space/eol-spaces-bidi-002.html writing-mode
+css/css-text/white-space/text-wrap-balance-004.html not-yet text-wrap: balance and pretty
+css/css-text/white-space/text-wrap-balance-align-001.html not-yet text-wrap: balance and pretty
+css/css-text/white-space/text-wrap-balance-float-001.html not-yet text-wrap: balance and pretty
+css/css-text/white-space/text-wrap-balance-float-002.html not-yet text-wrap: balance and pretty
+css/css-text/white-space/text-wrap-balance-float-003.html not-yet text-wrap: balance and pretty
+css/css-text/white-space/text-wrap-balance-float-004.html not-yet text-wrap: balance and pretty
+css/css-text/white-space/text-wrap-balance-float-005.html not-yet text-wrap: balance and pretty
+css/css-text/white-space/text-wrap-balance-line-clamp-002.html not-yet text-wrap: balance and pretty
+css/css-text/white-space/text-wrap-balance-line-clamp-003.html not-yet text-wrap: balance and pretty
+css/css-text/white-space/text-wrap-balance-line-clamp-007.html not-yet text-wrap: balance and pretty
+css/css-text/white-space/text-wrap-balance-overflow-001.html not-yet text-wrap: balance and pretty
+css/css-text/white-space/text-wrap-balance-word-spacing-001.html not-yet text-wrap: balance and pretty
+css/css-text/white-space/textarea-break-spaces-001.html not-yet form controls
+css/css-text/white-space/textarea-break-spaces-002.html not-yet form controls
+css/css-text/white-space/textarea-pre-wrap-001.html not-yet form controls
+css/css-text/white-space/textarea-pre-wrap-002.html not-yet form controls
+css/css-text/white-space/textarea-pre-wrap-003.html not-yet form controls
+css/css-text/white-space/textarea-pre-wrap-004.html not-yet form controls
+css/css-text/white-space/textarea-pre-wrap-005.html not-yet form controls
+css/css-text/white-space/textarea-pre-wrap-006.html not-yet form controls
+css/css-text/white-space/textarea-pre-wrap-007.html not-yet form controls
+css/css-text/white-space/textarea-pre-wrap-011.html not-yet form controls
+css/css-text/white-space/textarea-pre-wrap-012.html not-yet form controls
+css/css-text/white-space/textarea-pre-wrap-013.html not-yet form controls
+css/css-text/white-space/textarea-pre-wrap-014.html not-yet form controls
+css/css-text/white-space/trailing-other-space-separators-001.html bug the green inline background paints the default font's content area (1.36em) where the ref's box is line-height 1: font metrics
+css/css-text/white-space/trailing-other-space-separators-003.html bug the green inline background paints the default font's content area (1.36em) where the ref's box is line-height 1: font metrics
+css/css-text/white-space/trailing-other-space-separators-004.html bug the green inline background paints the default font's content area (1.36em) where the ref's box is line-height 1: font metrics
+css/css-text/white-space/trailing-space-and-text-alignment-001.html not-yet form controls
+css/css-text/white-space/trailing-space-and-text-alignment-002.html not-yet form controls
+css/css-text/white-space/trailing-space-and-text-alignment-003.html not-yet form controls
+css/css-text/white-space/trailing-space-and-text-alignment-004.html not-yet form controls
+css/css-text/white-space/trailing-space-and-text-alignment-005.html not-yet form controls
+css/css-text/white-space/trailing-space-and-text-alignment-rtl-001.html not-yet form controls
+css/css-text/white-space/trailing-space-and-text-alignment-rtl-002.html not-yet form controls
+css/css-text/white-space/trailing-space-and-text-alignment-rtl-003.html not-yet form controls
+css/css-text/white-space/trailing-space-and-text-alignment-rtl-004.html not-yet form controls
+css/css-text/white-space/trailing-space-and-text-alignment-rtl-005.html not-yet form controls
+css/css-text/white-space/white-space-applies-to-text-001.html not-yet generic-fonts (monospace maps to Ahem in the runner, which has no system fonts; the page relies on glyphs or metrics Ahem does not have)
+css/css-text/white-space/white-space-collapse-preserve-breaks-001.xht bug
+css/css-text/white-space/white-space-pre-wrap-trailing-spaces-021.html bug
+css/css-text/white-space/white-space-wrap-after-nowrap-001.html bug
+css/css-text/word-break/auto-phrase/word-break-auto-phrase-001.html not-yet auto-phrase (needs a Japanese phrase dictionary, CSS Text 4 word-break: auto-phrase; no dictionary is allowed third-party code)
+css/css-text/word-break/auto-phrase/word-break-auto-phrase-002.html not-yet auto-phrase (needs a Thai phrase dictionary; it passed only while Thai had no break opportunities at all, the fallback breaks between orthographic units of the Thai, Lao, Khmer and Burmese scripts now split it per unit)
+css/css-text/word-break/auto-phrase/word-break-auto-phrase-003.html not-yet auto-phrase (needs a Japanese phrase dictionary, CSS Text 4 word-break: auto-phrase; no dictionary is allowed third-party code)
+css/css-text/word-break/auto-phrase/word-break-auto-phrase-004.html not-yet auto-phrase (needs a Japanese phrase dictionary, CSS Text 4 word-break: auto-phrase; no dictionary is allowed third-party code)
+css/css-text/word-break/auto-phrase/word-break-auto-phrase-005.html not-yet auto-phrase (needs a Japanese phrase dictionary, CSS Text 4 word-break: auto-phrase; no dictionary is allowed third-party code)
+css/css-text/word-break/auto-phrase/word-break-auto-phrase-006.html not-yet auto-phrase (needs a Japanese phrase dictionary, CSS Text 4 word-break: auto-phrase; no dictionary is allowed third-party code)
+css/css-text/word-break/auto-phrase/word-break-auto-phrase-intrinsic-001.html not-yet auto-phrase (needs a Japanese phrase dictionary, CSS Text 4 word-break: auto-phrase; no dictionary is allowed third-party code)
+css/css-text/word-break/auto-phrase/word-break-auto-phrase-overflow-001.html not-yet auto-phrase (needs a Japanese phrase dictionary, CSS Text 4 word-break: auto-phrase; no dictionary is allowed third-party code)
+css/css-text/word-break/auto-phrase/word-break-auto-phrase-wbr-nobr-001.html not-yet auto-phrase (needs a Japanese phrase dictionary, CSS Text 4 word-break: auto-phrase; no dictionary is allowed third-party code)
+css/css-text/word-break/auto-phrase/word-break-auto-phrase-wbr-nobr-002.html not-yet auto-phrase (needs a Japanese phrase dictionary, CSS Text 4 word-break: auto-phrase; no dictionary is allowed third-party code)
+css/css-text/word-break/word-break-break-all-023.html bug
+css/css-text/word-break/word-break-break-all-inline-009.html bug
+css/css-text/word-space-transform/word-space-transform-002.html not-yet word-space-transform
+css/css-text/word-space-transform/word-space-transform-004.html not-yet word-space-transform
+css/css-text/word-space-transform/word-space-transform-005.html not-yet word-space-transform
+css/css-text/word-space-transform/word-space-transform-006.html not-yet word-space-transform
+css/css-text/word-space-transform/word-space-transform-007.html not-yet word-space-transform
+css/css-text/word-space-transform/word-space-transform-008.html not-yet word-space-transform
+css/css-text/word-space-transform/word-space-transform-010.html not-yet word-space-transform
+css/css-text/word-space-transform/word-space-transform-011.html not-yet word-space-transform
+css/css-text/word-space-transform/word-space-transform-012.html not-yet word-space-transform
+css/css-text/word-space-transform/word-space-transform-013.html not-yet word-space-transform
+css/css-text/word-space-transform/word-space-transform-014.html not-yet word-space-transform
+css/css-text/word-space-transform/word-space-transform-017.html not-yet word-space-transform
+css/css-text/word-space-transform/word-space-transform-018.html not-yet word-space-transform
+css/css-text/word-space-transform/word-space-transform-019.html not-yet word-space-transform
+css/css-text/word-space-transform/word-space-transform-030.html not-yet word-space-transform
+css/css-text/wrap-inside/wrap-inside-avoid-block-child.html not-yet text-wrap: balance and pretty
+css/css-text/wrap-inside/wrap-inside-avoid-break-all.html not-yet text-wrap: balance and pretty
+css/css-text/wrap-inside/wrap-inside-avoid-break-before-then-inside.html not-yet text-wrap: balance and pretty
+css/css-text/wrap-inside/wrap-inside-avoid-inline-block-child.html not-yet text-wrap: balance and pretty
+css/css-text/wrap-inside/wrap-inside-avoid-inline-flex-child.html not-yet text-wrap: balance and pretty
+css/css-text/wrap-inside/wrap-inside-avoid-inline-grid-child.html not-yet text-wrap: balance and pretty
+css/css-text/wrap-inside/wrap-inside-avoid-inline-table-child.html not-yet text-wrap: balance and pretty
+css/css-text/wrap-inside/wrap-inside-avoid-keeps-box-together.html not-yet text-wrap: balance and pretty
+css/css-text/wrap-inside/wrap-inside-avoid-line-break-anywhere.html not-yet text-wrap: balance and pretty
+css/css-text/wrap-inside/wrap-inside-avoid-nested-auto.html not-yet text-wrap: balance and pretty
+css/css-text/wrap-inside/wrap-inside-avoid-nested-deep.html not-yet text-wrap: balance and pretty
+css/css-text/wrap-inside/wrap-inside-avoid-nested-only.html not-yet text-wrap: balance and pretty
+css/css-text/wrap-inside/wrap-inside-avoid-nested.html not-yet text-wrap: balance and pretty
+css/css-text/wrap-inside/wrap-inside-avoid-siblings.html not-yet text-wrap: balance and pretty

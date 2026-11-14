@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>An absolutely positioned box with auto insets sits at its static position and takes no room</title>
+<script src="/resources/testharness.js"></script>
+<script src="/resources/testharnessreport.js"></script>
+<script src="/resources/check-layout-th.js"></script>
+<style>
+body { margin: 0 } #c { position: relative; width: 200px; margin: 10px }
+</style>
+<body onload="checkLayout('#c > div')">
+<!-- Derivation (CSS 2.1 10.6.4 and 10.3.7): the first block is 30px high, so the static position of the
+absolute box is the hypothetical block position y = 30. Its margin-top of 5px puts the margin edge at
+30, so the border edge is at 35. Its static left edge is the content edge (x = 0) plus its margin-left
+of 5px, so x = 5. The absolute box takes no room, so the block after it starts at y = 30 again. The
+container is at (10, 10) in the body, which the offsets do not include. -->
+<div id="c">
+  <div style="height: 30px" data-offset-x="0" data-offset-y="0" data-expected-width="200" data-expected-height="30"></div>
+  <div id="p" style="position: absolute; width: 50px; height: 20px; margin: 5px" data-offset-x="5" data-offset-y="35" data-expected-width="50" data-expected-height="20"></div>
+  <div style="height: 10px" data-offset-x="0" data-offset-y="30" data-expected-width="200" data-expected-height="10"></div>
+</div>
+</body>

@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>Inline layout: a float counts in the max-content width</title>
+<script src="/resources/testharness.js"></script>
+<script src="/resources/testharnessreport.js"></script>
+<script src="/resources/check-layout-th.js"></script>
+<link rel="stylesheet" href="/fonts/ahem.css">
+<style>
+body { margin: 0 } .a { font: 20px/20px Ahem } #d { float: left }
+</style>
+<body onload="checkLayout('#d')">
+<!-- UNVERIFIED (derived by hand, not checked in Chromium). Derivation: CSS Sizing 3 section 5.2.2. The max-content width is the float's 30px plus the text
+XX XX (100px) on the same line, 130px. Min-content is 40px, so the shrink-to-fit width is 130. The line is
+one 20px line beside the float. -->
+<div id="d" class="a" data-expected-width="130" data-expected-height="20"><span style="float:left;width:30px;height:10px"></span>XX XX</div>
+</body>

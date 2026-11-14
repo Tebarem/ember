@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>align-items: baseline aligns Ahem text items on their first baselines</title>
+<script src="/resources/testharness.js"></script>
+<script src="/resources/testharnessreport.js"></script>
+<script src="/resources/check-layout-th.js"></script>
+<link rel="stylesheet" href="/fonts/ahem.css">
+<style>
+body { margin: 0 } #c { display: flex; align-items: baseline; width: 200px }
+.s { font-family: Ahem; font-size: 10px; line-height: 10px } .t { font-family: Ahem; font-size: 20px; line-height: 20px }
+</style>
+<body onload="checkLayout('#c > div')">
+<!-- Derivation: Ahem has ascent 0.8em and descent 0.2em with no line gap. For #a (10px font, 10px line height)
+the half-leading is 0 and the baseline is 8px below the top of its line, so its height is 10px. For #b (20px
+font, 20px line height) the baseline is 16px below its top and its height is 20px. With baseline alignment
+the first baselines line up: the largest distance from a top edge to the baseline is 16 (#b), so #b sits at
+y = 0 and #a at y = 16 - 8 = 8. Provenance: derived by hand from CSS Flexbox 1 9.4 step 8 and CSS Inline 3 (no Chromium is available in this environment to run it); the vendored WPT align-items-baseline-row-horz.html asserts the same first-baseline sharing and passes with the same code. -->
+<div id="c">
+  <div id="a" class="s" data-expected-height="10" data-offset-y="8">X</div>
+  <div id="b" class="t" data-expected-height="20" data-offset-y="0">X</div>
+</div>
+</body>

@@ -1,0 +1,9 @@
+// This file was procedurally generated from the following sources:
+// - src/dstr-binding/ary-ptrn-elem-id-init-fn-name-gen.case
+// - src/dstr-binding/default/var-stmt.template
+
+
+var [gen = function* () {}, xGen = function* x() {}] = [];
+
+assert.sameValue(gen.name, 'gen');
+assert.notSameValue(xGen.name, 'xGen');

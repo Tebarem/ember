@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>A sticky box is in its normal position when nothing scrolls</title>
+<script src="/resources/testharness.js"></script>
+<script src="/resources/testharnessreport.js"></script>
+<script src="/resources/check-layout-th.js"></script>
+<style>
+body { margin: 0 } #s { position: relative; width: 100px; height: 100px; overflow: auto }
+</style>
+<body onload="checkLayout('#st')">
+<!-- Derivation (CSS Position 3 section 3.4): at scroll offset 0 the scrollport starts at the top of #s,
+which is above the sticky box, so the sticky offset is zero and the box sits at its flow position,
+y = 50 after the 50px spacer. Sticky offsets are applied on scroll (paint), not in the geometry. -->
+<div id="s">
+  <div style="height: 50px"></div>
+  <div id="st" style="position: sticky; top: 0; height: 20px" data-offset-x="0" data-offset-y="50" data-expected-width="100" data-expected-height="20"></div>
+</div>
+</body>

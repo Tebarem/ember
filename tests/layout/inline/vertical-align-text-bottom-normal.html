@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>Inline layout: vertical-align text-bottom with line-height normal</title>
+<script src="/resources/testharness.js"></script>
+<script src="/resources/testharnessreport.js"></script>
+<script src="/resources/check-layout-th.js"></script>
+<link rel="stylesheet" href="/fonts/ahem.css">
+<style>
+body { margin: 0 } .a { font: 20px/normal Ahem } #d { width: 300px }
+</style>
+<body onload="checkLayout('#d')">
+<!-- UNVERIFIED: derived by hand from the specs, not yet checked in Chromium. Derivation: CSS 2.1 10.8.1. As vertical-align-text-top-normal, but the bottom of the span's box goes to the bottom of the parent's content area, 4px below the baseline: the span baseline is 4 - 2 = 2px below the parent baseline. The line box is still 20px tall with the baseline at 16, and the span starts at y 16 + 2 - 8 = 10 (its bottom is at 20). -->
+<div id="d" class="a" data-expected-width="300" data-expected-height="20"><span id="x" data-offset-x="0" data-offset-y="0" data-expected-width="40" data-expected-height="20">XX</span><span id="s" style="vertical-align:text-bottom;font-size:10px" data-offset-x="40" data-offset-y="10" data-expected-width="20" data-expected-height="10">YY</span></div>
+</body>

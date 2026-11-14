@@ -1,0 +1,303 @@
+css/CSS2/backgrounds/background-003.xht font-metrics default font strut: its ascent is 1.07em (Noto Sans), over the 1em the reference assumes (passes with Times-like metrics)
+css/CSS2/bidi-005.xht writing-mode
+css/CSS2/bidi-006.xht writing-mode
+css/CSS2/bidi-007.xht writing-mode
+css/CSS2/bidi-008.xht writing-mode
+css/CSS2/bidi-009.xht writing-mode
+css/CSS2/bidi-010.xht writing-mode
+css/CSS2/bidi-text/bidi-001.xht writing-mode
+css/CSS2/bidi-text/bidi-002.xht writing-mode
+css/CSS2/bidi-text/bidi-003.xht writing-mode
+css/CSS2/bidi-text/bidi-004.xht writing-mode
+css/CSS2/bidi-text/bidi-005a.xht writing-mode
+css/CSS2/bidi-text/bidi-005b.xht writing-mode
+css/CSS2/bidi-text/bidi-006a.xht writing-mode
+css/CSS2/bidi-text/bidi-006b.xht writing-mode
+css/CSS2/bidi-text/bidi-007a.xht writing-mode
+css/CSS2/bidi-text/bidi-007b.xht writing-mode
+css/CSS2/bidi-text/bidi-008a.xht writing-mode
+css/CSS2/bidi-text/bidi-008b.xht writing-mode
+css/CSS2/bidi-text/bidi-009a.xht writing-mode
+css/CSS2/bidi-text/bidi-009b.xht bug
+css/CSS2/bidi-text/bidi-010a.xht writing-mode
+css/CSS2/bidi-text/bidi-010b.xht writing-mode
+css/CSS2/bidi-text/bidi-011.xht writing-mode
+css/CSS2/bidi-text/bidi-box-model-003.xht writing-mode
+css/CSS2/bidi-text/bidi-box-model-009.xht writing-mode
+css/CSS2/bidi-text/bidi-inline-002.xht writing-mode
+css/CSS2/bidi-text/direction-applies-to-008.xht writing-mode
+css/CSS2/bidi-text/unicode-bidi-003.xht writing-mode
+css/CSS2/bidi-text/unicode-bidi-004.xht writing-mode
+css/CSS2/bidi-text/unicode-bidi-applies-to-007.xht writing-mode
+css/CSS2/bidi-text/unicode-bidi-applies-to-008.xht writing-mode
+css/CSS2/bidi-text/unicode-bidi-applies-to-009.xht writing-mode
+css/CSS2/bidi-text/unicode-bidi-applies-to-012.xht writing-mode
+css/CSS2/bidi-text/unicode-bidi-applies-to-015.xht writing-mode
+css/CSS2/borders/border-bottom-width-025.xht font-metrics default font strut: its ascent is 1.07em (Noto Sans), over the 1em the reference assumes (passes with Times-like metrics)
+css/CSS2/borders/border-bottom-width-080.xht font-metrics default font strut: its ascent is 1.07em (Noto Sans), over the 1em the reference assumes (passes with Times-like metrics)
+css/CSS2/borders/border-top-width-025.xht font-metrics default font strut: its ascent is 1.07em (Noto Sans), over the 1em the reference assumes (passes with Times-like metrics)
+css/CSS2/borders/border-top-width-080.xht font-metrics default font strut: its ascent is 1.07em (Noto Sans), over the 1em the reference assumes (passes with Times-like metrics)
+css/CSS2/borders/border-width-011.xht bug
+css/CSS2/borders/border-width-012.xht bug
+css/CSS2/box-display/block-in-inline-relpos-002.xht bug
+css/CSS2/box-display/root-box-002.xht bug
+css/CSS2/box-display/root-box-003.xht out-of-scope superseded behaviour: CSS Backgrounds 3 section 2.11.2 (and css-backgrounds/background-color-root-propagation-001) says the canvas stays blank, the test expects the old CSS2.1 behaviour; Chrome fails it too
+css/CSS2/box/rtl-span-only-ib.xht bug
+css/CSS2/box/rtl-span-only.xht bug
+css/CSS2/cascade/inherit-computed-001.html bug
+css/CSS2/css1/c25-pseudo-elmnt-000.xht not-yet ::first-line
+css/CSS2/css1/c43-rpl-ibx-000.xht bug
+css/CSS2/css1/c548-ln-ht-000.xht bug
+css/CSS2/css1/c548-ln-ht-001.xht font-metrics default font strut: its ascent is 1.07em (Noto Sans), over the 1em the reference assumes (passes with Times-like metrics)
+css/CSS2/css1/c548-ln-ht-002.xht font-metrics default font strut: its ascent is 1.07em (Noto Sans), over the 1em the reference assumes (passes with Times-like metrics)
+css/CSS2/css1/c5502-imrgn-r-003.xht font-metrics the ref's 'I' stem sits after one default-font space between two images (Noto Sans: 4.29 px at 16px) and is one pixel column off the test's; with that space replaced by a 5 px inline-block the ref matches (verified), so only the font's space width differs
+css/CSS2/css1/c5502-imrgn-r-005.xht font-metrics default font strut: its ascent is 1.07em (Noto Sans), over the 1em the reference assumes (passes with Times-like metrics)
+css/CSS2/css1/c5502-imrgn-r-006.xht font-metrics default font strut: its ascent is 1.07em (Noto Sans), over the 1em the reference assumes (passes with Times-like metrics)
+css/CSS2/css1/c5504-imrgn-l-002.xht font-metrics default font strut: its ascent is 1.07em (Noto Sans), over the 1em the reference assumes (passes with Times-like metrics)
+css/CSS2/css1/c5504-imrgn-l-003.xht font-metrics the ref's 'I' stem sits after one default-font space between two images (Noto Sans: 4.29 px at 16px) and is one pixel column off the test's; with that space replaced by a 5 px inline-block the ref matches (verified), so only the font's space width differs
+css/CSS2/css1/c5504-imrgn-l-005.xht bug
+css/CSS2/css1/c5504-imrgn-l-006.xht font-metrics default font strut: its ascent is 1.07em (Noto Sans), over the 1em the reference assumes (passes with Times-like metrics)
+css/CSS2/css1/c5505-imrgn-000.xht font-metrics default font strut: its ascent is 1.07em (Noto Sans), over the 1em the reference assumes (passes with Times-like metrics)
+css/CSS2/css1/c5507-ipadn-r-003.xht font-metrics the ref's 'I' stem sits after one default-font space between two images (Noto Sans: 4.29 px at 16px) and is one pixel column off the test's; with that space replaced by a 5 px inline-block the ref matches (verified), so only the font's space width differs
+css/CSS2/css1/c5507-ipadn-r-004.xht font-metrics default font strut: its ascent is 1.07em (Noto Sans), over the 1em the reference assumes (passes with Times-like metrics)
+css/CSS2/css1/c5507-padn-r-000.xht bug
+css/CSS2/css1/c5509-ipadn-l-002.xht font-metrics default font strut: its ascent is 1.07em (Noto Sans), over the 1em the reference assumes (passes with Times-like metrics)
+css/CSS2/css1/c5509-ipadn-l-003.xht font-metrics the ref's 'I' stem sits after one default-font space between two images (Noto Sans: 4.29 px at 16px) and is one pixel column off the test's; with that space replaced by a 5 px inline-block the ref matches (verified), so only the font's space width differs
+css/CSS2/css1/c5509-ipadn-l-004.xht font-metrics default font strut: its ascent is 1.07em (Noto Sans), over the 1em the reference assumes (passes with Times-like metrics)
+css/CSS2/css1/c5509-padn-l-000.xht bug
+css/CSS2/css1/c5510-ipadn-000.xht font-metrics default font strut: its ascent is 1.07em (Noto Sans), over the 1em the reference assumes (passes with Times-like metrics)
+css/CSS2/css1/c5512-brdr-rw-001.xht font-metrics default font strut: its ascent is 1.07em (Noto Sans), over the 1em the reference assumes (passes with Times-like metrics)
+css/CSS2/css1/c5514-brdr-lw-001.xht font-metrics default font strut: its ascent is 1.07em (Noto Sans), over the 1em the reference assumes (passes with Times-like metrics)
+css/CSS2/css1/c64-uri-000.xht bug
+css/CSS2/css21-errata/s-11-1-1b-002.html bug
+css/CSS2/css21-errata/s-11-1-1b-003.html bug
+css/CSS2/css21-errata/s-11-1-1b-004.html bug
+css/CSS2/floats-clear/clear-clearance-calculation-003.xht bug
+css/CSS2/floats-clear/float-replaced-height-002.xht font-metrics default font strut: its ascent is 1.07em (Noto Sans), over the 1em the reference assumes (passes with Times-like metrics)
+css/CSS2/floats-clear/floats-039.xht bug
+css/CSS2/floats-clear/floats-143.xht bug synthetic bold (font-weight 900) on text split over two floats differs from one run by 3 anti-aliased pixels at the split
+css/CSS2/floats-clear/floats-144.xht bug
+css/CSS2/floats-clear/floats-154.xht font-metrics default font strut: its ascent is 1.07em (Noto Sans), over the 1em the reference assumes (passes with Times-like metrics)
+css/CSS2/floats-clear/floats-clear-multicol-000.html layout <br clear> does not clear floats (also outside columns), so the orange line is not pushed below the floats
+css/CSS2/floats-clear/floats-clear-multicol-001.html layout <br clear> does not clear floats (also outside columns), so the orange line is not pushed below the floats
+css/CSS2/floats-clear/floats-clear-multicol-balancing-000.html layout <br clear> does not clear floats (also outside columns), so the orange line is not pushed below the floats
+css/CSS2/floats-clear/floats-clear-multicol-balancing-001.html layout <br clear> does not clear floats (also outside columns), so the orange line is not pushed below the floats
+css/CSS2/floats/float-root.html bug
+css/CSS2/floats/floats-wrap-bfc-006.xht bug a table with a caption beside a stack of left floats: the table box is not moved below floats it cannot fit beside (block.c BFC avoidance with captions)
+css/CSS2/floats/floats-zero-height-wrap-002.xht bug inline-blocks wrapping around a zero-height cleared float: the line is placed beside the 100px float in the ref, not in ours (float.c / inline.c line bands)
+css/CSS2/fonts/font-family-applies-to-001.xht font-metrics default font strut: its ascent is 1.07em (Noto Sans), over the 1em the reference assumes (passes with Times-like metrics)
+css/CSS2/fonts/font-family-applies-to-002.xht font-metrics default font strut: its ascent is 1.07em (Noto Sans), over the 1em the reference assumes (passes with Times-like metrics)
+css/CSS2/fonts/font-family-applies-to-005.xht font-metrics default font strut: its ascent is 1.07em (Noto Sans), over the 1em the reference assumes (passes with Times-like metrics)
+css/CSS2/fonts/font-family-applies-to-006.xht font-metrics default font strut: its ascent is 1.07em (Noto Sans), over the 1em the reference assumes (passes with Times-like metrics)
+css/CSS2/fonts/font-family-applies-to-007.xht font-metrics default font strut: its ascent is 1.07em (Noto Sans), over the 1em the reference assumes (passes with Times-like metrics)
+css/CSS2/fonts/font-family-applies-to-008.xht font-metrics default font strut: its ascent is 1.07em (Noto Sans), over the 1em the reference assumes (passes with Times-like metrics)
+css/CSS2/fonts/font-family-applies-to-009.xht font-metrics default font strut: its ascent is 1.07em (Noto Sans), over the 1em the reference assumes (passes with Times-like metrics)
+css/CSS2/fonts/font-family-applies-to-010.xht font-metrics default font strut: its ascent is 1.07em (Noto Sans), over the 1em the reference assumes (passes with Times-like metrics)
+css/CSS2/fonts/font-family-applies-to-011.xht font-metrics default font strut: its ascent is 1.07em (Noto Sans), over the 1em the reference assumes (passes with Times-like metrics)
+css/CSS2/fonts/font-family-applies-to-014.xht font-metrics default font strut: its ascent is 1.07em (Noto Sans), over the 1em the reference assumes (passes with Times-like metrics)
+css/CSS2/fonts/font-family-applies-to-015.xht font-metrics default font strut: its ascent is 1.07em (Noto Sans), over the 1em the reference assumes (passes with Times-like metrics)
+css/CSS2/fonts/font-family-applies-to-017.xht font-metrics default font strut: its ascent is 1.07em (Noto Sans), over the 1em the reference assumes (passes with Times-like metrics)
+css/CSS2/fonts/font-size-121.xht bug
+css/CSS2/fonts/fonts-012.xht bug
+css/CSS2/generated-content/before-after-positioned-001.xht bug
+css/CSS2/generated-content/before-after-table-parts-001.xht bug
+css/CSS2/generated-content/bidi-generated-content-001.xht bug
+css/CSS2/generated-content/bidi-generated-content-002.xht bug
+css/CSS2/generated-content/content-082.xht bug
+css/CSS2/generated-content/content-173.xht platform macOS draws this gray text one level lighter (max diff 2)
+css/CSS2/generated-content/content-174.xht not-yet generic-fonts (monospace maps to Ahem in the runner, which has no system fonts; the page relies on glyphs or metrics Ahem does not have)
+css/CSS2/generated-content/content-177.xht bug
+css/CSS2/generated-content/content-attr-case-002.xht xhtml attr() names are case-sensitive in XML; the .xht is parsed as HTML
+css/CSS2/generated-content/content-counter-004.xht not-yet ::marker details
+css/CSS2/generated-content/content-counter-007.xht platform
+css/CSS2/linebox/inline-box-002.xht bug
+css/CSS2/linebox/inline-formatting-context-011.xht bug
+css/CSS2/linebox/inline-formatting-context-013.xht font-metrics default font strut: its ascent is 1.07em (Noto Sans), over the 1em the reference assumes (passes with Times-like metrics)
+css/CSS2/linebox/inline-formatting-context-023.xht bug
+css/CSS2/linebox/vertical-align-sub-001.xht bug red text under green text of the same box: only antialiased edge pixels differ from the all-green ref
+css/CSS2/linebox/vertical-align-super-001.xht bug red text under green text of the same box: only antialiased edge pixels differ from the all-green ref
+css/CSS2/margin-padding-clear/margin-bottom-applies-to-012.xht bug the ref draws 10px bars at the top, the test has a 200px high inline-block with a bottom border at its bottom: test and ref disagree (CSS 2.1 10.6.6 gives our result)
+css/CSS2/margin-padding-clear/margin-bottom-applies-to-013.xht bug the ref draws 10px bars at the top, the test has a 200px high inline-block with a bottom border at its bottom: test and ref disagree (CSS 2.1 10.6.6 gives our result)
+css/CSS2/margin-padding-clear/margin-bottom-applies-to-014.xht bug the ref draws 10px bars at the top, the test has a 200px high inline-block with a bottom border at its bottom: test and ref disagree (CSS 2.1 10.6.6 gives our result)
+css/CSS2/margin-padding-clear/margin-bottom-applies-to-015.xht bug the ref draws 10px bars at the top, the test has a 200px high inline-block with a bottom border at its bottom: test and ref disagree (CSS 2.1 10.6.6 gives our result)
+css/CSS2/margin-padding-clear/margin-collapse-105.xht bug
+css/CSS2/margin-padding-clear/margin-em-inherit-001.xht font-metrics default font strut: its ascent is 1.07em (Noto Sans), over the 1em the reference assumes (passes with Times-like metrics)
+css/CSS2/margin-padding-clear/margin-percentage-inherit-001.xht font-metrics default font strut: its ascent is 1.07em (Noto Sans), over the 1em the reference assumes (passes with Times-like metrics)
+css/CSS2/margin-padding-clear/padding-em-inherit-001.xht font-metrics default font strut: its ascent is 1.07em (Noto Sans), over the 1em the reference assumes (passes with Times-like metrics)
+css/CSS2/margin-padding-clear/padding-left-applies-to-010.xht bug a list-item whose only child is an empty block: the marker's line box (22px) pushes the child down but the li's own left border should start at the child's top (box.c wrap_runs / marker host)
+css/CSS2/normal-flow/block-in-inline-float-in-layer-001.html r3-effects box-shadow, text-shadow, filters, masks, clip-path, blend modes, border-image (R3)
+css/CSS2/normal-flow/block-replaced-height-002.xht font-metrics default font strut: its ascent is 1.07em (Noto Sans), over the 1em the reference assumes (passes with Times-like metrics)
+css/CSS2/normal-flow/blocks-026.xht not-yet form controls
+css/CSS2/normal-flow/inline-block-replaced-height-002.xht font-metrics default font strut: its ascent is 1.07em (Noto Sans), over the 1em the reference assumes (passes with Times-like metrics)
+css/CSS2/normal-flow/inline-non-replaced-width-001.xht bug
+css/CSS2/normal-flow/inline-replaced-height-002.xht font-metrics default font strut: its ascent is 1.07em (Noto Sans), over the 1em the reference assumes (passes with Times-like metrics)
+css/CSS2/normal-flow/inlines-013.xht not-yet generic-fonts (monospace maps to Ahem in the runner, which has no system fonts; the page relies on glyphs or metrics Ahem does not have)
+css/CSS2/normal-flow/inlines-017.xht font-metrics default font strut: its ascent is 1.07em (Noto Sans), over the 1em the reference assumes (passes with Times-like metrics)
+css/CSS2/normal-flow/margin-collapse-min-height-001.html bug
+css/CSS2/positioning/absolute-replaced-height-001.xht font-metrics default font strut: its ascent is 1.07em (Noto Sans), over the 1em the reference assumes (passes with Times-like metrics)
+css/CSS2/positioning/absolute-replaced-height-002.xht font-metrics default font strut: its ascent is 1.07em (Noto Sans), over the 1em the reference assumes (passes with Times-like metrics)
+css/CSS2/positioning/abspos-001.xht font-metrics default font strut: its ascent is 1.07em (Noto Sans), over the 1em the reference assumes (passes with Times-like metrics)
+css/CSS2/positioning/abspos-024.xht bug
+css/CSS2/positioning/abspos-029.html font-metrics default font strut: its ascent is 1.07em (Noto Sans), over the 1em the reference assumes (passes with Times-like metrics)
+css/CSS2/positioning/abspos-negative-margin-001.html bug
+css/CSS2/positioning/position-relative-035.xht bug
+css/CSS2/selectors/before-first-letter-selector-001.xht bug
+css/CSS2/selectors/first-letter-quote-002.xht bug
+css/CSS2/selectors/first-letter-quote-005.xht bug
+css/CSS2/selectors/lang-selector-005.xht needs-http the test needs HTTP response headers
+css/CSS2/selectors/lang-selector-006.xht bug
+css/CSS2/selectors/pseudo-007.xht out-of-scope the reference (universal-selector-002-ref) does not match the test content: a WPT defect
+css/CSS2/stacking-context/opacity-affects-block-in-inline.html bug
+css/CSS2/stacking-context/root-element-creates-stacking-context.html bug
+css/CSS2/stacking-context/zindex-affects-block-in-inline.html bug
+css/CSS2/syntax/at-charset-002.xht needs-http the test needs HTTP response headers
+css/CSS2/syntax/at-charset-003.xht needs-http the test needs HTTP response headers
+css/CSS2/syntax/at-charset-004.xht needs-http the test needs HTTP response headers
+css/CSS2/syntax/at-charset-005.xht needs-http the test needs HTTP response headers
+css/CSS2/syntax/at-charset-006.xht needs-http the test needs HTTP response headers
+css/CSS2/syntax/at-charset-007.xht not-yet legacy-encodings (stylesheet bytes in Shift_JIS, Big5, ISO-8859-6 or windows-1252: the decoder handles UTF-8 and UTF-16 only)
+css/CSS2/syntax/at-charset-008.xht not-yet legacy-encodings (stylesheet bytes in Shift_JIS, Big5, ISO-8859-6 or windows-1252: the decoder handles UTF-8 and UTF-16 only)
+css/CSS2/syntax/at-charset-009.xht not-yet legacy-encodings (stylesheet bytes in Shift_JIS, Big5, ISO-8859-6 or windows-1252: the decoder handles UTF-8 and UTF-16 only)
+css/CSS2/syntax/at-charset-010.xht not-yet legacy-encodings (stylesheet bytes in Shift_JIS, Big5, ISO-8859-6 or windows-1252: the decoder handles UTF-8 and UTF-16 only)
+css/CSS2/syntax/at-charset-011.xht not-yet legacy-encodings (stylesheet bytes in Shift_JIS, Big5, ISO-8859-6 or windows-1252: the decoder handles UTF-8 and UTF-16 only)
+css/CSS2/syntax/at-charset-012.xht not-yet legacy-encodings (stylesheet bytes in Shift_JIS, Big5, ISO-8859-6 or windows-1252: the decoder handles UTF-8 and UTF-16 only)
+css/CSS2/syntax/at-charset-025.xht not-yet legacy-encodings (stylesheet bytes in Shift_JIS, Big5, ISO-8859-6 or windows-1252: the decoder handles UTF-8 and UTF-16 only)
+css/CSS2/syntax/at-charset-026.xht not-yet legacy-encodings (stylesheet bytes in Shift_JIS, Big5, ISO-8859-6 or windows-1252: the decoder handles UTF-8 and UTF-16 only)
+css/CSS2/syntax/at-charset-027.xht not-yet legacy-encodings (stylesheet bytes in Shift_JIS, Big5, ISO-8859-6 or windows-1252: the decoder handles UTF-8 and UTF-16 only)
+css/CSS2/syntax/at-charset-053.xht not-yet legacy-encodings (stylesheet bytes in Shift_JIS, Big5, ISO-8859-6 or windows-1252: the decoder handles UTF-8 and UTF-16 only)
+css/CSS2/syntax/at-charset-072.xht needs-http the test needs HTTP response headers
+css/CSS2/syntax/at-charset-074.xht needs-http the test needs HTTP response headers
+css/CSS2/syntax/at-charset-075.xht needs-http the test needs HTTP response headers
+css/CSS2/syntax/at-charset-076.xht needs-http the test needs HTTP response headers
+css/CSS2/syntax/at-charset-077.xht needs-http the test needs HTTP response headers
+css/CSS2/syntax/case-sensitive-007.xht bug
+css/CSS2/syntax/character-encoding-031.xht needs-http the test needs HTTP response headers
+css/CSS2/syntax/character-encoding-032.xht needs-http the test needs HTTP response headers
+css/CSS2/syntax/character-encoding-033.xht needs-http the test needs HTTP response headers
+css/CSS2/syntax/character-encoding-034.xht needs-http the test needs HTTP response headers
+css/CSS2/syntax/character-encoding-035.xht needs-http the test needs HTTP response headers
+css/CSS2/syntax/character-encoding-036.xht needs-http the test needs HTTP response headers
+css/CSS2/syntax/character-encoding-037.xht needs-http the test needs HTTP response headers
+css/CSS2/syntax/content-type-000.xht needs-http a stylesheet served as text/plain must be ignored: the runner serves files with no Content-Type
+css/CSS2/syntax/content-type-001.xht needs-http a stylesheet served as text/plain must be ignored: the runner serves files with no Content-Type
+css/CSS2/syntax/declarations-009.xht bug
+css/CSS2/syntax/uri-005.xht out-of-scope the fixture support/'green block.png is not in the imported WPT subset (the name has a quote and a space)
+css/CSS2/syntax/uri-018.xht bug
+css/CSS2/tables/border-collapse-empty-row.html bug collapsed borders across a row with no cells are not painted in the gap (table.c grid / paint)
+css/CSS2/tables/border-collapse-offset-002.xht bug
+css/CSS2/tables/border-conflict-element-001d.xht bug
+css/CSS2/tables/border-conflict-element-001e.xht bug
+css/CSS2/tables/column-visibility-004.xht bug a cell that spans a collapsed column is laid out at its full span width and clipped (Chromium); table.c lays it out at the remaining width, and a cell wholly in a collapsed column is not clipped, so its content shows
+css/CSS2/tables/fixed-table-layout-002a.xht bug
+css/CSS2/tables/fixed-table-layout-003a01.xht font-metrics a few antialiasing pixels: glyph or line metrics of the default font differ from the reference's
+css/CSS2/tables/fixed-table-layout-003a02.xht font-metrics a few antialiasing pixels: glyph or line metrics of the default font differ from the reference's
+css/CSS2/tables/fixed-table-layout-003a03.xht font-metrics a few antialiasing pixels: glyph or line metrics of the default font differ from the reference's
+css/CSS2/tables/fixed-table-layout-003a04.xht font-metrics a few antialiasing pixels: glyph or line metrics of the default font differ from the reference's
+css/CSS2/tables/fixed-table-layout-003a05.xht font-metrics a few antialiasing pixels: glyph or line metrics of the default font differ from the reference's
+css/CSS2/tables/fixed-table-layout-003a06.xht font-metrics a few antialiasing pixels: glyph or line metrics of the default font differ from the reference's
+css/CSS2/tables/fixed-table-layout-003b01.xht font-metrics a few antialiasing pixels: glyph or line metrics of the default font differ from the reference's
+css/CSS2/tables/fixed-table-layout-003b02.xht font-metrics a few antialiasing pixels: glyph or line metrics of the default font differ from the reference's
+css/CSS2/tables/fixed-table-layout-003b03.xht font-metrics a few antialiasing pixels: glyph or line metrics of the default font differ from the reference's
+css/CSS2/tables/fixed-table-layout-003b04.xht font-metrics a few antialiasing pixels: glyph or line metrics of the default font differ from the reference's
+css/CSS2/tables/fixed-table-layout-003b05.xht font-metrics a few antialiasing pixels: glyph or line metrics of the default font differ from the reference's
+css/CSS2/tables/fixed-table-layout-003b06.xht font-metrics a few antialiasing pixels: glyph or line metrics of the default font differ from the reference's
+css/CSS2/tables/fixed-table-layout-003b07.xht font-metrics a few antialiasing pixels: glyph or line metrics of the default font differ from the reference's
+css/CSS2/tables/fixed-table-layout-003b08.xht font-metrics a few antialiasing pixels: glyph or line metrics of the default font differ from the reference's
+css/CSS2/tables/fixed-table-layout-003b09.xht font-metrics a few antialiasing pixels: glyph or line metrics of the default font differ from the reference's
+css/CSS2/tables/fixed-table-layout-003b10.xht font-metrics a few antialiasing pixels: glyph or line metrics of the default font differ from the reference's
+css/CSS2/tables/fixed-table-layout-003b11.xht font-metrics a few antialiasing pixels: glyph or line metrics of the default font differ from the reference's
+css/CSS2/tables/fixed-table-layout-003b12.xht font-metrics a few antialiasing pixels: glyph or line metrics of the default font differ from the reference's
+css/CSS2/tables/fixed-table-layout-003c01.xht font-metrics a few antialiasing pixels: glyph or line metrics of the default font differ from the reference's
+css/CSS2/tables/fixed-table-layout-003c02.xht font-metrics a few antialiasing pixels: glyph or line metrics of the default font differ from the reference's
+css/CSS2/tables/fixed-table-layout-003c03.xht font-metrics a few antialiasing pixels: glyph or line metrics of the default font differ from the reference's
+css/CSS2/tables/fixed-table-layout-003c04.xht font-metrics a few antialiasing pixels: glyph or line metrics of the default font differ from the reference's
+css/CSS2/tables/fixed-table-layout-003c05.xht font-metrics a few antialiasing pixels: glyph or line metrics of the default font differ from the reference's
+css/CSS2/tables/fixed-table-layout-003c06.xht font-metrics a few antialiasing pixels: glyph or line metrics of the default font differ from the reference's
+css/CSS2/tables/fixed-table-layout-003c07.xht font-metrics a few antialiasing pixels: glyph or line metrics of the default font differ from the reference's
+css/CSS2/tables/fixed-table-layout-003c08.xht font-metrics a few antialiasing pixels: glyph or line metrics of the default font differ from the reference's
+css/CSS2/tables/fixed-table-layout-003d01.xht font-metrics a few antialiasing pixels: glyph or line metrics of the default font differ from the reference's
+css/CSS2/tables/fixed-table-layout-003d02.xht font-metrics a few antialiasing pixels: glyph or line metrics of the default font differ from the reference's
+css/CSS2/tables/fixed-table-layout-003d03.xht font-metrics a few antialiasing pixels: glyph or line metrics of the default font differ from the reference's
+css/CSS2/tables/fixed-table-layout-003d04.xht font-metrics a few antialiasing pixels: glyph or line metrics of the default font differ from the reference's
+css/CSS2/tables/fixed-table-layout-003d05.xht font-metrics a few antialiasing pixels: glyph or line metrics of the default font differ from the reference's
+css/CSS2/tables/fixed-table-layout-003d06.xht font-metrics a few antialiasing pixels: glyph or line metrics of the default font differ from the reference's
+css/CSS2/tables/fixed-table-layout-003e01.xht font-metrics a few antialiasing pixels: glyph or line metrics of the default font differ from the reference's
+css/CSS2/tables/fixed-table-layout-003e02.xht font-metrics a few antialiasing pixels: glyph or line metrics of the default font differ from the reference's
+css/CSS2/tables/fixed-table-layout-003e03.xht font-metrics a few antialiasing pixels: glyph or line metrics of the default font differ from the reference's
+css/CSS2/tables/fixed-table-layout-003e04.xht font-metrics a few antialiasing pixels: glyph or line metrics of the default font differ from the reference's
+css/CSS2/tables/fixed-table-layout-003e05.xht font-metrics a few antialiasing pixels: glyph or line metrics of the default font differ from the reference's
+css/CSS2/tables/fixed-table-layout-003e06.xht font-metrics a few antialiasing pixels: glyph or line metrics of the default font differ from the reference's
+css/CSS2/tables/fixed-table-layout-003e07.xht font-metrics a few antialiasing pixels: glyph or line metrics of the default font differ from the reference's
+css/CSS2/tables/fixed-table-layout-003e08.xht font-metrics a few antialiasing pixels: glyph or line metrics of the default font differ from the reference's
+css/CSS2/tables/fixed-table-layout-003e09.xht font-metrics a few antialiasing pixels: glyph or line metrics of the default font differ from the reference's
+css/CSS2/tables/fixed-table-layout-003e10.xht font-metrics a few antialiasing pixels: glyph or line metrics of the default font differ from the reference's
+css/CSS2/tables/fixed-table-layout-003e11.xht font-metrics a few antialiasing pixels: glyph or line metrics of the default font differ from the reference's
+css/CSS2/tables/fixed-table-layout-003e12.xht font-metrics a few antialiasing pixels: glyph or line metrics of the default font differ from the reference's
+css/CSS2/tables/fixed-table-layout-003f01.xht font-metrics a few antialiasing pixels: glyph or line metrics of the default font differ from the reference's
+css/CSS2/tables/fixed-table-layout-003f02.xht font-metrics a few antialiasing pixels: glyph or line metrics of the default font differ from the reference's
+css/CSS2/tables/fixed-table-layout-003f03.xht font-metrics a few antialiasing pixels: glyph or line metrics of the default font differ from the reference's
+css/CSS2/tables/fixed-table-layout-003f04.xht font-metrics a few antialiasing pixels: glyph or line metrics of the default font differ from the reference's
+css/CSS2/tables/fixed-table-layout-003f05.xht font-metrics a few antialiasing pixels: glyph or line metrics of the default font differ from the reference's
+css/CSS2/tables/fixed-table-layout-003f06.xht font-metrics a few antialiasing pixels: glyph or line metrics of the default font differ from the reference's
+css/CSS2/tables/fixed-table-layout-003f07.xht font-metrics a few antialiasing pixels: glyph or line metrics of the default font differ from the reference's
+css/CSS2/tables/fixed-table-layout-003f08.xht font-metrics a few antialiasing pixels: glyph or line metrics of the default font differ from the reference's
+css/CSS2/tables/table-anonymous-objects-079.xht not-yet generic-fonts (monospace maps to Ahem in the runner, which has no system fonts; the page relies on glyphs or metrics Ahem does not have)
+css/CSS2/tables/table-anonymous-objects-080.xht not-yet generic-fonts (monospace maps to Ahem in the runner, which has no system fonts; the page relies on glyphs or metrics Ahem does not have)
+css/CSS2/tables/table-anonymous-objects-081.xht not-yet generic-fonts (monospace maps to Ahem in the runner, which has no system fonts; the page relies on glyphs or metrics Ahem does not have)
+css/CSS2/tables/table-anonymous-objects-082.xht not-yet generic-fonts (monospace maps to Ahem in the runner, which has no system fonts; the page relies on glyphs or metrics Ahem does not have)
+css/CSS2/tables/table-anonymous-objects-083.xht not-yet generic-fonts (monospace maps to Ahem in the runner, which has no system fonts; the page relies on glyphs or metrics Ahem does not have)
+css/CSS2/tables/table-anonymous-objects-084.xht not-yet generic-fonts (monospace maps to Ahem in the runner, which has no system fonts; the page relies on glyphs or metrics Ahem does not have)
+css/CSS2/tables/table-anonymous-objects-085.xht bug monospace is Ahem here (1em wide), so the nowrap p and the ref's wrapping p differ in height; not a table bug
+css/CSS2/tables/table-anonymous-objects-086.xht bug monospace is Ahem here (1em wide), so the nowrap p and the ref's wrapping p differ in height; not a table bug
+css/CSS2/text/letter-spacing-080.xht bug
+css/CSS2/text/text-decoration-va-length-001.xht bug
+css/CSS2/text/white-space-applies-to-001.xht font-metrics default font strut: its ascent is 1.07em (Noto Sans), over the 1em the reference assumes (passes with Times-like metrics)
+css/CSS2/text/white-space-applies-to-002.xht font-metrics default font strut: its ascent is 1.07em (Noto Sans), over the 1em the reference assumes (passes with Times-like metrics)
+css/CSS2/text/white-space-applies-to-005.xht font-metrics default font strut: its ascent is 1.07em (Noto Sans), over the 1em the reference assumes (passes with Times-like metrics)
+css/CSS2/text/white-space-applies-to-006.xht font-metrics default font strut: its ascent is 1.07em (Noto Sans), over the 1em the reference assumes (passes with Times-like metrics)
+css/CSS2/text/white-space-applies-to-007.xht font-metrics default font strut: its ascent is 1.07em (Noto Sans), over the 1em the reference assumes (passes with Times-like metrics)
+css/CSS2/text/white-space-applies-to-008.xht font-metrics default font strut: its ascent is 1.07em (Noto Sans), over the 1em the reference assumes (passes with Times-like metrics)
+css/CSS2/text/white-space-applies-to-009.xht font-metrics default font strut: its ascent is 1.07em (Noto Sans), over the 1em the reference assumes (passes with Times-like metrics)
+css/CSS2/text/white-space-applies-to-010.xht font-metrics default font strut: its ascent is 1.07em (Noto Sans), over the 1em the reference assumes (passes with Times-like metrics)
+css/CSS2/text/white-space-applies-to-011.xht font-metrics default font strut: its ascent is 1.07em (Noto Sans), over the 1em the reference assumes (passes with Times-like metrics)
+css/CSS2/text/white-space-applies-to-012.xht font-metrics default font strut: its ascent is 1.07em (Noto Sans), over the 1em the reference assumes (passes with Times-like metrics)
+css/CSS2/text/white-space-applies-to-013.xht font-metrics default font strut: its ascent is 1.07em (Noto Sans), over the 1em the reference assumes (passes with Times-like metrics)
+css/CSS2/text/white-space-applies-to-014.xht font-metrics default font strut: its ascent is 1.07em (Noto Sans), over the 1em the reference assumes (passes with Times-like metrics)
+css/CSS2/text/white-space-applies-to-015.xht font-metrics default font strut: its ascent is 1.07em (Noto Sans), over the 1em the reference assumes (passes with Times-like metrics)
+css/CSS2/text/white-space-bidirectionality-001.xht bug
+css/CSS2/text/white-space-collapsing-bidi-001.xht writing-mode
+css/CSS2/text/white-space-collapsing-bidi-002.xht writing-mode
+css/CSS2/text/white-space-mixed-001.xht bug
+css/CSS2/text/white-space-mixed-002.xht font-metrics default font strut: its ascent is 1.07em (Noto Sans), over the 1em the reference assumes (passes with Times-like metrics)
+css/CSS2/text/white-space-pre-001.xht bug
+css/CSS2/text/white-space-processing-001.xht font-metrics default font strut: its ascent is 1.07em (Noto Sans), over the 1em the reference assumes (passes with Times-like metrics)
+css/CSS2/text/white-space-processing-011.xht font-metrics default font strut: its ascent is 1.07em (Noto Sans), over the 1em the reference assumes (passes with Times-like metrics)
+css/CSS2/text/white-space-processing-012.xht font-metrics default font strut: its ascent is 1.07em (Noto Sans), over the 1em the reference assumes (passes with Times-like metrics)
+css/CSS2/text/white-space-processing-019.xht font-metrics default font strut: its ascent is 1.07em (Noto Sans), over the 1em the reference assumes (passes with Times-like metrics)
+css/CSS2/text/white-space-processing-020.xht font-metrics default font strut: its ascent is 1.07em (Noto Sans), over the 1em the reference assumes (passes with Times-like metrics)
+css/CSS2/text/white-space-processing-021.xht font-metrics default font strut: its ascent is 1.07em (Noto Sans), over the 1em the reference assumes (passes with Times-like metrics)
+css/CSS2/text/white-space-processing-022.xht font-metrics default font strut: its ascent is 1.07em (Noto Sans), over the 1em the reference assumes (passes with Times-like metrics)
+css/CSS2/text/white-space-processing-031.xht font-metrics default font strut: its ascent is 1.07em (Noto Sans), over the 1em the reference assumes (passes with Times-like metrics)
+css/CSS2/text/white-space-processing-032.xht font-metrics default font strut: its ascent is 1.07em (Noto Sans), over the 1em the reference assumes (passes with Times-like metrics)
+css/CSS2/text/white-space-processing-033.xht font-metrics default font strut: its ascent is 1.07em (Noto Sans), over the 1em the reference assumes (passes with Times-like metrics)
+css/CSS2/text/white-space-processing-034.xht font-metrics default font strut: its ascent is 1.07em (Noto Sans), over the 1em the reference assumes (passes with Times-like metrics)
+css/CSS2/text/white-space-processing-035.xht font-metrics default font strut: its ascent is 1.07em (Noto Sans), over the 1em the reference assumes (passes with Times-like metrics)
+css/CSS2/text/white-space-processing-036.xht font-metrics default font strut: its ascent is 1.07em (Noto Sans), over the 1em the reference assumes (passes with Times-like metrics)
+css/CSS2/text/white-space-processing-042.xht bug
+css/CSS2/text/white-space-processing-050.xht font-metrics default font strut: its ascent is 1.07em (Noto Sans), over the 1em the reference assumes (passes with Times-like metrics)
+css/CSS2/text/white-space-processing-051.xht font-metrics default font strut: its ascent is 1.07em (Noto Sans), over the 1em the reference assumes (passes with Times-like metrics)
+css/CSS2/text/white-space-processing-054.xht font-metrics default font strut: its ascent is 1.07em (Noto Sans), over the 1em the reference assumes (passes with Times-like metrics)
+css/CSS2/text/white-space-processing-055.xht font-metrics default font strut: its ascent is 1.07em (Noto Sans), over the 1em the reference assumes (passes with Times-like metrics)
+css/CSS2/text/word-spacing-characters-001.xht bug
+css/CSS2/values/units-005.xht not-yet form controls
+css/CSS2/visudet/inline-block-baseline-003.xht bug diagnosed: CSS 2.2 10.8.1 says the higher of margin edge and last line baseline, but baseline-block-with-overflow-001 and vertical-align-baseline-005a (both pass with the margin edge) need the margin edge for the same case; the tests contradict each other, we follow the browsers
+css/CSS2/visudet/inline-block-baseline-004.xht bug diagnosed: CSS 2.2 10.8.1 says the higher of margin edge and last line baseline, but baseline-block-with-overflow-001 and vertical-align-baseline-005a (both pass with the margin edge) need the margin edge for the same case; the tests contradict each other, we follow the browsers
+css/CSS2/visudet/inline-block-baseline-005.xht bug diagnosed: CSS 2.2 10.8.1 says the higher of margin edge and last line baseline, but baseline-block-with-overflow-001 and vertical-align-baseline-005a (both pass with the margin edge) need the margin edge for the same case; the tests contradict each other, we follow the browsers
+css/CSS2/visudet/inline-block-baseline-006.xht bug diagnosed: CSS 2.2 10.8.1 says the higher of margin edge and last line baseline, but baseline-block-with-overflow-001 and vertical-align-baseline-005a (both pass with the margin edge) need the margin edge for the same case; the tests contradict each other, we follow the browsers
+css/CSS2/visudet/line-height-205.html bug
+css/CSS2/visufx/overflow-applies-to-001.xht font-metrics default font strut: its ascent is 1.07em (Noto Sans), over the 1em the reference assumes (passes with Times-like metrics)
+css/CSS2/visuren/anonymous-boxes-001a.xht bug
+css/CSS2/zorder/z-index-020.xht bug
+css/CSS2/generated-content/content-counter-006.xht not-applicable superseded by css-lists-3
+css/CSS2/generated-content/content-counter-008.xht not-applicable superseded by css-lists-3
+css/CSS2/syntax/counters-010.xht not-applicable superseded by css-lists-3

@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  div { color: red; }
+  #specific { color: blue; }
+  .cls { color: green; }
+  #imp { color: red !important; }
+  #imp.cls { color: green; }
+  #late { color: red; }
+  #late { color: purple; }
+  :is(#isd) { color: navy; }
+  :where(#wd) { color: navy; }
+  #inh { font-size: 20px; }
+  #child { font-size: 2em; }
+  #hidden { display: none; }
+</style>
+</head>
+<body>
+<div id="plain"></div>
+<div id="specific" class="cls"></div>
+<div id="imp" class="cls"></div>
+<div id="late"></div>
+<div id="isd"></div>
+<div id="wd"></div>
+<div id="inh"><span id="child"></span></div>
+<div id="hidden"></div>
+<!-- expect: plain color rgb(255, 0, 0) -->
+<!-- expect: specific color rgb(0, 0, 255) -->
+<!-- expect: imp color rgb(255, 0, 0) -->
+<!-- expect: late color rgb(128, 0, 128) -->
+<!-- expect: isd color rgb(0, 0, 128) -->
+<!-- expect: wd color rgb(255, 0, 0) -->
+<!-- expect: child font-size 40px -->
+<!-- expect: hidden display none -->

@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>Inline layout: justify spreads the free space over the spaces</title>
+<script src="/resources/testharness.js"></script>
+<script src="/resources/testharnessreport.js"></script>
+<script src="/resources/check-layout-th.js"></script>
+<link rel="stylesheet" href="/fonts/ahem.css">
+<style>
+body { margin: 0 } .a { font: 20px/20px Ahem } #d { width: 120px; text-align: justify }
+</style>
+<body onload="checkLayout('#d')">
+<!-- Derivation: CSS Text 3 section 7.3. The first line is XX XX (100px); 20px is free and goes to the one
+space, which becomes 40px. The second XX therefore starts at 80. The last line is XX, which text-align-last
+(auto) makes start-aligned, at 0 on line 2 (y 20). -->
+<div id="d" class="a" data-expected-width="120" data-expected-height="40"><span id="a">XX</span> <span id="b" data-offset-x="80" data-offset-y="0" data-expected-width="40" data-expected-height="20">XX</span> <span id="c" data-offset-x="0" data-offset-y="20" data-expected-width="40" data-expected-height="20">XX</span></div>
+</body>

@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>Inline layout: text-overflow ellipsis on a clipped line</title>
+<script src="/resources/testharness.js"></script>
+<script src="/resources/testharnessreport.js"></script>
+<script src="/resources/check-layout-th.js"></script>
+<link rel="stylesheet" href="/fonts/ahem.css">
+<style>
+body { margin: 0 } .a { font: 20px/20px Ahem } #d { width: 60px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
+</style>
+<body onload="checkLayout('#d')">
+<!-- Derivation: CSS Overflow 3 section 3. The ellipsis is 20px (one em in Ahem). The longest prefix that
+fits with it in 60px is XX (40px + 20px). The line is XX followed by the ellipsis, height 20. -->
+<div id="d" class="a" data-expected-width="60" data-expected-height="20">XXXXXXXX</div>
+</body>

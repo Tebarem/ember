@@ -1,0 +1,9 @@
+// This file was procedurally generated from the following sources:
+// - src/generators/yield-as-binding-identifier.case
+// - src/generators/syntax/class-decl-static-method.template
+
+$DONOTEVALUATE();
+
+class C {static *gen() {
+    var yield;
+}}

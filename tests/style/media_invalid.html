@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  div { width: 1px; }
+  @media not { #a { width: 2px; } }
+  @media screen, { #b { width: 3px; } }
+  @media (min-width: 600) { #c { width: 4px; } }
+  @media (min-width: 0) { #d { width: 5px; } }
+  @media (width >= 10) { #e { width: 6px; } }
+  @media not screen foo { #f { width: 7px; } }
+  @media not print and (bogus) junk { #g { width: 8px; } }
+  @media only (width >= 0px) { #h { width: 9px; } }
+  @media not print { #i { width: 10px; } }
+  @media screen, foo bar { #j { width: 11px; } }
+  @media screen and (width >= 0px) or (height >= 0px) { #k { width: 12px; } }
+  @media not (width >= 0px) and (height >= 0px) { #l { width: 13px; } }
+  @media (width >= 0px) and (height >= 0px) or (color) { #m { width: 14px; } }
+</style>
+</head>
+<body>
+<div id="a"></div><div id="b"></div><div id="c"></div><div id="d"></div><div id="e"></div><div id="f"></div><div id="g"></div><div id="h"></div><div id="i"></div><div id="j"></div><div id="k"></div><div id="l"></div><div id="m"></div>
+<!-- expect: a width 1px -->
+<!-- expect: b width 3px -->
+<!-- expect: c width 1px -->
+<!-- expect: d width 5px -->
+<!-- expect: e width 1px -->
+<!-- expect: f width 1px -->
+<!-- expect: g width 1px -->
+<!-- expect: h width 1px -->
+<!-- expect: i width 10px -->
+<!-- expect: j width 11px -->
+<!-- expect: k width 1px -->
+<!-- expect: l width 1px -->
+<!-- expect: m width 1px -->
+</body>
+</html>

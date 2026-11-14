@@ -1,0 +1,9 @@
+// Copyright (C) 2019 Aleksey Shvayka. All rights reserved.
+// This code is governed by the BSD license found in the LICENSE file.
+
+
+$DONOTEVALUATE();
+
+async function fn() {
+  for await (var {x} = 1 of []) {}
+}

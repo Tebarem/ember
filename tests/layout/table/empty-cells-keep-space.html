@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<script src="/resources/testharness.js"></script>
+<script src="/resources/testharnessreport.js"></script>
+<script src="/resources/check-layout-th.js"></script>
+<title>empty-cells: hide keeps the space of an empty cell</title>
+<style>body { margin: 0 } table { border-spacing: 0; empty-cells: hide } td { padding: 0 }</style>
+<body onload="checkLayout('table')">
+<!-- Derivation: CSS 2.1 17.6.1.1. The empty cell is 30px wide. With empty-cells: hide it paints nothing but
+it still takes its width, so the second cell starts at x = 30 and the table is 30 + 40 = 70px wide. -->
+<table data-expected-width="70" data-expected-height="10">
+  <tr>
+    <td style="width: 30px; height: 10px" data-expected-width="30" data-offset-x="0"></td>
+    <td style="width: 40px; height: 10px" data-expected-width="40" data-offset-x="30"><div style="height: 10px"></div></td>
+  </tr>
+</table>
+</body>

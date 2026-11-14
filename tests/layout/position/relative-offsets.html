@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>position: relative shifts a box after the flow, and percentages resolve against the containing block</title>
+<script src="/resources/testharness.js"></script>
+<script src="/resources/testharnessreport.js"></script>
+<script src="/resources/check-layout-th.js"></script>
+<style>
+body { margin: 0 } #c { position: relative; width: 200px; height: 100px }
+</style>
+<body onload="checkLayout('#c > div')">
+<!-- Derivation (CSS Position 3 section 3.2): the boxes are in normal flow at y = 0, 20, 40 and 60
+(each 20px high, no margins). A relative box moves by its offsets after the flow, so it does not move
+the boxes after it: the static box at y = 20 stays there.
+a: left 10px, top 5px: (10, 5).
+b: static, flow y 20.
+c: right 10px, bottom 10px (no left or top): dx = -10, dy = -10, flow y 40: (-10, 30).
+d: left 50% of the 200px width and top 10% of the definite height 100px: flow y 60, so (100, 70). -->
+<div id="c">
+  <div style="position: relative; left: 10px; top: 5px; width: 50px; height: 20px" data-offset-x="10" data-offset-y="5" data-expected-width="50" data-expected-height="20"></div>
+  <div style="width: 50px; height: 20px" data-offset-x="0" data-offset-y="20" data-expected-width="50" data-expected-height="20"></div>
+  <div style="position: relative; right: 10px; bottom: 10px; width: 50px; height: 20px" data-offset-x="-10" data-offset-y="30" data-expected-width="50" data-expected-height="20"></div>
+  <div style="position: relative; left: 50%; top: 10%; width: 50px; height: 20px" data-offset-x="100" data-offset-y="70" data-expected-width="50" data-expected-height="20"></div>
+</div>
+</body>

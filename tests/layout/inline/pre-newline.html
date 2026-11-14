@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>Inline layout: a preserved newline in white-space pre</title>
+<script src="/resources/testharness.js"></script>
+<script src="/resources/testharnessreport.js"></script>
+<script src="/resources/check-layout-th.js"></script>
+<link rel="stylesheet" href="/fonts/ahem.css">
+<style>
+
+body { margin: 0 } .a { font: 20px/20px Ahem } #d { white-space: pre }
+</style>
+<body onload="checkLayout('#d')">
+<!-- Derivation: white-space pre keeps the line feed, which is a forced break (CSS Text 3 section 4.1). XX is on line 1 and YY on line 2 at y 20. Height 40. pre does not wrap, so nothing else breaks. -->
+<div id="d" class="a" data-expected-width="800" data-expected-height="40">XX
+<span id="y" data-offset-x="0" data-offset-y="20" data-expected-width="40" data-expected-height="20">YY</span></div>
+</body>

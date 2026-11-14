@@ -1,0 +1,6 @@
+// Copyright (C) 2016 the V8 project authors. All rights reserved.
+// This code is governed by the BSD license found in the LICENSE file.
+
+
+assert.sameValue(eval('1; for (var a in {}) { }'), undefined);
+assert.sameValue(eval('2; for (var b in {}) { 3; }'), undefined);

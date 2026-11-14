@@ -1,0 +1,13 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>R4e: a CSS clip-path basic shape and a box on SVG elements use the element's box as the reference box</title>
+<link rel="match" href="svgfx-clip-shape-ref.html">
+<style>
+body { margin: 0; background: #fff }
+svg { position: absolute; left: 0; top: 0 }
+</style>
+<svg width="300" height="120">
+  <rect x="20" y="20" width="80" height="80" fill="#0a0" style="clip-path: inset(10px)"/>
+  <g transform="translate(120 0)"><rect x="20" y="20" width="60" height="80" fill="#00f" style="clip-path: polygon(0 0, 100% 0, 0 100%)"/></g>
+  <rect x="220" y="20" width="60" height="60" fill="#f00" stroke="#00f" stroke-width="20" style="clip-path: fill-box"/>
+</svg>

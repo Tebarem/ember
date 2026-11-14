@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>A cleared first child does not collapse its margin through the parent beside a shorter float</title>
+<script src="/resources/testharness.js"></script>
+<script src="/resources/testharnessreport.js"></script>
+<script src="/resources/check-layout-th.js"></script>
+<style>
+body { margin: 0 } #c { position: relative; width: 200px } .clr { clear: left; margin-top: 10px; height: 10px }
+</style>
+<body onload="checkLayout('#c > div')">
+<!-- Derivation (CSS 2.1 8.3.1 and 9.5.2): clearance inhibits margin collapsing, so the cleared block's top
+margin is not passed to #c. The float is 5 tall at the top of #c (0..5), and the block's border top goes to
+the float's bottom at 5, which the 10px margin does not move. The block is 200 wide: no float is beside it. -->
+<div id="c">
+  <div style="float: left; width: 50px; height: 5px" data-offset-x="0" data-offset-y="0" data-expected-width="50" data-expected-height="5"></div>
+  <div class="clr" data-offset-x="0" data-offset-y="5" data-expected-width="200" data-expected-height="10"></div>
+</div>
+</body>

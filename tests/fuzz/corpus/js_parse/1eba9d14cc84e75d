@@ -1,0 +1,8 @@
+// This file was procedurally generated from the following sources:
+// - src/assignment-target-type/bitwiseorexpression-bitwise-or-bitwisexorexpression-2.case
+// - src/assignment-target-type/invalid/direct.template
+
+
+$DONOTEVALUATE();
+
+true | false = 1;

@@ -1,0 +1,2 @@
+span &gt; span { display: table-cell; }
+span &gt; span &gt; span { display: block; visibility: hidden; }

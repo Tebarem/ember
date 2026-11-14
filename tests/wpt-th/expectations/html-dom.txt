@@ -1,0 +1,7 @@
+# Expected failures of the testharness.js run in html-dom (generated; see tests/wpt-th/README.md).
+html/dom/reflection-forms-weekmonth.html not-yet 683 of 1618 subtests fail: assert_equals: IDL get expected "" but got " \0\x01\x02\x03\x04\x05\x06\x07 \b\t\n\v\f\r\x0e\x0f \x10\x11\x12\x13\x14\x15\x
+html/dom/reflection-text.html not-yet 3130 of 11333 subtests fail: assert_equals: IDL get expected "" but got " \0\x01\x02\x03\x04\x05\x06\x07 \b\t\n\v\f\r\x0e\x0f \x10\x11\x12\x13\x14\x15
+html/dom/reflection-grouping.html not-yet 1680 of 5904 subtests fail: assert_equals: IDL get expected "" but got " \0\x01\x02\x03\x04\x05\x06\x07 \b\t\n\v\f\r\x0e\x0f \x10\x11\x12\x13\x14\x15\
+html/dom/reflection-tabular.html not-yet 2368 of 6506 subtests fail: assert_equals: IDL get expected "" but got " \0\x01\x02\x03\x04\x05\x06\x07 \b\t\n\v\f\r\x0e\x0f \x10\x11\x12\x13\x14\x15\
+html/dom/reflection-misc.html not-yet 1666 of 5345 subtests fail: assert_equals: IDL get expected "" but got " \0\x01\x02\x03\x04\x05\x06\x07 \b\t\n\v\f\r\x0e\x0f \x10\x11\x12\x13\x14\x15\
+html/dom/reflection-forms.html forms 3004 of 8817 subtests fail: assert_equals: IDL get expected "" but got " \0\x01\x02\x03\x04\x05\x06\x07 \b\t\n\v\f\r\x0e\x0f \x10\x11\x12\x13\x14\x15\

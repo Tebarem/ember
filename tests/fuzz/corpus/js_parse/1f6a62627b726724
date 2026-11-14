@@ -1,0 +1,11 @@
+// This file was procedurally generated from the following sources:
+// - src/class-elements/init-err-contains-super.case
+// - src/class-elements/initializer-error/cls-decl-fields-comp-name-nested.template
+
+
+$DONOTEVALUATE();
+
+var x = "string";
+class C {
+  [x] = () => super();
+}

@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>Inline layout: two brs make an empty line</title>
+<script src="/resources/testharness.js"></script>
+<script src="/resources/testharnessreport.js"></script>
+<script src="/resources/check-layout-th.js"></script>
+<link rel="stylesheet" href="/fonts/ahem.css">
+<style>
+
+body { margin: 0 } .a { font: 20px/20px Ahem }
+</style>
+<body onload="checkLayout('#d')">
+<!-- Derivation: the first br ends the line of XX. The second br sits alone on an empty line, which still has the height of the strut (20px). YY is on line 3 at y 40. Height 60. -->
+<div id="d" class="a" data-expected-width="800" data-expected-height="60"><span>XX</span><br><br><span id="y" data-offset-x="0" data-offset-y="40" data-expected-width="40" data-expected-height="20">YY</span></div>
+</body>

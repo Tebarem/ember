@@ -1,0 +1,13 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>box-shadow without blur is a plain offset rect, cut out under the box (reference)</title>
+<style>
+body { margin: 0; background: #fff }
+.a { position: absolute }
+</style>
+<div class="a" style="left:50px;top:45px;width:100px;height:60px;background:#f80"></div>
+<div class="a" style="left:30px;top:30px;width:100px;height:60px;background:#0a0"></div>
+<!-- the shadow is cut out under the translucent box: the page shows through it, not the shadow -->
+<div class="a" style="left:236px;top:36px;width:108px;height:68px;background:#f00"></div>
+<div class="a" style="left:230px;top:30px;width:100px;height:60px;background:#fff"></div>
+<div class="a" style="left:230px;top:30px;width:100px;height:60px;background:rgba(0,0,255,.5)"></div>

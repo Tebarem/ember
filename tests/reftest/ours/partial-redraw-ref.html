@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>Partial redraw reference: the same page scrolled to the same offset and drawn once (full redraw)</title>
+<meta name="ember-steps" content="scroll 0 113; render">
+<link rel="stylesheet" href="/fonts/ahem.css">
+<style>
+html { overflow: hidden }
+body { margin: 0; padding-bottom: 600px; font: 20px/30px Ahem; color: #036 }
+.row { height: 40px; padding-left: 10px }
+.row:nth-child(3n) { background: #fc6 }
+.row:nth-child(3n+1) { background: #9cf }
+.row:nth-child(3n+2) { background: #cf9; border-bottom: 2px solid #333 }
+#box { position: absolute; left: 300px; top: 100px; width: 120px; height: 200px; background: #c36; opacity: .6 }
+</style>
+<div id="box"></div>
+<div id="rows"><div class="row">XX XX</div><div class="row">XXX</div><div class="row">X XXXX</div><div class="row">XX</div><div class="row">XXXX X</div><div class="row">X X X</div><div class="row">XXX XX</div><div class="row">XX XX</div><div class="row">X</div><div class="row">XXXXX</div><div class="row">XX X</div><div class="row">X XX</div><div class="row">XXX</div><div class="row">XX XX</div><div class="row">XXXX</div><div class="row">X X</div></div>

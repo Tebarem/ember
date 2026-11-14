@@ -1,0 +1,12 @@
+// Copyright (C) 2017 André Bargull. All rights reserved.
+// This code is governed by the BSD license found in the LICENSE file.
+
+
+
+import* as self from "./object-propertyIsEnumerable-binding-uninit.js";
+
+assert.throws(ReferenceError, function() {
+  Object.prototype.propertyIsEnumerable.call(self, "default");
+});
+
+export default 0;

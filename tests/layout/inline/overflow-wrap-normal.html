@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>Inline layout: overflow-wrap normal does not break a long word</title>
+<script src="/resources/testharness.js"></script>
+<script src="/resources/testharnessreport.js"></script>
+<script src="/resources/check-layout-th.js"></script>
+<link rel="stylesheet" href="/fonts/ahem.css">
+<style>
+body { margin: 0 } .a { font: 20px/20px Ahem } #d { width: 60px }
+</style>
+<body onload="checkLayout('#d')">
+<!-- Derivation: CSS Text 3 section 5.5. overflow-wrap normal allows no break inside the 100px word, so it is one
+overflowing line of height 20. -->
+<div id="d" class="a" data-expected-width="60" data-expected-height="20">XXXXX</div>
+</body>

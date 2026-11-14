@@ -1,0 +1,9 @@
+css/css-position/position-absolute-in-inline-005.html bug
+css/css-position/position-absolute-in-inline-007a.html layout an absolutely positioned box whose containing block is an inline box that a column break splits: the containing block rect over the pieces in different columns (position.c)
+css/css-position/position-absolute-in-inline-007b.html layout an absolutely positioned box whose containing block is an inline box that a column break splits: the containing block rect over the pieces in different columns (position.c)
+css/css-position/position-absolute-in-inline-009.html layout an absolutely positioned box whose containing block is an inline box that a column break splits: the containing block rect over the pieces in different columns (position.c)
+css/css-position/position-absolute-in-inline-011.html layout an absolutely positioned box whose containing block is an inline box that a column break splits: the containing block rect over the pieces in different columns (position.c)
+css/css-position/position-absolute-semi-replaced-stretch-button.html not-yet form controls
+css/css-position/position-absolute-semi-replaced-stretch-input.html not-yet form controls
+css/css-position/position-absolute-semi-replaced-stretch-other.html not-yet form controls
+css/css-position/sticky/position-sticky-table-pixel-rounding.html bug

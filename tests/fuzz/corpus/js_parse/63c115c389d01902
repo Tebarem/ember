@@ -1,0 +1,11 @@
+// This file was procedurally generated from the following sources:
+// - src/dynamic-import/import-defer-assignment-expr-not-optional.case
+// - src/dynamic-import/syntax/invalid/nested-if.template
+
+
+$DONOTEVALUATE();
+
+if (true) {
+  import.defer();
+}
+

@@ -1,0 +1,10 @@
+// Copyright (c) 2012 Ecma International.  All rights reserved.
+// This code is governed by the BSD license found in the LICENSE file.
+
+
+
+function callbackfn(val, idx, obj) {
+  return this.valueOf() === 101;
+}
+
+assert([11].some(callbackfn, 101), '[11].some(callbackfn, 101) !== true');

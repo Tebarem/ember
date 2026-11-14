@@ -1,0 +1,16 @@
+div { height: 100px; }
+      div.flexbox {
+        border: 1px dashed blue;
+        width: 200px;
+        display: flex;
+        justify-content: space-around;
+      }
+      div.a {
+        width: 30px;
+        background: lightgreen;
+      }
+      div.b {
+        width: 20px;
+        background: lightblue;
+      }
+      img { width: 40px; }

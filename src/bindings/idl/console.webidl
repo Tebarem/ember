@@ -1,0 +1,22 @@
+[Exposed=Window]
+namespace console {
+    undefined assert(optional boolean condition = false, any... data);
+    undefined clear();
+    undefined debug(any... data);
+    undefined error(any... data);
+    undefined info(any... data);
+    undefined log(any... data);
+    undefined table(optional any tabularData, optional sequence<DOMString> properties);
+    undefined trace(any... data);
+    undefined warn(any... data);
+    undefined dir(optional any item, optional object? options);
+    undefined dirxml(any... data);
+    undefined count(optional DOMString label = "default");
+    undefined countReset(optional DOMString label = "default");
+    undefined group(any... data);
+    undefined groupCollapsed(any... data);
+    undefined groupEnd();
+    undefined time(optional DOMString label = "default");
+    undefined timeLog(optional DOMString label = "default", any... data);
+    undefined timeEnd(optional DOMString label = "default");
+};

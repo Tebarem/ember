@@ -1,0 +1,51 @@
+css/css-flexbox/balance/balance-001.html not-yet text-wrap: balance and pretty
+css/css-flexbox/balance/balance-002.html not-yet text-wrap: balance and pretty
+css/css-flexbox/balance/balance-003.html not-yet text-wrap: balance and pretty
+css/css-flexbox/balance/balance-005.html not-yet text-wrap: balance and pretty
+css/css-flexbox/balance/balance-available-size-001.html not-yet text-wrap: balance and pretty
+css/css-flexbox/balance/balance-complex.html not-yet text-wrap: balance and pretty
+css/css-flexbox/balance/balance-flex-grow.html not-yet text-wrap: balance and pretty
+css/css-flexbox/balance/balance-line-break-overflowing-item.html not-yet text-wrap: balance and pretty
+css/css-flexbox/balance/balance-line-count-intrinsic-001.html not-yet text-wrap: balance and pretty
+css/css-flexbox/balance/balance-line-count-intrinsic-002.html not-yet text-wrap: balance and pretty
+css/css-flexbox/balance/balance-line-count-intrinsic-003.html not-yet text-wrap: balance and pretty
+css/css-flexbox/balance/balance-line-count-intrinsic-004.html not-yet text-wrap: balance and pretty
+css/css-flexbox/balance/balance-line-count-intrinsic-005.html not-yet text-wrap: balance and pretty
+css/css-flexbox/balance/balance-line-count-intrinsic-006.html not-yet text-wrap: balance and pretty
+css/css-flexbox/balance/balance-line-count-intrinsic-007.html not-yet text-wrap: balance and pretty
+css/css-flexbox/balance/balance-min-line-count-001.html not-yet text-wrap: balance and pretty
+css/css-flexbox/balance/balance-min-line-count-002.html not-yet text-wrap: balance and pretty
+css/css-flexbox/balance/balance-min-line-count-003.html not-yet text-wrap: balance and pretty
+css/css-flexbox/balance/balance-min-line-count-004.html not-yet text-wrap: balance and pretty
+css/css-flexbox/balance/balance-min-line-count-005.html not-yet text-wrap: balance and pretty
+css/css-flexbox/balance/balance-min-line-count-006.html not-yet text-wrap: balance and pretty
+css/css-flexbox/balance/balance-negative-margin-001.html not-yet text-wrap: balance and pretty
+css/css-flexbox/balance/balance-percentage-size-001.html not-yet text-wrap: balance and pretty
+css/css-flexbox/balance/balance-percentage-size-002.html not-yet text-wrap: balance and pretty
+css/css-flexbox/balance/balance-start-bias-001.html not-yet text-wrap: balance and pretty
+css/css-flexbox/balance/balance-start-bias-002.html not-yet text-wrap: balance and pretty
+css/css-flexbox/balance/balance-start-bias-003.html not-yet text-wrap: balance and pretty
+css/css-flexbox/balance/balance-zero-size.html not-yet text-wrap: balance and pretty
+css/css-flexbox/content-height-with-scrollbars.html bug
+css/css-flexbox/fieldset-baseline-alignment.html bug
+css/css-flexbox/fixed-table-layout-with-percentage-width-in-flex-item.html bug
+css/css-flexbox/flex-container-max-content-001.html layout not multicol: max-content and min-content contributions of flex items in a flex container sized by its content
+css/css-flexbox/flex-container-min-content-001.html layout not multicol: max-content and min-content contributions of flex items in a flex container sized by its content
+css/css-flexbox/flexbox-align-self-baseline-horiz-001a.xhtml bug
+css/css-flexbox/flexbox-align-self-baseline-horiz-001b.xhtml bug
+css/css-flexbox/flexbox-align-self-vert-004.xhtml bug
+css/css-flexbox/flexbox-align-self-vert-rtl-001.xhtml bug
+css/css-flexbox/flexbox-align-self-vert-rtl-002.xhtml bug
+css/css-flexbox/flexbox-align-self-vert-rtl-005.xhtml bug
+css/css-flexbox/flexbox-basic-fieldset-vert-001.xhtml not-yet generic-fonts (monospace maps to Ahem in the runner, which has no system fonts; the page relies on glyphs or metrics Ahem does not have)
+css/css-flexbox/flexbox-basic-img-vert-001.xhtml not-yet generic-fonts (monospace maps to Ahem in the runner, which has no system fonts; the page relies on glyphs or metrics Ahem does not have)
+css/css-flexbox/flexbox-basic-textarea-horiz-001.xhtml not-yet form controls
+css/css-flexbox/flexbox-basic-textarea-vert-001.xhtml not-yet form controls
+css/css-flexbox/flexbox-items-as-stacking-contexts-002.html bug
+css/css-flexbox/flexbox-safe-overflow-position-001.html bug
+css/css-flexbox/flexbox-safe-overflow-position-006.html bug
+css/css-flexbox/flexbox-sizing-vert-001.xhtml bug
+css/css-flexbox/flexbox-table-fixup-001.xhtml bug
+css/css-flexbox/flexbox-whitespace-handling-001a.xhtml bug
+css/css-flexbox/multiline-shrink-to-fit.html bug
+css/css-flexbox/whitespace-in-flexitem-001.html bug

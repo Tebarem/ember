@@ -1,0 +1,506 @@
+# CSS property database. Input of tools/cssgen, which writes src/css/props.inc.
+#
+#   name | kind | inherited | keywords | types | initial | anim | interp | group | longhands [| logic]
+#
+#   kind        L longhand, S shorthand
+#   inherited   0 or 1
+#   keywords    comma-separated keywords accepted as the whole value, or -
+#   types       value types: len pct lenpct num int pint (integer >= 1) alpha angle time res color url str ident list,
+#               g:<grammar> (compound value),
+#               or -. A '+' makes numeric types non-negative. 'list' = comma-separated list.
+#   initial     CSS text, parsed on demand. - for shorthands.
+#   Known gaps (discrete although the spec interpolates): clip (rect), grid-template-columns/rows (track lists), font-variation-settings (tag/number list).
+#   anim        animation type: N not animatable, D discrete, L length-percentage, F number, C color,
+#               X compound (the interp kind decides how the value mixes; see src/anim/interp.c)
+#   interp      interpolation kind of the computed value's type: - (discrete), len (length, percentage,
+#               calc, or number pairs), num (number or percentage), int (integer, rounded), color, shadow,
+#               filter, xform (transform list), shape (basic shape), pos (two-axis position), axis
+#               (background-position-x and -y lists), lplist (lists of lengths and numbers), vis (visibility),
+#               disp (display), cv (content-visibility), ratio (<ratio>)
+#   group       style struct group for W2d, or -
+#   longhands   shorthand components, or -
+#
+#   logic       optional (11th field): P:<kind>.<family>:<role> physical or L:<kind>.<family>:<role>
+#               flow-relative, e.g. P:box.margin:left and L:box.margin:inline-start. Properties of one
+#               family map onto each other per writing mode (embi_prop_to_physical in props.h).
+#
+# Grammar scope: simple values are typed by the 'types' field. Compound values use 'g:<name>',
+# which selects the function embi_gram_<name> (src/css/value_*.c): it parses the whole value, or
+# each comma-separated item when 'list' is also given, into a typed structure (props.h). Keywords
+# listed for a property are the ones valid as the entire value (they parse to a KEYWORD before the
+# grammar runs); keywords that only occur inside a compound value are declared with @kw. Every
+# value is validated and typed; there is no unparsed fallback. Shorthands are expanded by
+# src/css/shorthand.c. Adding a property is one line here plus a regeneration
+# (cmake --build build/<dir> --target cssgen).
+#
+# Extra keywords used inside compound grammars (not valid as a whole value of any property).
+@kw left right top bottom center x y block inline both mandatory proximity light dark only
+@kw ex-height cap-height ch-width ic-width ic-height both-edges to at from in circle ellipse
+@kw closest-side farthest-side closest-corner farthest-corner span auto-fill auto-fit subgrid
+@kw on off round nonzero evenodd reversed fill type
+@kw filled open dot double-circle triangle sesame markers
+@kw first last safe unsafe repeat space no-repeat stretch pre pre-wrap pre-line auto-flow dense hanging each-line
+
+# ---- box and sizing
+display|L|0|none,block,inline,inline-block,flex,inline-flex,grid,inline-grid,table,inline-table,table-row,table-cell,table-caption,table-column,table-column-group,table-header-group,table-footer-group,table-row-group,list-item,contents,flow-root,ruby,ruby-base,ruby-text,-webkit-box,-webkit-inline-box,-internal-inline-list-item,-internal-flow-root-list-item,-internal-inline-flow-root-list-item|-|inline|D|disp|box|-
+width|L|0|auto,min-content,max-content,fit-content,stretch|g:size|auto|L|len|box|-|P:size.size:width
+height|L|0|auto,min-content,max-content,fit-content,stretch|g:size|auto|L|len|box|-|P:size.size:height
+min-width|L|0|auto,min-content,max-content,fit-content,stretch|g:size|auto|L|len|box|-|P:size.min_size:width
+min-height|L|0|auto,min-content,max-content,fit-content,stretch|g:size|auto|L|len|box|-|P:size.min_size:height
+max-width|L|0|none,min-content,max-content,fit-content,stretch|g:size|none|L|len|box|-|P:size.max_size:width
+max-height|L|0|none,min-content,max-content,fit-content,stretch|g:size|none|L|len|box|-|P:size.max_size:height
+inline-size|L|0|auto,min-content,max-content,fit-content,stretch|g:size|auto|L|len|box|-|L:size.size:inline
+block-size|L|0|auto,min-content,max-content,fit-content,stretch|g:size|auto|L|len|box|-|L:size.size:block
+box-sizing|L|0|content-box,border-box|-|content-box|D|-|box|-
+aspect-ratio|L|0|auto|g:aspect_ratio|auto|X|ratio|box|-
+float|L|0|left,right,none,inline-start,inline-end|-|none|D|-|box|-
+clear|L|0|none,left,right,both,inline-start,inline-end|-|none|D|-|box|-
+
+# ---- margin and padding
+margin-top|L|0|auto|lenpct|0|L|len|margin|-|P:box.margin:top
+margin-right|L|0|auto|lenpct|0|L|len|margin|-|P:box.margin:right
+margin-bottom|L|0|auto|lenpct|0|L|len|margin|-|P:box.margin:bottom
+margin-left|L|0|auto|lenpct|0|L|len|margin|-|P:box.margin:left
+margin-block-start|L|0|auto|lenpct|0|L|len|margin|-|L:box.margin:block-start
+margin-block-end|L|0|auto|lenpct|0|L|len|margin|-|L:box.margin:block-end
+margin-inline-start|L|0|auto|lenpct|0|L|len|margin|-|L:box.margin:inline-start
+margin-inline-end|L|0|auto|lenpct|0|L|len|margin|-|L:box.margin:inline-end
+margin|S|0|-|-|-|-|-|margin|margin-top,margin-right,margin-bottom,margin-left
+margin-block|S|0|-|-|-|-|-|margin|margin-block-start,margin-block-end
+margin-inline|S|0|-|-|-|-|-|margin|margin-inline-start,margin-inline-end
+padding-top|L|0|-|+lenpct|0|L|len|padding|-|P:box.padding:top
+padding-right|L|0|-|+lenpct|0|L|len|padding|-|P:box.padding:right
+padding-bottom|L|0|-|+lenpct|0|L|len|padding|-|P:box.padding:bottom
+padding-left|L|0|-|+lenpct|0|L|len|padding|-|P:box.padding:left
+padding-block-start|L|0|-|+lenpct|0|L|len|padding|-|L:box.padding:block-start
+padding-block-end|L|0|-|+lenpct|0|L|len|padding|-|L:box.padding:block-end
+padding-inline-start|L|0|-|+lenpct|0|L|len|padding|-|L:box.padding:inline-start
+padding-inline-end|L|0|-|+lenpct|0|L|len|padding|-|L:box.padding:inline-end
+padding|S|0|-|-|-|-|-|padding|padding-top,padding-right,padding-bottom,padding-left
+padding-block|S|0|-|-|-|-|-|padding|padding-block-start,padding-block-end
+padding-inline|S|0|-|-|-|-|-|padding|padding-inline-start,padding-inline-end
+
+# ---- borders and outline
+border-top-width|L|0|thin,medium,thick|+len|medium|L|len|border|-|P:box.border_width:top
+border-right-width|L|0|thin,medium,thick|+len|medium|L|len|border|-|P:box.border_width:right
+border-bottom-width|L|0|thin,medium,thick|+len|medium|L|len|border|-|P:box.border_width:bottom
+border-left-width|L|0|thin,medium,thick|+len|medium|L|len|border|-|P:box.border_width:left
+border-top-style|L|0|none,hidden,dotted,dashed,solid,double,groove,ridge,inset,outset|-|none|D|-|border|-|P:box.border_style:top
+border-right-style|L|0|none,hidden,dotted,dashed,solid,double,groove,ridge,inset,outset|-|none|D|-|border|-|P:box.border_style:right
+border-bottom-style|L|0|none,hidden,dotted,dashed,solid,double,groove,ridge,inset,outset|-|none|D|-|border|-|P:box.border_style:bottom
+border-left-style|L|0|none,hidden,dotted,dashed,solid,double,groove,ridge,inset,outset|-|none|D|-|border|-|P:box.border_style:left
+border-top-color|L|0|-|color|currentcolor|C|color|border|-|P:box.border_color:top
+border-right-color|L|0|-|color|currentcolor|C|color|border|-|P:box.border_color:right
+border-bottom-color|L|0|-|color|currentcolor|C|color|border|-|P:box.border_color:bottom
+border-left-color|L|0|-|color|currentcolor|C|color|border|-|P:box.border_color:left
+border-top-left-radius|L|0|-|g:radius|0|X|lplist|border|-|P:corner.radius:top-left
+border-top-right-radius|L|0|-|g:radius|0|X|lplist|border|-|P:corner.radius:top-right
+border-bottom-right-radius|L|0|-|g:radius|0|X|lplist|border|-|P:corner.radius:bottom-right
+border-bottom-left-radius|L|0|-|g:radius|0|X|lplist|border|-|P:corner.radius:bottom-left
+border-width|S|0|-|-|-|-|-|border|border-top-width,border-right-width,border-bottom-width,border-left-width
+border-style|S|0|-|-|-|-|-|border|border-top-style,border-right-style,border-bottom-style,border-left-style
+border-color|S|0|-|-|-|-|-|border|border-top-color,border-right-color,border-bottom-color,border-left-color
+border-radius|S|0|-|-|-|-|-|border|border-top-left-radius,border-top-right-radius,border-bottom-right-radius,border-bottom-left-radius
+border|S|0|-|-|-|-|-|border|border-top-width,border-right-width,border-bottom-width,border-left-width,border-top-style,border-right-style,border-bottom-style,border-left-style,border-top-color,border-right-color,border-bottom-color,border-left-color,border-image-source,border-image-slice,border-image-width,border-image-outset,border-image-repeat
+border-top|S|0|-|-|-|-|-|border|border-top-width,border-top-style,border-top-color
+border-right|S|0|-|-|-|-|-|border|border-right-width,border-right-style,border-right-color
+border-bottom|S|0|-|-|-|-|-|border|border-bottom-width,border-bottom-style,border-bottom-color
+border-left|S|0|-|-|-|-|-|border|border-left-width,border-left-style,border-left-color
+border-collapse|L|1|separate,collapse|-|separate|D|-|table|-
+border-spacing|L|1|-|g:spacing|0|X|lplist|table|-
+caption-side|L|1|top,bottom,block-start,block-end,inline-start,inline-end|-|top|D|-|table|-
+empty-cells|L|1|show,hide|-|show|D|-|table|-
+table-layout|L|0|auto,fixed|-|auto|D|-|table|-
+outline-style|L|0|auto,none,dotted,dashed,solid,double,groove,ridge,inset,outset|-|none|D|-|outline|-
+outline-width|L|0|thin,medium,thick|+len|medium|L|len|outline|-
+outline-color|L|0|-|color|currentcolor|C|color|outline|-
+outline-offset|L|0|inset|len|0|L|len|outline|-
+outline|S|0|-|-|-|-|-|outline|outline-color,outline-style,outline-width
+
+# ---- positioning and overflow
+position|L|0|static,relative,absolute,fixed,sticky|-|static|D|-|position|-
+top|L|0|auto|lenpct|auto|L|len|position|-|P:box.inset:top
+right|L|0|auto|lenpct|auto|L|len|position|-|P:box.inset:right
+bottom|L|0|auto|lenpct|auto|L|len|position|-|P:box.inset:bottom
+left|L|0|auto|lenpct|auto|L|len|position|-|P:box.inset:left
+inset-block-start|L|0|auto|lenpct|auto|L|len|position|-|L:box.inset:block-start
+inset-block-end|L|0|auto|lenpct|auto|L|len|position|-|L:box.inset:block-end
+inset-inline-start|L|0|auto|lenpct|auto|L|len|position|-|L:box.inset:inline-start
+inset-inline-end|L|0|auto|lenpct|auto|L|len|position|-|L:box.inset:inline-end
+inset|S|0|-|-|-|-|-|position|top,right,bottom,left
+inset-block|S|0|-|-|-|-|-|position|inset-block-start,inset-block-end
+inset-inline|S|0|-|-|-|-|-|position|inset-inline-start,inset-inline-end
+z-index|L|0|auto|int|auto|F|int|position|-
+overflow-x|L|0|visible,hidden,clip,scroll,auto|-|visible|D|-|ui|-
+overflow-y|L|0|visible,hidden,clip,scroll,auto|-|visible|D|-|ui|-
+overflow|S|0|-|-|-|-|-|ui|overflow-x,overflow-y
+visibility|L|1|visible,hidden,collapse|-|visible|D|vis|visibility|-
+opacity|L|0|-|alpha|1|F|num|effects|-
+scroll-behavior|L|0|auto,smooth|-|auto|N|-|ui|-
+scrollbar-width|L|0|auto,thin,none|-|auto|D|-|ui|-
+scrollbar-color|L|1|auto|g:scrollbar_color|auto|C|color|ui|-
+overscroll-behavior-x|L|0|auto,contain,none|-|auto|D|-|ui|-
+overscroll-behavior-y|L|0|auto,contain,none|-|auto|D|-|ui|-
+content-visibility|L|0|visible,auto,hidden|-|visible|D|cv|ui|-
+contain|L|0|none,strict,content,size,layout,style,paint,inline-size|g:kwset|none|N|-|ui|-
+scroll-snap-type|L|0|none|g:snap_type|none|D|-|ui|-
+scroll-snap-align|L|0|none,start,end,center|g:snap_align|none|D|-|ui|-
+scrollbar-gutter|L|0|auto,stable|g:kwset|auto|D|-|ui|-
+touch-action|L|0|auto,none,manipulation,pan-x,pan-y,pinch-zoom,pan-left,pan-right,pan-up,pan-down|g:kwset|auto|D|-|ui|-
+
+# ---- color and background
+color|L|1|-|color|canvastext|C|color|color|-
+background-color|L|0|-|color|transparent|C|color|bg|-
+color-scheme|L|1|normal|g:color_scheme|normal|D|-|ui|-
+accent-color|L|0|auto|color|auto|C|color|ui|-
+caret-color|L|1|auto|color|auto|C|color|ui|-
+forced-color-adjust|L|1|auto,none,preserve-parent-color|-|auto|D|-|ui|-
+
+# ---- font
+font-family|L|1|-|ident,str,list|serif|D|-|font|-
+font-size|L|1|xx-small,x-small,small,medium,large,x-large,xx-large,xxx-large,larger,smaller,math|+lenpct,pct|medium|L|len|font|-
+font-weight|L|1|normal,bold,bolder,lighter|g:font_weight|normal|F|num|font|-
+font-style|L|1|normal,italic,oblique|g:font_style|normal|D|-|font|-
+font-stretch|L|1|normal,ultra-condensed,extra-condensed,condensed,semi-condensed,semi-expanded,expanded,extra-expanded,ultra-expanded|pct|normal|F|num|font|-
+font-variant-caps|L|1|normal,small-caps,all-small-caps,petite-caps,all-petite-caps,unicase,titling-caps|-|normal|D|-|font|-
+font-kerning|L|1|auto,normal,none|-|auto|D|-|font|-
+font-optical-sizing|L|1|auto,none|-|auto|D|-|font|-
+font-feature-settings|L|1|normal|g:font_features,list|normal|D|-|font|-
+font-variation-settings|L|1|normal|g:font_variations,list|normal|D|-|font|-
+font-palette|L|1|normal,light,dark|ident|normal|D|-|font|-
+font-size-adjust|L|1|none,from-font|g:font_size_adjust|none|F|num|font|-
+line-height|L|1|normal|+lenpct,+num|normal|L|len|text|-
+
+# ---- text
+text-align|L|1|start,end,left,right,center,justify,match-parent,justify-all,-internal-center|-|start|D|-|text|-
+text-align-last|L|1|auto,start,end,left,right,center,justify|-|auto|D|-|text|-
+text-indent|L|1|-|g:text_indent|0|L|len|text|-
+text-transform|L|1|none,capitalize,uppercase,lowercase,full-width,full-size-kana,math-auto|g:kwset|none|D|-|text|-
+white-space|S|1|-|-|-|-|-|text|white-space-collapse,text-wrap-mode
+white-space-collapse|L|1|collapse,discard,preserve,preserve-breaks,preserve-spaces,break-spaces|-|collapse|D|-|text|-
+text-wrap-mode|L|1|wrap,nowrap|-|wrap|D|-|text|-
+text-wrap-style|L|1|auto,balance,pretty,stable|-|auto|D|-|text|-
+word-break|L|1|normal,break-all,keep-all,break-word|-|normal|D|-|text|-
+overflow-wrap|L|1|normal,break-word,anywhere|-|normal|D|-|text|-
+line-break|L|1|auto,loose,normal,strict,anywhere|-|auto|D|-|text|-
+hyphens|L|1|none,manual,auto|-|manual|D|-|text|-
+letter-spacing|L|1|normal|lenpct|normal|L|len|text|-
+word-spacing|L|1|normal|lenpct|normal|L|len|text|-
+tab-size|L|1|-|+int,+len|8|L|len|text|-
+text-decoration-line|L|0|none,underline,overline,line-through,blink,spelling-error,grammar-error|g:kwset|none|D|-|text|-
+text-decoration-style|L|0|solid,double,dotted,dashed,wavy|-|solid|D|-|text|-
+text-decoration-color|L|0|-|color|currentcolor|C|color|text|-
+text-decoration-thickness|L|0|auto,from-font|+lenpct,pct|auto|L|len|text|-
+text-decoration|S|0|-|-|-|-|-|text|text-decoration-line,text-decoration-style,text-decoration-color,text-decoration-thickness
+vertical-align|L|0|baseline,sub,super,text-top,text-bottom,middle,top,bottom|lenpct|baseline|L|len|text|-
+direction|L|1|ltr,rtl|-|ltr|N|-|text|-
+unicode-bidi|L|0|normal,embed,isolate,bidi-override,isolate-override,plaintext|-|normal|N|-|text|-
+writing-mode|L|1|horizontal-tb,vertical-rl,vertical-lr,sideways-rl,sideways-lr|-|horizontal-tb|N|-|text|-
+quotes|L|1|auto,none,match-parent|g:quotes|auto|D|-|text|-
+list-style-type|L|1|none,disc,circle,square,decimal,decimal-leading-zero,lower-roman,upper-roman,lower-latin,upper-latin,lower-alpha,upper-alpha,lower-greek,hebrew,armenian,georgian,cjk-decimal,hiragana,katakana|str,ident|disc|D|-|list|-
+list-style-position|L|1|inside,outside|-|outside|D|-|list|-
+list-style|S|1|-|-|-|-|-|list|list-style-position,list-style-image,list-style-type
+content|L|0|normal,none,open-quote,close-quote,no-open-quote,no-close-quote|g:content|normal|D|-|misc|-
+
+# ---- flexbox
+flex-direction|L|0|row,row-reverse,column,column-reverse|-|row|D|-|flex|-
+flex-wrap|L|0|nowrap,wrap,wrap-reverse|-|nowrap|D|-|flex|-
+flex-flow|S|0|-|-|-|-|-|flex|flex-direction,flex-wrap
+flex-grow|L|0|-|+num|0|F|num|flex|-
+flex-shrink|L|0|-|+num|1|F|num|flex|-
+flex-basis|L|0|content,auto,min-content,max-content,fit-content,stretch|+lenpct|auto|L|len|flex|-
+flex|S|0|-|-|-|-|-|flex|flex-grow,flex-shrink,flex-basis
+order|L|0|-|int|0|F|int|flex|-
+
+# ---- box alignment and gaps
+justify-content|L|0|normal,start,end,flex-start,flex-end,center,left,right,space-between,space-around,space-evenly,stretch|g:align|normal|D|-|flex|-
+align-content|L|0|normal,start,end,flex-start,flex-end,center,baseline,space-between,space-around,space-evenly,stretch|g:align|normal|D|-|flex|-
+align-items|L|0|normal,stretch,start,end,flex-start,flex-end,center,baseline,self-start,self-end|g:align|normal|D|-|flex|-
+align-self|L|0|auto,normal,stretch,start,end,flex-start,flex-end,center,baseline,self-start,self-end|g:align|auto|D|-|flex|-
+justify-items|L|0|normal,stretch,start,end,center,flex-start,flex-end,self-start,self-end,left,right,baseline|g:align|normal|D|-|flex|-
+justify-self|L|0|auto,normal,stretch,start,end,center,flex-start,flex-end,self-start,self-end,left,right,baseline|g:align|auto|D|-|flex|-
+place-content|S|0|-|-|-|-|-|flex|align-content,justify-content
+place-items|S|0|-|-|-|-|-|flex|align-items,justify-items
+place-self|S|0|-|-|-|-|-|flex|align-self,justify-self
+row-gap|L|0|normal|+lenpct|normal|L|len|box|-
+column-gap|L|0|normal|+lenpct|normal|L|len|box|-
+gap|S|0|-|-|-|-|-|box|row-gap,column-gap
+
+# ---- grid
+grid-template-columns|L|0|none|g:grid_tracks|none|D|-|grid|-
+grid-template-rows|L|0|none|g:grid_tracks|none|D|-|grid|-
+grid-column-start|L|0|auto|g:grid_line|auto|D|-|grid|-
+grid-column-end|L|0|auto|g:grid_line|auto|D|-|grid|-
+grid-row-start|L|0|auto|g:grid_line|auto|D|-|grid|-
+grid-row-end|L|0|auto|g:grid_line|auto|D|-|grid|-
+
+# ---- transforms, effects, images, UI
+transform|L|0|none|g:transform|none|X|xform|transform|-
+transform-style|L|0|flat,preserve-3d|-|flat|D|-|transform|-
+backface-visibility|L|0|visible,hidden|-|visible|D|-|transform|-
+perspective|L|0|none|+len|none|L|len|transform|-
+filter|L|0|none|g:filter|none|X|filter|effects|-
+backdrop-filter|L|0|none|g:filter|none|X|filter|effects|-
+mix-blend-mode|L|0|normal,multiply,screen,overlay,darken,lighten,color-dodge,color-burn,hard-light,soft-light,difference,exclusion,hue,saturation,color,luminosity,plus-darker,plus-lighter|-|normal|D|-|effects|-
+isolation|L|0|auto,isolate|-|auto|D|-|effects|-
+clip-path|L|0|none|g:clip_path|none|X|shape|effects|-
+box-shadow|L|0|none|g:box_shadow|none|X|shadow|effects|-
+object-fit|L|0|fill,contain,cover,none,scale-down|-|fill|D|-|box|-
+image-rendering|L|0|auto,crisp-edges,pixelated|-|auto|D|-|box|-
+pointer-events|L|1|auto,none,visiblepainted,visiblefill,visiblestroke,visible,painted,fill,stroke,all|-|auto|D|-|ui|-
+cursor|L|1|auto,default,none,context-menu,help,pointer,progress,wait,cell,crosshair,text,vertical-text,alias,copy,move,no-drop,not-allowed,grab,grabbing,all-scroll,col-resize,row-resize,n-resize,e-resize,s-resize,w-resize,ne-resize,nw-resize,se-resize,sw-resize,ew-resize,ns-resize,nesw-resize,nwse-resize,zoom-in,zoom-out|g:cursor|auto|D|-|ui|-
+user-select|L|0|auto,none,text,all,contain|-|auto|D|-|ui|-
+appearance|L|0|none,auto,textfield,menulist-button,button,checkbox,radio,searchfield,base,base-select,menulist,listbox,meter,progress-bar,push-button,textarea,square-button,slider-horizontal|-|auto|D|-|ui|-
+resize|L|0|none,both,horizontal,vertical,block,inline|-|none|D|-|ui|-
+will-change|L|0|auto|ident,list|auto|N|-|ui|-
+container-type|L|0|normal,size,inline-size|-|normal|N|-|container|-
+container-name|L|0|none|g:container_name|none|N|-|container|-
+transition-property|L|0|none,all|ident,list|all|N|-|anim|-
+transition-duration|L|0|-|+time,list|0s|N|-|anim|-
+transition-delay|L|0|-|time,list|0s|N|-|anim|-
+animation-name|L|0|none|ident,str,list|none|N|-|anim|-
+animation-duration|L|0|auto|+time,list|0s|N|-|anim|-
+animation-delay|L|0|-|time,list|0s|N|-|anim|-
+animation-iteration-count|L|0|infinite|+num,list|1|N|-|anim|-
+animation-direction|L|0|normal,reverse,alternate,alternate-reverse|list|normal|N|-|anim|-
+animation-fill-mode|L|0|none,forwards,backwards,both|list|none|N|-|anim|-
+animation-play-state|L|0|running,paused|list|running|N|-|anim|-
+
+# ---- logical borders and corner radii
+border-block-start-width|L|0|thin,medium,thick|+len|medium|L|len|border|-|L:box.border_width:block-start
+border-block-end-width|L|0|thin,medium,thick|+len|medium|L|len|border|-|L:box.border_width:block-end
+border-inline-start-width|L|0|thin,medium,thick|+len|medium|L|len|border|-|L:box.border_width:inline-start
+border-inline-end-width|L|0|thin,medium,thick|+len|medium|L|len|border|-|L:box.border_width:inline-end
+border-block-start-style|L|0|none,hidden,dotted,dashed,solid,double,groove,ridge,inset,outset|-|none|D|-|border|-|L:box.border_style:block-start
+border-block-end-style|L|0|none,hidden,dotted,dashed,solid,double,groove,ridge,inset,outset|-|none|D|-|border|-|L:box.border_style:block-end
+border-inline-start-style|L|0|none,hidden,dotted,dashed,solid,double,groove,ridge,inset,outset|-|none|D|-|border|-|L:box.border_style:inline-start
+border-inline-end-style|L|0|none,hidden,dotted,dashed,solid,double,groove,ridge,inset,outset|-|none|D|-|border|-|L:box.border_style:inline-end
+border-block-start-color|L|0|-|color|currentcolor|C|color|border|-|L:box.border_color:block-start
+border-block-end-color|L|0|-|color|currentcolor|C|color|border|-|L:box.border_color:block-end
+border-inline-start-color|L|0|-|color|currentcolor|C|color|border|-|L:box.border_color:inline-start
+border-inline-end-color|L|0|-|color|currentcolor|C|color|border|-|L:box.border_color:inline-end
+border-start-start-radius|L|0|-|g:radius|0|X|lplist|border|-|L:corner.radius:start-start
+border-start-end-radius|L|0|-|g:radius|0|X|lplist|border|-|L:corner.radius:start-end
+border-end-start-radius|L|0|-|g:radius|0|X|lplist|border|-|L:corner.radius:end-start
+border-end-end-radius|L|0|-|g:radius|0|X|lplist|border|-|L:corner.radius:end-end
+border-block-width|S|0|-|-|-|-|-|border|border-block-start-width,border-block-end-width
+border-block-style|S|0|-|-|-|-|-|border|border-block-start-style,border-block-end-style
+border-block-color|S|0|-|-|-|-|-|border|border-block-start-color,border-block-end-color
+border-inline-width|S|0|-|-|-|-|-|border|border-inline-start-width,border-inline-end-width
+border-inline-style|S|0|-|-|-|-|-|border|border-inline-start-style,border-inline-end-style
+border-inline-color|S|0|-|-|-|-|-|border|border-inline-start-color,border-inline-end-color
+border-block-start|S|0|-|-|-|-|-|border|border-block-start-width,border-block-start-style,border-block-start-color
+border-block-end|S|0|-|-|-|-|-|border|border-block-end-width,border-block-end-style,border-block-end-color
+border-inline-start|S|0|-|-|-|-|-|border|border-inline-start-width,border-inline-start-style,border-inline-start-color
+border-inline-end|S|0|-|-|-|-|-|border|border-inline-end-width,border-inline-end-style,border-inline-end-color
+border-block|S|0|-|-|-|-|-|border|border-block-start-width,border-block-end-width,border-block-start-style,border-block-end-style,border-block-start-color,border-block-end-color
+border-inline|S|0|-|-|-|-|-|border|border-inline-start-width,border-inline-end-width,border-inline-start-style,border-inline-end-style,border-inline-start-color,border-inline-end-color
+border-image-source|L|0|none|g:image|none|D|-|border|-
+border-image-slice|L|0|-|g:bi_slice|100%|X|lplist|border|-
+border-image-width|L|0|-|g:bi_width|1|X|lplist|border|-
+border-image-outset|L|0|-|g:bi_outset|0|X|lplist|border|-
+border-image-repeat|L|0|-|g:bi_repeat|stretch|D|-|border|-
+border-image|S|0|-|-|-|-|-|border|border-image-source,border-image-slice,border-image-width,border-image-outset,border-image-repeat
+column-rule-width|L|0|thin,medium,thick|+len|medium|L|len|border|-
+column-rule-style|L|0|none,hidden,dotted,dashed,solid,double,groove,ridge,inset,outset|-|none|D|-|border|-
+column-rule-color|L|0|-|color|currentcolor|C|color|border|-
+column-rule|S|0|-|-|-|-|-|border|column-rule-width,column-rule-style,column-rule-color
+
+# ---- backgrounds
+background-image|L|0|none|g:image,list|none|D|-|bg|-
+background-position|S|0|-|-|-|-|-|bg|background-position-x,background-position-y
+background-position-x|L|0|-|g:pos_axis_x,list|0%|X|axis|bg|-
+background-position-y|L|0|-|g:pos_axis_y,list|0%|X|axis|bg|-
+background-size|L|0|-|g:bg_size,list|auto|X|lplist|bg|-
+background-repeat|L|0|repeat-x,repeat-y|g:repeat_style,list|repeat|D|-|bg|-
+background-attachment|L|0|scroll,fixed,local|list|scroll|D|-|bg|-
+background-clip|L|0|border-box,padding-box,content-box,text,border-area|list|border-box|D|-|bg|-
+background-origin|L|0|border-box,padding-box,content-box|list|padding-box|D|-|bg|-
+background-blend-mode|L|0|normal,multiply,screen,overlay,darken,lighten,color-dodge,color-burn,hard-light,soft-light,difference,exclusion,hue,saturation,color,luminosity|list|normal|D|-|bg|-
+background|S|0|-|-|-|-|-|bg|background-color,background-image,background-position-x,background-position-y,background-size,background-repeat,background-attachment,background-origin,background-clip
+
+# ---- masks
+mask-image|L|0|none|g:image,list|none|D|-|mask|-
+mask-mode|L|0|match-source,alpha,luminance|list|match-source|D|-|mask|-
+mask-repeat|L|0|repeat-x,repeat-y|g:repeat_style,list|repeat|D|-|mask|-
+mask-position|L|0|-|g:position,list|0% 0%|X|pos|mask|-
+mask-size|L|0|-|g:bg_size,list|auto|X|lplist|mask|-
+mask-clip|L|0|border-box,padding-box,content-box,margin-box,fill-box,stroke-box,view-box,no-clip|list|border-box|D|-|mask|-
+mask-origin|L|0|border-box,padding-box,content-box,margin-box,fill-box,stroke-box,view-box|list|border-box|D|-|mask|-
+mask-composite|L|0|add,subtract,intersect,exclude|list|add|D|-|mask|-
+mask-type|L|0|luminance,alpha|-|luminance|D|-|mask|-
+mask|S|0|-|-|-|-|-|mask|mask-image,mask-mode,mask-repeat,mask-position,mask-size,mask-clip,mask-origin,mask-composite,mask-border-source,mask-border-slice,mask-border-width,mask-border-outset,mask-border-repeat,mask-border-mode
+mask-border-source|L|0|none|g:image|none|D|-|mask|-
+mask-border-slice|L|0|-|g:bi_slice|0|X|lplist|mask|-
+mask-border-width|L|0|-|g:bi_width|auto|X|lplist|mask|-
+mask-border-outset|L|0|-|g:bi_outset|0|X|lplist|mask|-
+mask-border-repeat|L|0|-|g:bi_repeat|stretch|D|-|mask|-
+mask-border-mode|L|0|alpha,luminance|-|alpha|D|-|mask|-
+mask-border|S|0|-|-|-|-|-|mask|mask-border-source,mask-border-slice,mask-border-width,mask-border-outset,mask-border-repeat,mask-border-mode
+
+# ---- fonts and text
+font-variant-ligatures|L|1|normal,none,common-ligatures,no-common-ligatures,discretionary-ligatures,no-discretionary-ligatures,historical-ligatures,no-historical-ligatures,contextual,no-contextual|g:kwset|normal|D|-|font|-
+font-variant-numeric|L|1|normal,lining-nums,oldstyle-nums,proportional-nums,tabular-nums,diagonal-fractions,stacked-fractions,ordinal,slashed-zero|g:kwset|normal|D|-|font|-
+font-variant-east-asian|L|1|normal,jis78,jis83,jis90,jis04,simplified,traditional,full-width,proportional-width,ruby|g:kwset|normal|D|-|font|-
+font-variant-position|L|1|normal,sub,super|-|normal|D|-|font|-
+font-variant-alternates|L|1|normal,historical-forms|g:font_alternates|normal|D|-|font|-
+font-variant-emoji|L|1|normal,text,emoji,unicode|-|normal|D|-|font|-
+font-variant|S|1|-|-|-|-|-|font|font-variant-caps,font-variant-ligatures,font-variant-numeric,font-variant-east-asian,font-variant-alternates,font-variant-position,font-variant-emoji
+font-synthesis-weight|L|1|auto,none|-|auto|D|-|font|-
+font-synthesis-style|L|1|auto,none|-|auto|D|-|font|-
+font-synthesis-small-caps|L|1|auto,none|-|auto|D|-|font|-
+font-synthesis|S|1|-|-|-|-|-|font|font-synthesis-weight,font-synthesis-style,font-synthesis-small-caps,font-synthesis-position
+font|S|1|-|-|-|-|-|font|font-style,font-variant-caps,font-weight,font-stretch,font-size,line-height,font-family,font-size-adjust,font-kerning,font-variant-ligatures,font-variant-numeric,font-variant-east-asian,font-variant-alternates,font-variant-position,font-variant-emoji,font-feature-settings,font-variation-settings,font-optical-sizing,font-language-override
+text-shadow|L|1|none|g:text_shadow|none|X|shadow|text|-
+text-underline-offset|L|1|auto|lenpct|auto|L|len|text|-
+text-underline-position|L|1|auto,from-font,under,left,right|g:kwset|auto|D|-|text|-
+text-decoration-skip-ink|L|1|auto,all,none|-|auto|D|-|text|-
+text-overflow|L|0|clip,ellipsis|g:text_overflow|clip|D|-|text|-
+text-orientation|L|1|mixed,upright,sideways|-|mixed|N|-|text|-
+text-wrap|S|1|-|-|-|-|-|text|text-wrap-mode,text-wrap-style
+overflow-clip-margin|L|0|-|g:clip_margin|0px|L|len|ui|-
+list-style-image|L|1|none|url|none|D|-|list|-
+counter-reset|L|0|none|g:counters|none|D|-|misc|-
+counter-increment|L|0|none|g:counters|none|D|-|misc|-
+counter-set|L|0|none|g:counters|none|D|-|misc|-
+object-position|L|0|-|g:position|50% 50%|X|pos|box|-
+scroll-snap-stop|L|0|normal,always|-|normal|D|-|ui|-
+contain-intrinsic-width|L|0|none|g:contain_intrinsic|none|L|len|ui|-
+contain-intrinsic-height|L|0|none|g:contain_intrinsic|none|L|len|ui|-
+contain-intrinsic-block-size|L|0|none|g:contain_intrinsic|none|L|len|ui|-
+contain-intrinsic-inline-size|L|0|none|g:contain_intrinsic|none|L|len|ui|-
+contain-intrinsic-size|S|0|-|-|-|-|-|ui|contain-intrinsic-width,contain-intrinsic-height
+
+# ---- columns
+column-width|L|0|auto|+len|auto|L|len|box|-
+column-count|L|0|auto|pint|auto|F|int|box|-
+column-fill|L|0|auto,balance,balance-all|-|balance|D|-|box|-
+column-span|L|0|none,all|-|none|D|-|box|-
+columns|S|0|-|-|-|-|-|box|column-width,column-count
+overscroll-behavior|S|0|-|-|-|-|-|ui|overscroll-behavior-x,overscroll-behavior-y
+
+# ---- transforms
+translate|L|0|none|g:translate|none|X|xform|transform|-
+rotate|L|0|none|g:rotate|none|X|xform|transform|-
+scale|L|0|none|g:scale|none|X|xform|transform|-
+transform-origin|L|0|-|g:transform_origin|50% 50% 0|X|pos|transform|-
+perspective-origin|L|0|-|g:position|50% 50%|X|pos|transform|-
+
+# ---- grid areas and shorthands
+grid-template-areas|L|0|none|g:grid_areas|none|D|-|grid|-
+grid-auto-flow|L|0|row,column,dense|g:kwset|row|D|-|grid|-
+grid-auto-rows|L|0|-|g:grid_auto|auto|L|len|grid|-
+grid-auto-columns|L|0|-|g:grid_auto|auto|L|len|grid|-
+grid-row|S|0|-|-|-|-|-|grid|grid-row-start,grid-row-end
+grid-column|S|0|-|-|-|-|-|grid|grid-column-start,grid-column-end
+grid-area|S|0|-|-|-|-|-|grid|grid-row-start,grid-column-start,grid-row-end,grid-column-end
+grid-template|S|0|-|-|-|-|-|grid|grid-template-rows,grid-template-columns,grid-template-areas
+grid|S|0|-|-|-|-|-|grid|grid-template-rows,grid-template-columns,grid-template-areas,grid-auto-rows,grid-auto-columns,grid-auto-flow
+
+# ---- containers, transitions and animations
+container|S|0|-|-|-|-|-|container|container-name,container-type
+transition-timing-function|L|0|ease,linear,ease-in,ease-out,ease-in-out,step-start,step-end|g:easing,list|ease|N|-|anim|-
+animation-timing-function|L|0|ease,linear,ease-in,ease-out,ease-in-out,step-start,step-end|g:easing,list|ease|N|-|anim|-
+transition-behavior|L|0|normal,allow-discrete|list|normal|N|-|anim|-
+animation-composition|L|0|replace,add,accumulate|list|replace|N|-|anim|-
+transition|S|0|-|-|-|-|-|anim|transition-property,transition-duration,transition-timing-function,transition-delay,transition-behavior
+animation|S|0|-|-|-|-|-|anim|animation-name,animation-duration,animation-timing-function,animation-delay,animation-iteration-count,animation-direction,animation-fill-mode,animation-play-state,animation-composition
+
+font-language-override|L|1|normal|str|normal|D|-|font|-
+font-synthesis-position|L|1|auto,none|-|none|D|-|font|-
+min-inline-size|L|0|auto,min-content,max-content,fit-content,stretch|g:size|auto|L|len|box|-|L:size.min_size:inline
+min-block-size|L|0|auto,min-content,max-content,fit-content,stretch|g:size|auto|L|len|box|-|L:size.min_size:block
+max-inline-size|L|0|none,min-content,max-content,fit-content,stretch|g:size|none|L|len|box|-|L:size.max_size:inline
+max-block-size|L|0|none,min-content,max-content,fit-content,stretch|g:size|none|L|len|box|-|L:size.max_size:block
+
+# ---- scroll margin/padding, fragmentation, clip, text emphasis, animation-timeline
+scroll-margin-top|L|0|-|len|0|L|len|ui|-|P:box.scroll_margin:top
+scroll-margin-right|L|0|-|len|0|L|len|ui|-|P:box.scroll_margin:right
+scroll-margin-bottom|L|0|-|len|0|L|len|ui|-|P:box.scroll_margin:bottom
+scroll-margin-left|L|0|-|len|0|L|len|ui|-|P:box.scroll_margin:left
+scroll-margin-block-start|L|0|-|len|0|L|len|ui|-|L:box.scroll_margin:block-start
+scroll-margin-block-end|L|0|-|len|0|L|len|ui|-|L:box.scroll_margin:block-end
+scroll-margin-inline-start|L|0|-|len|0|L|len|ui|-|L:box.scroll_margin:inline-start
+scroll-margin-inline-end|L|0|-|len|0|L|len|ui|-|L:box.scroll_margin:inline-end
+scroll-margin|S|0|-|-|-|-|-|ui|scroll-margin-top,scroll-margin-right,scroll-margin-bottom,scroll-margin-left
+scroll-margin-block|S|0|-|-|-|-|-|ui|scroll-margin-block-start,scroll-margin-block-end
+scroll-margin-inline|S|0|-|-|-|-|-|ui|scroll-margin-inline-start,scroll-margin-inline-end
+scroll-padding-top|L|0|auto|+lenpct|auto|L|len|ui|-|P:box.scroll_padding:top
+scroll-padding-right|L|0|auto|+lenpct|auto|L|len|ui|-|P:box.scroll_padding:right
+scroll-padding-bottom|L|0|auto|+lenpct|auto|L|len|ui|-|P:box.scroll_padding:bottom
+scroll-padding-left|L|0|auto|+lenpct|auto|L|len|ui|-|P:box.scroll_padding:left
+scroll-padding-block-start|L|0|auto|+lenpct|auto|L|len|ui|-|L:box.scroll_padding:block-start
+scroll-padding-block-end|L|0|auto|+lenpct|auto|L|len|ui|-|L:box.scroll_padding:block-end
+scroll-padding-inline-start|L|0|auto|+lenpct|auto|L|len|ui|-|L:box.scroll_padding:inline-start
+scroll-padding-inline-end|L|0|auto|+lenpct|auto|L|len|ui|-|L:box.scroll_padding:inline-end
+scroll-padding|S|0|-|-|-|-|-|ui|scroll-padding-top,scroll-padding-right,scroll-padding-bottom,scroll-padding-left
+scroll-padding-block|S|0|-|-|-|-|-|ui|scroll-padding-block-start,scroll-padding-block-end
+scroll-padding-inline|S|0|-|-|-|-|-|ui|scroll-padding-inline-start,scroll-padding-inline-end
+clip|L|0|auto|g:clip_rect|auto|D|-|effects|-
+orphans|L|1|-|pint|2|F|int|text|-
+widows|L|1|-|pint|2|F|int|text|-
+break-before|L|0|auto,avoid,always,all,avoid-page,page,left,right,recto,verso,avoid-column,column,avoid-region,region|-|auto|D|-|box|-
+break-after|L|0|auto,avoid,always,all,avoid-page,page,left,right,recto,verso,avoid-column,column,avoid-region,region|-|auto|D|-|box|-
+break-inside|L|0|auto,avoid,avoid-page,avoid-column,avoid-region|-|auto|D|-|box|-
+animation-timeline|L|0|auto,none|ident,list|auto|N|-|anim|-
+text-emphasis-style|L|1|none|g:emphasis_style|none|D|-|text|-
+text-emphasis-color|L|1|-|color|currentcolor|C|color|text|-
+text-emphasis-position|L|1|over,under,left,right|g:kwset|over right|D|-|text|-
+text-emphasis|S|1|-|-|-|-|-|text|text-emphasis-style,text-emphasis-color
+text-decoration-inset|L|0|auto|g:deco_inset|0|X|lplist|text|-
+box-decoration-break|L|0|slice,clone|-|slice|D|-|box|-
+text-decoration-skip-spaces|L|1|none,all,start,end|g:kwset|start end|D|-|text|-
+-webkit-text-fill-color|L|1|-|color|currentcolor|C|color|text|-
+white-space-trim|L|0|none,discard-before,discard-after,discard-inner|g:kwset|none|D|-|text|-
+# ---- R4c: SVG presentation properties (src/svg). Geometry attributes (x, y, width, height, cx, cy, r, rx, ry, d) are
+# read from the attributes by the render tree; the properties below are the ones the cascade must carry.
+fill|L|1|none,context-fill,context-stroke|g:svg_paint|black|D|-|svg|-
+stroke|L|1|none,context-fill,context-stroke|g:svg_paint|none|D|-|svg|-
+fill-opacity|L|1|-|alpha|1|F|num|svg|-
+stroke-opacity|L|1|-|alpha|1|F|num|svg|-
+fill-rule|L|1|nonzero,evenodd|-|nonzero|D|-|svg|-
+clip-rule|L|1|nonzero,evenodd|-|nonzero|D|-|svg|-
+stroke-width|L|1|-|+lenpct,+num|1|L|len|svg|-
+stroke-linecap|L|1|butt,round,square|-|butt|D|-|svg|-
+stroke-linejoin|L|1|miter,round,bevel,arcs,miter-clip|-|miter|D|-|svg|-
+stroke-miterlimit|L|1|-|+num|4|F|num|svg|-
+stroke-dasharray|L|1|none|g:svg_dasharray|none|D|-|svg|-
+stroke-dashoffset|L|1|-|lenpct,num|0|L|len|svg|-
+stop-color|L|0|-|color|black|C|color|svg|-
+stop-opacity|L|0|-|alpha|1|F|num|svg|-
+paint-order|L|1|normal|g:svg_paint_order|normal|D|-|svg|-
+vector-effect|L|0|none,non-scaling-stroke,non-scaling-size,non-rotation,fixed-position|-|none|D|-|svg|-
+marker-start|L|1|none|url|none|D|-|svg|-
+marker-mid|L|1|none|url|none|D|-|svg|-
+marker-end|L|1|none|url|none|D|-|svg|-
+marker|S|1|-|-|-|-|-|svg|marker-start,marker-mid,marker-end
+text-anchor|L|1|start,middle,end|-|start|D|-|svg|-
+dominant-baseline|L|0|auto,text-bottom,alphabetic,ideographic,middle,central,mathematical,hanging,text-top,use-script,no-change,reset-size|-|auto|D|-|svg|-
+shape-rendering|L|1|auto,optimizespeed,crispedges,geometricprecision|-|auto|D|-|svg|-
+color-interpolation|L|1|auto,srgb,linearrgb|-|srgb|D|-|svg|-
+transform-box|L|0|content-box,border-box,fill-box,stroke-box,view-box|-|view-box|D|-|transform|-
+text-spacing-trim|L|1|normal,space-all,space-first,trim-start,trim-both,trim-all,auto|-|normal|D|-|text|-
+-webkit-text-stroke-width|L|1|thin,medium,thick|+len|0|L|len|text|-
+-webkit-text-stroke-color|L|1|-|color|currentcolor|C|color|text|-
+-webkit-text-stroke|S|1|-|-|-|-|-|text|-webkit-text-stroke-width,-webkit-text-stroke-color
+
+# ---- line clamping (CSS Overflow 4 section 5; -webkit-line-clamp: section 5.1.1)
+max-lines|L|0|auto|g:max_lines|auto|D|-|box|-
+block-ellipsis|L|1|no-ellipsis,ellipsis,auto|str|no-ellipsis|D|-|text|-
+continue|L|0|normal,discard,collapse,-webkit-legacy|-|normal|D|-|box|-
+line-clamp|S|0|-|-|-|-|-|box|max-lines,block-ellipsis,continue
+-webkit-line-clamp|S|0|-|-|-|-|-|box|max-lines,block-ellipsis,continue
+-webkit-box-orient|L|0|horizontal,vertical,inline-axis,block-axis|-|inline-axis|D|-|box|-
+# Legacy flexbox (display: -webkit-box): mapped onto the flex properties in embi_style_fix_display
+-webkit-box-pack|L|0|start,center,end,justify|-|start|D|-|box|-
+-webkit-box-align|L|0|start,center,end,baseline,stretch|-|stretch|D|-|box|-
+-webkit-box-direction|L|0|normal,reverse|-|normal|D|-|box|-
+-webkit-box-flex|L|0|-|+num|0|F|num|box|-
+-webkit-box-ordinal-group|L|0|-|pint|1|F|int|box|-
+-webkit-box-lines|L|0|single,multiple|-|single|D|-|box|-
+# Internal longhands (names starting with -internal-) are computed-style state, not author-visible: cssgen leaves them out of the
+# name table (the stylesheet parser, setProperty, CSS.supports and cssText never see them) and idlgen out of the CSSStyleDeclaration
+# names and the getComputedStyle enumeration. Written only by the engine after the cascade, so no declaration can set one.
+# This one is set by embi_style_fix_display on a display: -webkit-box that computes to a flex container: its items take
+# -webkit-box-flex and -ordinal-group. A property (not a side flag) so it takes part in style interning, sharing and overlays.
+-internal-legacy-box|L|0|no,yes|-|no|N|-|box|-

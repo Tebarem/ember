@@ -1,0 +1,17 @@
+// This file was procedurally generated from the following sources:
+// - src/annex-b-fns/func-existing-fn-no-init.case
+// - src/annex-b-fns/func/if-decl-else-stmt.template
+
+var init;
+
+(function() {
+  init = f;
+
+  if (true) function f() { return 'inner declaration'; } else ;
+
+  function f() {
+    return 'outer declaration';
+  }
+}());
+
+assert.sameValue(init(), 'outer declaration');

@@ -1,0 +1,2 @@
+css/css-tables/collapsed-border-background-inset.html bug the row box does not extend over the half borders of the collapsed grid, so a cell background and a row background are the same
+css/css-tables/visibility-collapse-rowspan-005.html bug

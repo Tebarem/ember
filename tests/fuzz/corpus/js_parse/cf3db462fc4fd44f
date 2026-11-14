@@ -1,0 +1,9 @@
+// This file was procedurally generated from the following sources:
+// - src/generators/yield-as-label-identifier-escaped.case
+// - src/generators/syntax/class-decl-method.template
+
+$DONOTEVALUATE();
+
+class C { *gen() {
+    yi\u0065ld: ;
+}}

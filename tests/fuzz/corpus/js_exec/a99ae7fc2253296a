@@ -1,0 +1,8 @@
+// This file was procedurally generated from the following sources:
+// - src/assignment-target-type/arrowfunction-2.case
+// - src/assignment-target-type/invalid/parenthesized.template
+
+
+$DONOTEVALUATE();
+
+((x => x)) = 1;

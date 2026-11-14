@@ -1,0 +1,2 @@
+a:not([href^=http\:],  [href ^=	'https\:'
+]) { color: rgba(0%, 100%, 50%); }

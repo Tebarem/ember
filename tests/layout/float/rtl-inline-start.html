@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>inline-start floats are on the right of a right-to-left block</title>
+<script src="/resources/testharness.js"></script>
+<script src="/resources/testharnessreport.js"></script>
+<script src="/resources/check-layout-th.js"></script>
+<style>
+body { margin: 0 } #c { position: relative; width: 200px; direction: rtl }
+</style>
+<body onload="checkLayout('#c > div')">
+<!-- Derivation (CSS Logical 1 and CSS 2.1 9.5.1): in a right-to-left block, inline-start is the right
+edge, so a 50px float is at x = 200 - 50 = 150. -->
+<div id="c">
+  <div style="float: inline-start; width: 50px; height: 20px" data-offset-x="150" data-offset-y="0" data-expected-width="50" data-expected-height="20"></div>
+</div>
+</body>

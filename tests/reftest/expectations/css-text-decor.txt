@@ -1,0 +1,40 @@
+css/css-text-decor/ruby-text-decoration-01.html not-yet ruby layout
+css/css-text-decor/text-decoration-color.html bug
+css/css-text-decor/text-decoration-inset-011.html bug
+css/css-text-decor/text-decoration-inset-auto.html not-yet generic-fonts (the test names monospace, which maps to Ahem in the runner, so its reference cannot match)
+css/css-text-decor/text-decoration-skip-ink-001.html not-yet skip-ink (text-decoration-skip-ink is none for now)
+css/css-text-decor/text-decoration-skip-ink-002.html not-yet skip-ink (text-decoration-skip-ink is none for now)
+css/css-text-decor/text-decoration-skip-ink-004.html not-yet skip-ink (text-decoration-skip-ink is none for now)
+css/css-text-decor/text-decoration-skip-ink-005.html not-yet skip-ink (text-decoration-skip-ink is none for now)
+css/css-text-decor/text-decoration-subelements-003.html bug
+css/css-text-decor/text-decoration-thickness-length-rounding-002.html bug
+css/css-text-decor/text-decoration-thickness-percent-001.html bug
+css/css-text-decor/text-decoration-wavy-phase-across-elements-001.html font-metrics a few antialiasing pixels: glyph or line metrics of the default font differ from the reference's
+css/css-text-decor/text-emphasis-color-001.xht not-yet ruby layout
+css/css-text-decor/text-emphasis-line-height-001a.html not-yet ruby layout
+css/css-text-decor/text-emphasis-line-height-001b.html not-yet ruby layout
+css/css-text-decor/text-emphasis-line-height-001z.html not-yet ruby layout
+css/css-text-decor/text-emphasis-line-height-002a.html not-yet ruby layout
+css/css-text-decor/text-emphasis-line-height-002b.html not-yet ruby layout
+css/css-text-decor/text-emphasis-position-over-left-001.xht not-yet ruby layout
+css/css-text-decor/text-emphasis-position-over-right-001.xht not-yet ruby layout
+css/css-text-decor/text-emphasis-position-under-left-001.xht not-yet ruby layout
+css/css-text-decor/text-emphasis-position-under-right-001.xht not-yet ruby layout
+css/css-text-decor/text-emphasis-property-002.html not-yet ruby layout
+css/css-text-decor/text-emphasis-punctuation-3.html not-yet ruby layout
+css/css-text-decor/text-emphasis-style-002.html not-yet ruby layout
+css/css-text-decor/text-emphasis-style-007.html not-yet ruby layout
+css/css-text-decor/text-emphasis-style-008.html not-yet ruby layout
+css/css-text-decor/text-emphasis-style-010.html not-yet ruby layout
+css/css-text-decor/text-emphasis-style-012.html not-yet ruby layout
+css/css-text-decor/text-emphasis-style-016.html not-yet ruby layout
+css/css-text-decor/text-emphasis-style-021.html not-yet ruby layout
+css/css-text-decor/text-emphasis-style-filled-001.xht not-yet ruby layout
+css/css-text-decor/text-emphasis-style-open-001.xht not-yet ruby layout
+css/css-text-decor/text-emphasis-style-property-002.html not-yet ruby layout
+css/css-text-decor/text-emphasis-style-property-011.html not-yet ruby layout
+css/css-text-decor/text-emphasis-style-property-011a.html not-yet ruby layout
+css/css-text-decor/text-emphasis-style-property-011b.html not-yet ruby layout
+css/css-text-decor/text-emphasis-style-shape-001.xht not-yet ruby layout
+css/css-text-decor/text-emphasis-style-string-001.xht not-yet ruby layout
+css/css-text-decor/text-shadow/decorations-multiple-zorder.html r3-effects box-shadow, text-shadow, filters, masks, clip-path, blend modes, border-image (R3)

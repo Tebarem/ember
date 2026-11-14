@@ -1,0 +1,14 @@
+// Copyright 2019 Google, LLC.  All rights reserved.
+// This code is governed by the BSD license found in the LICENSE file.
+
+const obj = {
+  inner: {
+    a: 1,
+    b: 2
+  }
+};
+let str = '';
+for (const key in obj?.inner) {
+  str += key;
+}
+assert.sameValue('ab', str);

@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>Inline layout: vertical-align sub lowers a box by font-size/5 + 1</title>
+<script src="/resources/testharness.js"></script>
+<script src="/resources/testharnessreport.js"></script>
+<script src="/resources/check-layout-th.js"></script>
+<link rel="stylesheet" href="/fonts/ahem.css">
+<style>
+body { margin: 0 } .a { font: 30px/30px Ahem } #d { width: 300px }
+</style>
+<body onload="checkLayout('#d')">
+<!-- UNVERIFIED: derived by hand from the specs, not yet checked in Chromium. Derivation: CSS 2.1 10.8.1. Ahem at 30px has an ascent of 24 and a descent of 6, and the line-height of 30 leaves no leading. Sub lowers the span by 30/5 + 1 = 7px. The strut reaches 24 above the baseline and 6 below; the span reaches 24 - 7 = 17 above and 6 + 7 = 13 below. The line box is 24 + 13 = 37px tall with the baseline at 24, so the plain span x is at y 0 and the lowered span s at y 7. XX is 60px wide. -->
+<div id="d" class="a" data-expected-width="300" data-expected-height="37"><span id="x" data-offset-x="0" data-offset-y="0" data-expected-width="60" data-expected-height="30">XX</span><span id="s" style="vertical-align:sub" data-offset-x="60" data-offset-y="7" data-expected-width="60" data-expected-height="30">YY</span></div>
+</body>

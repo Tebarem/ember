@@ -1,0 +1,16 @@
+// Copyright (C) 2021 André Bargull. All rights reserved.
+// This code is governed by the BSD license found in the LICENSE file.
+
+
+
+class C {
+  #field;
+
+  m() {
+    ({a: this.#field} = {a: 0});
+  }
+}
+
+assert.throws(TypeError, function() {
+  C.prototype.m.call({});
+});

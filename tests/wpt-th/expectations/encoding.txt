@@ -1,0 +1,38 @@
+# Expected failures of the testharness.js run in encoding (generated; see tests/wpt-th/README.md).
+encoding/textdecoder-eof.any.html :: TextDecoder end-of-queue handling :: not-applicable CJK decoders (size budget) Failed to construct 'TextDecoder': The "Big5" encoding is not supported
+encoding/textdecoder-eof.any.html :: TextDecoder end-of-queue handling using stream: true :: not-applicable CJK decoders (size budget) Failed to construct 'TextDecoder': The "Big5" encoding is not supported
+encoding/textdecoder-copy.any.html :: Modify buffer after passing it in (SharedArrayBuffer) :: not-applicable SharedArrayBuffer needs WebAssembly (common/sab.js) not a constructor
+encoding/sniffing.html :: No (UTF-8) sniffing allowed :: not-applicable the UTF-8 default is the user's decision assert_equals: expected "Â€Â€ Hello World! Â€Â€" but got " Hello World! "
+encoding/encodeInto.any.html not-applicable SharedArrayBuffer needs WebAssembly (common/sab.js) 54 of 111 subtests fail: not a constructor
+encoding/textencoder-constructor-non-utf.any.html :: Encoding argument supported for decode: GBK :: not-applicable CJK decoders (size budget) Failed to construct 'TextDecoder': The "GBK" encoding is not supported
+encoding/textencoder-constructor-non-utf.any.html :: Encoding argument supported for decode: gb18030 :: not-applicable CJK decoders (size budget) Failed to construct 'TextDecoder': The "gb18030" encoding is not supported
+encoding/textencoder-constructor-non-utf.any.html :: Encoding argument supported for decode: Big5 :: not-applicable CJK decoders (size budget) Failed to construct 'TextDecoder': The "Big5" encoding is not supported
+encoding/textencoder-constructor-non-utf.any.html :: Encoding argument supported for decode: EUC-JP :: not-applicable CJK decoders (size budget) Failed to construct 'TextDecoder': The "EUC-JP" encoding is not supported
+encoding/textencoder-constructor-non-utf.any.html :: Encoding argument supported for decode: ISO-2022-JP :: not-applicable CJK decoders (size budget) Failed to construct 'TextDecoder': The "ISO-2022-JP" encoding is not supported
+encoding/textencoder-constructor-non-utf.any.html :: Encoding argument supported for decode: Shift_JIS :: not-applicable CJK decoders (size budget) Failed to construct 'TextDecoder': The "Shift_JIS" encoding is not supported
+encoding/textencoder-constructor-non-utf.any.html :: Encoding argument supported for decode: EUC-KR :: not-applicable CJK decoders (size budget) Failed to construct 'TextDecoder': The "EUC-KR" encoding is not supported
+encoding/textdecoder-streaming.any.html :: Streaming decode: utf-8, 1 byte window (SharedArrayBuffer) :: not-applicable SharedArrayBuffer needs WebAssembly (common/sab.js) not a constructor
+encoding/textdecoder-streaming.any.html :: Streaming decode: utf-8, 2 byte window (SharedArrayBuffer) :: not-applicable SharedArrayBuffer needs WebAssembly (common/sab.js) not a constructor
+encoding/textdecoder-streaming.any.html :: Streaming decode: utf-8, 3 byte window (SharedArrayBuffer) :: not-applicable SharedArrayBuffer needs WebAssembly (common/sab.js) not a constructor
+encoding/textdecoder-streaming.any.html :: Streaming decode: utf-8, 4 byte window (SharedArrayBuffer) :: not-applicable SharedArrayBuffer needs WebAssembly (common/sab.js) not a constructor
+encoding/textdecoder-streaming.any.html :: Streaming decode: utf-8, 5 byte window (SharedArrayBuffer) :: not-applicable SharedArrayBuffer needs WebAssembly (common/sab.js) not a constructor
+encoding/textdecoder-streaming.any.html :: Streaming decode: utf-16le, 1 byte window (SharedArrayBuffer) :: not-applicable SharedArrayBuffer needs WebAssembly (common/sab.js) not a constructor
+encoding/textdecoder-streaming.any.html :: Streaming decode: utf-16le, 2 byte window (SharedArrayBuffer) :: not-applicable SharedArrayBuffer needs WebAssembly (common/sab.js) not a constructor
+encoding/textdecoder-streaming.any.html :: Streaming decode: utf-16le, 3 byte window (SharedArrayBuffer) :: not-applicable SharedArrayBuffer needs WebAssembly (common/sab.js) not a constructor
+encoding/textdecoder-streaming.any.html :: Streaming decode: utf-16le, 4 byte window (SharedArrayBuffer) :: not-applicable SharedArrayBuffer needs WebAssembly (common/sab.js) not a constructor
+encoding/textdecoder-streaming.any.html :: Streaming decode: utf-16le, 5 byte window (SharedArrayBuffer) :: not-applicable SharedArrayBuffer needs WebAssembly (common/sab.js) not a constructor
+encoding/textdecoder-streaming.any.html :: Streaming decode: utf-16be, 1 byte window (SharedArrayBuffer) :: not-applicable SharedArrayBuffer needs WebAssembly (common/sab.js) not a constructor
+encoding/textdecoder-streaming.any.html :: Streaming decode: utf-16be, 2 byte window (SharedArrayBuffer) :: not-applicable SharedArrayBuffer needs WebAssembly (common/sab.js) not a constructor
+encoding/textdecoder-streaming.any.html :: Streaming decode: utf-16be, 3 byte window (SharedArrayBuffer) :: not-applicable SharedArrayBuffer needs WebAssembly (common/sab.js) not a constructor
+encoding/textdecoder-streaming.any.html :: Streaming decode: utf-16be, 4 byte window (SharedArrayBuffer) :: not-applicable SharedArrayBuffer needs WebAssembly (common/sab.js) not a constructor
+encoding/textdecoder-streaming.any.html :: Streaming decode: utf-16be, 5 byte window (SharedArrayBuffer) :: not-applicable SharedArrayBuffer needs WebAssembly (common/sab.js) not a constructor
+encoding/textdecoder-streaming.any.html :: Streaming decode: UTF-8 chunk tests (SharedArrayBuffer) :: not-applicable SharedArrayBuffer needs WebAssembly (common/sab.js) not a constructor
+encoding/textdecoder-labels.any.html not-applicable CJK decoders (size budget) 38 of 222 subtests fail: Failed to construct 'TextDecoder': The "chinese" encoding is not supported
+encoding/streams/decode-utf8.any.html not-applicable SharedArrayBuffer needs WebAssembly (common/sab.js) harness status 1
+encoding/textdecoder-mistakes.any.html not-applicable CJK decoders (size budget) 57 of 108 subtests fail: Failed to construct 'TextDecoder': The "gbk" encoding is not supported
+encoding/streams/decode-non-utf8.any.html :: TextDecoderStream should be able to decode Shift_JIS :: not-applicable CJK decoders (size budget) promise_test: Unhandled rejection with value: object "RangeError: Failed to construct 'Tex
+encoding/streams/decode-non-utf8.any.html :: TextDecoderStream should be able to decode invalid sequences in Shift_JIS :: not-applicable CJK decoders (size budget) promise_test: Unhandled rejection with value: object "RangeError: Failed to construct 'Tex
+encoding/streams/decode-non-utf8.any.html :: TextDecoderStream should be able to reject invalid sequences in Shift_JIS :: not-applicable CJK decoders (size budget) promise_test: Unhandled rejection with value: object "RangeError: Failed to construct 'Tex
+encoding/streams/decode-non-utf8.any.html :: TextDecoderStream should be able to decode ISO-2022-JP :: not-applicable CJK decoders (size budget) promise_test: Unhandled rejection with value: object "RangeError: Failed to construct 'Tex
+encoding/streams/decode-non-utf8.any.html :: TextDecoderStream should be able to decode invalid sequences in ISO-2022-JP :: not-applicable CJK decoders (size budget) promise_test: Unhandled rejection with value: object "RangeError: Failed to construct 'Tex
+encoding/streams/decode-non-utf8.any.html :: TextDecoderStream should be able to reject invalid sequences in ISO-2022-JP :: not-applicable CJK decoders (size budget) promise_test: Unhandled rejection with value: object "RangeError: Failed to construct 'Tex

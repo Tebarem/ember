@@ -1,0 +1,7 @@
+// Copyright (C) 2018 Richard Gibson. All rights reserved.
+// This code is governed by the BSD license found in the LICENSE file.
+
+
+
+// U+2029 in strings; UTF8(0x2029) = 0xE2 0x80 0xA9
+assert.sameValue(" ", "\u2029");

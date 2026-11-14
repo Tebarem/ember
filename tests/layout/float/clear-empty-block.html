@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>An empty block that clears advances the flow and does not collapse through</title>
+<script src="/resources/testharness.js"></script>
+<script src="/resources/testharnessreport.js"></script>
+<script src="/resources/check-layout-th.js"></script>
+<style>
+body { margin: 0 } .c { position: relative; width: 200px } .f { float: left; width: 50px; height: 30px } .k { clear: both } .n { height: 10px }
+</style>
+<body onload="checkLayout('.c > .n, .c, body > .n')">
+<!-- Derivation (CSS 2.1 8.3.1 and 9.5.2, values checked against Chromium): the empty block with clearance
+is not adjoining through, so its margins do not reach the container. The float's bottom is 30. The next
+sibling is at 30 - margin-top + max(margin-top, margin-bottom): 30 with no margin, 36 with margin-bottom
+6px, 33 with margin 5px 0 8px, 30 with margin-top 50px. Every container stays at y = 0. -->
+<div class="c" data-offset-y="0"><div class="f"></div><div class="k"></div><div class="n" data-offset-y="30"></div></div>
+<div class="c" data-offset-y="40"><div class="f"></div><div class="k" style="margin-bottom: 6px"></div><div class="n" data-offset-y="36"></div></div>
+<div class="c" data-offset-y="86"><div class="f"></div><div class="k" style="margin: 5px 0 8px"></div><div class="n" data-offset-y="33"></div></div>
+<div class="c" data-offset-y="129"><div class="f"></div><div class="k" style="margin-top: 50px"></div><div class="n" data-offset-y="30"></div></div>
+<!-- The empty block is the last child of a non-BFC container: its margins stay inside it (8.3.1), so
+the container is 36, 30 and 33 tall and the sibling after it starts at the container's bottom. -->
+<div class="c" data-offset-y="169"><div class="f"></div><div class="k" style="margin-bottom: 6px"></div></div>
+<div class="n" data-offset-y="205"></div>
+<div class="c" data-offset-y="215"><div class="f"></div><div class="k" style="margin-top: 50px"></div></div>
+<div class="n" data-offset-y="245"></div>
+<div class="c" data-offset-y="255"><div class="f"></div><div class="k" style="margin: 5px 0 8px"></div></div>
+<div class="n" data-offset-y="288"></div>
+</body>

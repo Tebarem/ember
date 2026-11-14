@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>A block that establishes a BFC takes the space beside a float, or moves below it</title>
+<script src="/resources/testharness.js"></script>
+<script src="/resources/testharnessreport.js"></script>
+<script src="/resources/check-layout-th.js"></script>
+<style>
+body { margin: 0 } #c { position: relative; width: 200px } .bfc { overflow: hidden }
+</style>
+<body onload="checkLayout('#c > div')">
+<!-- Derivation (CSS 2.1 9.5): the float occupies 0..100 on rows 0..50. The first BFC box is at row 0 and
+its auto width fills the free interval 100..200, so x = 100 and width 100. The second BFC box (width 150)
+starts at row 10. The free interval there is 100px, too narrow, so it moves down to row 50 (the float's
+bottom) and returns to the left edge. -->
+<div id="c">
+  <div style="float: left; width: 100px; height: 50px" data-offset-x="0" data-offset-y="0" data-expected-width="100" data-expected-height="50"></div>
+  <div class="bfc" style="height: 10px" data-offset-x="100" data-offset-y="0" data-expected-width="100" data-expected-height="10"></div>
+  <div class="bfc" style="width: 150px; height: 10px" data-offset-x="0" data-offset-y="50" data-expected-width="150" data-expected-height="10"></div>
+</div>
+</body>

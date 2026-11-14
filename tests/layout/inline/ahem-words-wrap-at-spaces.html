@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>Inline layout: words wrap at spaces when the line is full</title>
+<script src="/resources/testharness.js"></script>
+<script src="/resources/testharnessreport.js"></script>
+<script src="/resources/check-layout-th.js"></script>
+<link rel="stylesheet" href="/fonts/ahem.css">
+<style>
+body { margin: 0 } .a { font: 20px/20px Ahem } #d { width: 60px }
+</style>
+<body onload="checkLayout('#d')">
+<!-- Derivation: CSS Text 3 section 5. Ahem glyphs are 1em = 20px wide, the space too, and the line height
+is 20px. Each word "XX" is 40px. In a 60px line "XX XX" would need 40 + 20 + 40 = 100px, so the line
+ends after the first word: three lines, "XX", "XX" and "XX". The block's height is 3 * 20 = 60px. The
+trailing space of each line hangs and takes no room. -->
+<div id="d" class="a" data-expected-width="60" data-expected-height="60">XX XX XX</div>
+</body>

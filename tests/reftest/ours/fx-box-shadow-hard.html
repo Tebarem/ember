@@ -1,0 +1,10 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>box-shadow without blur is a plain offset rect, cut out under the box</title>
+<link rel="match" href="fx-box-shadow-hard-ref.html">
+<style>
+body { margin: 0; background: #fff }
+.a { position: absolute }
+</style>
+<div class="a" style="left:30px;top:30px;width:100px;height:60px;background:#0a0;box-shadow:20px 15px 0 #f80"></div>
+<div class="a" style="left:230px;top:30px;width:100px;height:60px;background:rgba(0,0,255,.5);box-shadow:10px 10px 0 4px #f00"></div>

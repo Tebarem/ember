@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>Auto left and right margins center a fixed-width box</title>
+<script src="/resources/testharness.js"></script>
+<script src="/resources/testharnessreport.js"></script>
+<script src="/resources/check-layout-th.js"></script>
+<style>
+body { margin: 0 } div { height: 10px }
+</style>
+<body onload="checkLayout('#m')">
+<!-- Derivation: CSS 2.1 10.3.3. The containing block is the 800px wide body (viewport 800px, body margin 0).
+The used width is 200px, and the two auto margins share 800 - 200 = 600px, 300px each. The box
+starts at x = 300px, so offsetLeft is 300. Its height is the declared 10px; it is the first child
+of body, so offsetTop is 0. -->
+<div id="m" style="width: 200px; margin-left: auto; margin-right: auto" data-offset-x="300" data-offset-y="0" data-expected-width="200" data-expected-height="10" data-expected-margin-left="300" data-expected-margin-right="300"></div>
+</body>

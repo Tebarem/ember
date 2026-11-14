@@ -1,0 +1,19 @@
+var Test262Error=function(m){this.message=m};Test262Error.prototype.toString=function(){return 'T'};var assert=function(c,m){if(c!==true)throw new Test262Error(m)};assert.sameValue=function(a,b,m){if(a!==b&&(a===a||b===b))throw new Test262Error(m)};assert.notSameValue=function(a,b,m){if(a===b)throw new Test262Error(m)};assert.throws=function(E,f,m){try{f()}catch(e){return}throw new Test262Error(m)};var $DONOTEVALUATE=function(){throw 'x'};var print=function(){};
+// Copyright (C) 2021 Igalia, S.L. All rights reserved.
+// This code is governed by the BSD license found in the LICENSE file.
+
+
+
+const toLocaleString = Temporal.ZonedDateTime.prototype.toLocaleString;
+
+assert.sameValue(typeof toLocaleString, "function");
+
+assert.throws(TypeError, () => toLocaleString.call(undefined), "undefined");
+assert.throws(TypeError, () => toLocaleString.call(null), "null");
+assert.throws(TypeError, () => toLocaleString.call(true), "true");
+assert.throws(TypeError, () => toLocaleString.call(""), "empty string");
+assert.throws(TypeError, () => toLocaleString.call(Symbol()), "symbol");
+assert.throws(TypeError, () => toLocaleString.call(1), "1");
+assert.throws(TypeError, () => toLocaleString.call({}), "plain object");
+assert.throws(TypeError, () => toLocaleString.call(Temporal.ZonedDateTime), "Temporal.ZonedDateTime");
+assert.throws(TypeError, () => toLocaleString.call(Temporal.ZonedDateTime.prototype), "Temporal.ZonedDateTime.prototype");

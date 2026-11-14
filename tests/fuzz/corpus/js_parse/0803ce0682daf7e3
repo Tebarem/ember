@@ -1,0 +1,11 @@
+// Copyright 2016 Mozilla Corporation. All rights reserved.
+// This code is governed by the license found in the LICENSE file.
+
+
+
+verifyProperty(Intl.PluralRules.prototype.resolvedOptions, "name", {
+  value: "resolvedOptions",
+  writable: false,
+  enumerable: false,
+  configurable: true,
+});

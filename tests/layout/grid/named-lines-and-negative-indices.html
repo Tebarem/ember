@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>Grid: named lines, spans and negative line numbers</title>
+<script src="/resources/testharness.js"></script>
+<script src="/resources/testharnessreport.js"></script>
+<script src="/resources/check-layout-th.js"></script>
+<style>
+body { margin: 0 }
+.g { display: grid; position: relative; width: 150px; grid-template-columns: [a] 50px [b] 50px [c] 50px;
+     grid-template-rows: 20px 20px }
+.g > div { height: 20px }
+#n1 { grid-column: a / c }
+#n2 { grid-column: b / c; grid-row: 2 }
+#n3 { grid-column: -2 / -1; grid-row: 2 }
+#n4 { grid-column: span 2 / span 3 }
+</style>
+<body onload="checkLayout('.g > div')">
+<!--
+Derivation (CSS Grid 2 sections 8.3 and 8.5). Columns are 50px each; line a is 1, b is 2, c is 3 and the end
+line is 4. #n1 is a / c: columns 1 and 2 of row 1 (x 0, width 100, y 0). #n2 is b / c on row 2: column 2 only
+(x 50, width 50, y 20). #n3 is -2 / -1: line -1 is line 4 and -2 is line 3, so column 3 of row 2 (x 100,
+width 50, y 20). #n4 has two spans, so the end span is dropped and the start span (2) is kept; it is auto on
+both axes. The cursor is after #n1 in row 1 (column 1), so #n4 searches row 1 and finds no two free columns,
+then row 2 where columns 1 and 2 are not both free (column 2 holds #n2), then row 3 (implicit), which is
+free: x 0, width 100, y 40.
+Provenance: derived by hand; not run in Chromium in this environment.
+-->
+<div class="g">
+  <div id="n1" data-expected-width="100" data-expected-height="20" data-offset-x="0" data-offset-y="0"></div>
+  <div id="n2" data-expected-width="50" data-expected-height="20" data-offset-x="50" data-offset-y="20"></div>
+  <div id="n3" data-expected-width="50" data-expected-height="20" data-offset-x="100" data-offset-y="20"></div>
+  <div id="n4" data-expected-width="100" data-expected-height="20" data-offset-x="0" data-offset-y="40"></div>
+</div>
+</body>

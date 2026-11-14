@@ -1,0 +1,43 @@
+# Budget baselines for `bench_view --app tests/apps/react-todomvc/dist --todomvc todos-react` (W8b).
+#
+# Format: one metric per line, "<key> <metric> <value>"; '#' starts a comment line. bench_view --baseline FILE --key KEY
+# compares each metric with the line of KEY, or with the line of the key "any" when KEY has none. A gated metric (the
+# stripped library size and the heap per view: deterministic) fails the run when it is more than 5% above its baseline;
+# the wall-clock metrics are printed with their change but not enforced (shared runners and software Vulkan vary by more
+# than 5% from run to run). A metric with no line passes, and bench_view prints the lines to add.
+#
+# Update a line when a change is meant to move a metric (say why in the commit), not to make a regression pass.
+
+# Every runner: the live embi_alloc heap of one loaded, idle react-todomvc view (the same on Linux, Windows and macOS).
+any heap_per_view_bytes 6281550
+
+# Linux reference machine: clang 19, Release, Mesa llvmpipe (software Vulkan, LP_NUM_THREADS=4), 2026-11-11.
+# lib_bytes is the stripped libember.so of an EMBER_SHARED=ON, EMBER_TESTS=OFF Release build (SDL3 and SDL_image are
+# linked into it). The times were taken with the machine under load (load average 25 to 45), so they are high.
+# lib_bytes: 10331192 -> 9401904 on 2026-11-13 (SZ1: libember.so exports emb_* only, SDL's dynamic API is off; the default
+# configuration keeps its unwind tables). The budget configuration (EMBER_MIN_SIZE=ON, EMBER_NET=OFF) is 4753408 bytes, of
+# which 3809032 is Ember's own part: see tools/libsize.sh.
+box-clang19 lib_bytes 9401904
+box-clang19 first_paint_cold_ms 97.8
+box-clang19 first_paint_warm_ms 93.7
+box-clang19 first_content_cold_ms 112.1
+box-clang19 stage_view_create_ms 74.3
+box-clang19 stage_parse_ms 19.8
+box-clang19 stage_style_layout_ms 0.36
+box-clang19 stage_scripts_rest_ms 0.44
+box-clang19 rss_first_view_bytes 2785280
+box-clang19 rss_per_view_bytes 25865200
+box-clang19 scroll_avg_ms 71.1
+box-clang19 scroll_p95_ms 80.9
+box-clang19 toggle_all_click_ms 78.8
+box-clang19 toggle_all_anim_avg_ms 39.1
+box-clang19 toggle_all_anim_p95_ms 44.3
+
+# CI (ubuntu-24.04-gcc-15, Release, llvmpipe): no lines yet. The first run of the budgets step prints them (the library
+# built by gcc 15 differs in size from the clang build above); add them here so that lib_bytes is gated on CI.
+
+# CI size gate of the budget configuration: the stripped Ember-only libember.so (EMBER_SHARED=ON, EMBER_MIN_SIZE=ON,
+# EMBER_NET=OFF, EMBER_SDL_EXTERNAL=ON, gcc 15, Release), gated at +5%. NOT SET YET: nobody has measured the gcc-15 number
+# (a clang-19 build of the same configuration is 3809032 bytes, but gcc differs), so the step "Budget configuration size and exports" only
+# reports until the line below is added. The first CI run prints it:
+# ci-linux-gcc15-min ember_only_bytes <bytes>

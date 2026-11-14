@@ -1,0 +1,33 @@
+// Copyright (c) 2012 Ecma International.  All rights reserved.
+// This code is governed by the BSD license found in the LICENSE file.
+
+
+
+var obj = {};
+
+function setFunc(value) {
+  obj.setVerifyHelpProp = value;
+}
+
+Object.defineProperty(obj, "foo", {
+  set: setFunc,
+  get: undefined,
+  enumerable: true,
+  configurable: true
+});
+
+function getFunc() {
+  return 10;
+}
+
+Object.defineProperty(obj, "foo", {
+  get: getFunc
+});
+verifyEqualTo(obj, "foo", getFunc());
+
+verifyWritable(obj, "foo", "setVerifyHelpProp");
+
+verifyProperty(obj, "foo", {
+  enumerable: true,
+  configurable: true,
+});

@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>R4e: mix-blend-mode and isolation on SVG elements</title>
+<link rel="match" href="svgfx-blend-isolation-ref.html">
+<style>
+body { margin: 0; background: #fff }
+svg { position: absolute; left: 0; top: 0 }
+</style>
+<svg width="300" height="120">
+  <rect width="300" height="120" fill="#0f0"/>
+  <!-- not isolated: the multiply sees the green backdrop and the red -->
+  <g><rect x="10" y="10" width="60" height="60" fill="#f00"/><rect x="40" y="40" width="60" height="60" fill="#0ff" style="mix-blend-mode: multiply"/></g>
+  <!-- isolated: the multiply sees only the red of its group -->
+  <g style="isolation: isolate" transform="translate(150 0)"><rect x="10" y="10" width="60" height="60" fill="#f00"/><rect x="40" y="40" width="60" height="60" fill="#0ff" style="mix-blend-mode: multiply"/></g>
+</svg>

@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>Insets set the size and the position of an absolutely positioned box when its size is auto</title>
+<script src="/resources/testharness.js"></script>
+<script src="/resources/testharnessreport.js"></script>
+<script src="/resources/check-layout-th.js"></script>
+<style>
+body { margin: 0 } #c { position: relative; width: 100px; height: 50px }
+</style>
+<body onload="checkLayout('#c > div')">
+<!-- Derivation (CSS 2.1 10.3.7 and 10.6.4), against the padding box of #c, which is 100 x 50 at (0, 0):
+f1: left 10, right 20, width auto: width = 100 - 10 - 20 = 70, at x = 10. Top 0 and bottom 0 with a
+height of auto: height = 50 - 0 - 0 = 50, at y = 0.
+f2: left 0, right 0, width 20, both horizontal margins auto: they share 100 - 20 = 80, so 40 each, and
+x = 40. Top 0 with an auto bottom: the auto margin-top is zero, so y = 0.
+f3: top 10, bottom 10, height 10, margins auto top and bottom: they share 50 - 10 - 10 - 10 = 20, so 10
+each, and y = 10 + 10 = 20. Left 0 with an auto right: x = 0. -->
+<div id="c">
+  <div id="f1" style="position: absolute; left: 10px; right: 20px; top: 0; bottom: 0" data-offset-x="10" data-offset-y="0" data-expected-width="70" data-expected-height="50"></div>
+  <div id="f2" style="position: absolute; left: 0; right: 0; width: 20px; height: 10px; top: 0; margin: auto" data-offset-x="40" data-offset-y="0" data-expected-width="20" data-expected-height="10"></div>
+  <div id="f3" style="position: absolute; left: 0; width: 10px; top: 10px; bottom: 10px; height: 10px; margin: auto 0" data-offset-x="0" data-offset-y="20" data-expected-width="10" data-expected-height="10"></div>
+</div>
+</body>

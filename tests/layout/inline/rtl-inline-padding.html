@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>Inline layout: rtl inline box keeps its physical padding and border</title>
+<script src="/resources/testharness.js"></script>
+<script src="/resources/testharnessreport.js"></script>
+<script src="/resources/check-layout-th.js"></script>
+<link rel="stylesheet" href="/fonts/ahem.css">
+<style>
+body { margin: 0 } .a { font: 20px/20px Ahem } #d { width: 100px; direction: rtl }
+</style>
+<body onload="checkLayout('#d')">
+<!-- Derivation: CSS 2.1 10.8 and CSS Writing Modes 4. The rtl line holds the span's text XX (40px) and
+the span's end edge on the left, which is the physical left: padding-left 10px and border-left 4px,
+14px in all. The span is 54px wide and the line starts at the right, so the box runs from 100 - 54 = 46
+to 100, with the border at 46 to 50, the padding at 50 to 60, and the text at 60 to 100. -->
+<div id="d" class="a" data-expected-width="100" data-expected-height="20"><span id="s" style="padding-left:10px;border-left:4px solid" data-offset-x="46" data-offset-y="0" data-expected-width="54" data-expected-height="20">XX</span></div>
+</body>

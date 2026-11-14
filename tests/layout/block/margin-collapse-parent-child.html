@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>A child's top margin collapses through its parent</title>
+<script src="/resources/testharness.js"></script>
+<script src="/resources/testharnessreport.js"></script>
+<script src="/resources/check-layout-th.js"></script>
+<style>
+body { margin: 0 }
+</style>
+<body onload="checkLayout('#p')">
+<!-- Derivation: CSS 2.1 8.3.1. #p has no border, no padding and no clearance above its first child, so the
+child's margin-top of 40px collapses with #p's own top margin of 0. The collapsed margin lies outside
+#p: #p's border box starts at y = 40px, and so does the child's. #p's height is its child's
+height, 10px. #c is offset 0 from #p's padding edge (#p is not positioned, so #c's offsetParent is
+body and its offsetTop is in document coordinates: 40). -->
+<div id="p" data-offset-y="40" data-expected-height="10"><div id="c" style="margin-top: 40px; height: 10px" data-offset-y="40" data-expected-height="10"></div></div>
+</body>

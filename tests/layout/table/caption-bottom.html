@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<script src="/resources/testharness.js"></script>
+<script src="/resources/testharnessreport.js"></script>
+<script src="/resources/check-layout-th.js"></script>
+<title>caption-side: bottom goes below the grid</title>
+<style>body { margin: 0 } table { border-spacing: 0 } td { padding: 0 }</style>
+<body onload="checkLayout('table, caption')">
+<!-- Derivation: CSS 2.1 17.4. The grid is one 20px row and the bottom caption is 15px, so the table is 35px tall
+and the caption starts at y = 20. -->
+<table data-expected-width="50" data-expected-height="35">
+  <caption style="caption-side: bottom" data-offset-y="20" data-expected-height="15"><div style="width: 50px; height: 15px"></div></caption>
+  <tr><td><div style="width: 50px; height: 20px"></div></td></tr>
+</table>
+</body>

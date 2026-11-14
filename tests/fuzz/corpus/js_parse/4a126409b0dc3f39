@@ -1,0 +1,18 @@
+// This file was procedurally generated from the following sources:
+// - src/class-elements/private-method-getter-usage.case
+// - src/class-elements/productions/cls-decl-wrapped-in-sc.template
+
+
+
+class C {
+  ;;;;
+  ;;;;;;get #m() { return 'test262'; };;;;;;;
+  ;;;;
+  method() {
+    return this.#m;
+  }
+}
+
+var c = new C();
+
+assert.sameValue(c.method(), 'test262');

@@ -1,0 +1,14 @@
+// Copyright (C) 2015 the V8 project authors. All rights reserved.
+// This code is governed by the BSD license found in the LICENSE file.
+
+
+var obj = {};
+Object.defineProperty(obj, 'raw', {
+  get: function() {
+    throw new Test262Error();
+  }
+});
+
+assert.throws(Test262Error, function() {
+  String.raw(obj);
+});

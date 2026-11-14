@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>last baseline alignment, container baselines, and static positions with wrap-reverse</title>
+<script src="/resources/testharness.js"></script>
+<script src="/resources/testharnessreport.js"></script>
+<script src="/resources/check-layout-th.js"></script>
+<style>
+body { margin: 0 }
+.t { display: flex; align-items: last baseline; width: 100px; height: 60px }
+.t > div { width: 10px }
+.w { display: flex; flex-flow: row wrap-reverse; position: relative; width: 50px; height: 40px; align-items: center }
+.w > div { position: absolute; width: 8px; height: 6px }
+</style>
+<body onload="checkLayout('.t > div, .w > div')">
+<!-- Derivation (CSS Flexbox 1 9.4 step 8 and CSS Align 3 9.3). Items without text have their border-box
+bottom as baseline. With last-baseline alignment the bottoms line up at the cross end of the single line,
+which is the container's 60px: #a (20px tall) ends at 60, so it starts at 40; #b (30px) starts at 30.
+In .w, the abspos child has align-self: auto = center, so its static position is centered in the 40px
+container: (40 - 6) / 2 = 17. With wrap-reverse and align-self: last baseline, which falls back to end
+alignment (the end edge of the writing mode, the bottom, which wrap-reverse does not flip: only flex-start
+and flex-end follow the reversed lines), it sits at the bottom: 40 - 6 = 34.
+Provenance: hand-derived; not run in Chromium (none available here). The vendored WPT
+flex-abspos-staticpos-align-self-002.html asserts the same rules for the same property values. -->
+<div class="t">
+  <div id="a" style="height: 20px" data-offset-y="40"></div>
+  <div id="b" style="height: 30px" data-offset-y="30"></div>
+</div>
+<div class="w"><div data-offset-y="17"></div></div>
+<div class="w"><div style="align-self: last baseline" data-offset-y="34"></div></div>
+</body>

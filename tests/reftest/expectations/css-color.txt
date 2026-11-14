@@ -1,0 +1,14 @@
+css/css-color/at-color-profile-001.html not-yet color-profiles (@color-profile and ICC profiles, CSS Color 5 section 4)
+css/css-color/clip-opacity-out-of-flow.html bug
+css/css-color/contrast-color-001.html bug
+css/css-color/contrast-color-style-query.html bug
+css/css-color/currentcolor-003.html not-yet ::first-line
+css/css-color/currentcolor-004.html not-yet :visited (no link history is kept)
+css/css-color/inline-opacity-float-child.html bug
+css/css-color/t32-opacity-offscreen-multiple-boxes-1-c.xht bug
+css/css-color/t32-opacity-offscreen-multiple-boxes-2-c.xht bug
+css/css-color/t425-hsla-basic-a.xht xhtml the runner parses XHTML as HTML: the comment text between </style> and </head> starts the body in HTML parsing (it is drawn above the test), while XML keeps it in the head
+css/css-color/tagged-images-001.html not-yet color-profiles (tagged images need ICC or CICP profile conversion)
+css/css-color/tagged-images-003.html not-yet color-profiles (tagged images need ICC or CICP profile conversion)
+css/css-color/tagged-images-004.html not-yet color-profiles (tagged images need ICC or CICP profile conversion)
+css/css-color/untagged-images-001.html not-yet color-profiles (untagged image color spaces need profile handling)

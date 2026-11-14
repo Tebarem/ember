@@ -1,0 +1,27 @@
+# test262 features that the engine does not implement yet. Tests tagged with any of these are
+# skipped (not run, not in expectations.txt). Remove a line when its feature lands; the expectations
+# then pick up any test that still fails. Features that are partly implemented are not listed here:
+# their failing tests are recorded in expectations.txt instead.
+# The exponent operator (exponentiation) is implemented, so it is not listed.
+
+# Syntax beyond ES5 (J1 parses ES5 plus the exponent operator; J2a adds arrows, templates, spread, optional chaining, ??, logical assignment, new.target).
+await-dictionary
+decorators
+explicit-resource-management
+import-bytes
+import-defer
+import-text
+source-phase-imports
+source-phase-imports-module-source
+tail-call-optimization
+cross-realm
+
+
+# Built-in objects outside the J1 set.
+iterator-includes
+iterator-chunking
+joint-iteration
+Iterator.prototype.join
+Atomics.waitAsync
+Temporal
+ShadowRealm

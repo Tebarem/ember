@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>Inline layout: vertical-align super raises a box by font-size/3 + 1</title>
+<script src="/resources/testharness.js"></script>
+<script src="/resources/testharnessreport.js"></script>
+<script src="/resources/check-layout-th.js"></script>
+<link rel="stylesheet" href="/fonts/ahem.css">
+<style>
+body { margin: 0 } .a { font: 30px/30px Ahem } #d { width: 300px }
+</style>
+<body onload="checkLayout('#d')">
+<!-- UNVERIFIED: derived by hand from the specs, not yet checked in Chromium. Derivation: CSS 2.1 10.8.1. Ahem at 30px: ascent 24, descent 6. Super raises the span by 30/3 + 1 = 11px. It reaches 24 + 11 = 35 above the baseline, so the line box is 35 + 6 = 41px tall with the baseline at 35. The plain span x is at y 35 - 24 = 11 and the raised span s at y 35 - 11 - 24 = 0. -->
+<div id="d" class="a" data-expected-width="300" data-expected-height="41"><span id="x" data-offset-x="0" data-offset-y="11" data-expected-width="60" data-expected-height="30">XX</span><span id="s" style="vertical-align:super" data-offset-x="60" data-offset-y="0" data-expected-width="60" data-expected-height="30">YY</span></div>
+</body>

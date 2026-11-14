@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  div { width: 1px; }
+  @media not (min-width: 1000px) { #a { width: 2px; } }
+  @media not (min-width: 1000px) and (min-width: 100px) { #b { width: 3px; } }
+  @media not ((min-width: 1000px) and (min-width: 100px)) { #c { width: 4px; } }
+  @media (min-width: 100px) and (not (min-width: 1000px)) { #d { width: 5px; } }
+</style>
+</head>
+<body>
+<div id="a"></div><div id="b"></div><div id="c"></div><div id="d"></div>
+<!-- expect: a width 2px -->
+<!-- expect: b width 1px -->
+<!-- expect: c width 4px -->
+<!-- expect: d width 5px -->
+</body>
+</html>

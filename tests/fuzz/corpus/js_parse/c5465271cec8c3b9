@@ -1,0 +1,10 @@
+// Copyright (C) 2016 the V8 project authors. All rights reserved.
+// This code is governed by the BSD license found in the LICENSE file.
+
+
+var x = { x: true };
+
+export default 'x' in x;
+import f from './eval-export-dflt-expr-in.js';
+
+assert.sameValue(f, true);

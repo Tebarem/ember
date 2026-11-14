@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>A BFC root's auto height contains its floats</title>
+<script src="/resources/testharness.js"></script>
+<script src="/resources/testharnessreport.js"></script>
+<script src="/resources/check-layout-th.js"></script>
+<style>
+body { margin: 0 } #c { position: relative; width: 200px } .bfc { overflow: hidden }
+</style>
+<body onload="checkLayout('#c > div')">
+<!-- Derivation (CSS 2.1 10.6.7): the BFC root's auto height includes its float, which is 40px tall, so the
+root is 40px tall. The next block then starts at y = 40. -->
+<div id="c">
+  <div class="bfc" style="width: 200px" data-offset-x="0" data-offset-y="0" data-expected-width="200" data-expected-height="40">
+    <div style="float: left; width: 50px; height: 40px"></div>
+  </div>
+  <div style="height: 10px" data-offset-x="0" data-offset-y="40" data-expected-width="200" data-expected-height="10"></div>
+</div>
+</body>

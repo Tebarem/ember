@@ -1,0 +1,10 @@
+var Test262Error=function(m){this.message=m};Test262Error.prototype.toString=function(){return 'T'};var assert=function(c,m){if(c!==true)throw new Test262Error(m)};assert.sameValue=function(a,b,m){if(a!==b&&(a===a||b===b))throw new Test262Error(m)};assert.notSameValue=function(a,b,m){if(a===b)throw new Test262Error(m)};assert.throws=function(E,f,m){try{f()}catch(e){return}throw new Test262Error(m)};var $DONOTEVALUATE=function(){throw 'x'};var print=function(){};
+// This file was procedurally generated from the following sources:
+// - src/generators/yield-as-label-identifier.case
+// - src/generators/syntax/class-expr-static-private-method.template
+
+$DONOTEVALUATE();
+
+var C = class { static *#gen() {
+    yield: ;
+}};

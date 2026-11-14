@@ -1,0 +1,11 @@
+// Copyright (C) 2026 Ron Buckton. All rights reserved.
+// This code is governed by the BSD license found in the LICENSE file.
+
+
+
+var stack = new DisposableStack();
+stack.dispose();
+
+assert.throws(ReferenceError, function() {
+  stack.defer(() => {});
+});

@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>Inline layout: vertical-align length raises a text box</title>
+<script src="/resources/testharness.js"></script>
+<script src="/resources/testharnessreport.js"></script>
+<script src="/resources/check-layout-th.js"></script>
+<link rel="stylesheet" href="/fonts/ahem.css">
+<style>
+body { margin: 0 } .a { font: 20px/20px Ahem } #d { width: 200px }
+</style>
+<body onload="checkLayout('#d')">
+<!-- Derivation: CSS 2.1 10.8.1. The span is raised 10px. Its content area is 20px (16px above the
+baseline and 4px below), so after the raise it reaches 26px above the baseline. The strut reaches 16px
+above, so the line box is 26 + 4 = 30px tall with the baseline at 26. The span's top is 26 - 10 - 16 = 0. -->
+<div id="d" class="a" data-expected-width="200" data-expected-height="30">XX<span id="y" style="vertical-align:10px" data-offset-x="40" data-offset-y="0" data-expected-width="40" data-expected-height="20">YY</span></div>
+</body>

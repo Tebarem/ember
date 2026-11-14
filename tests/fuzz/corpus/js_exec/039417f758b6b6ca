@@ -1,0 +1,8 @@
+// This file was procedurally generated from the following sources:
+// - src/assignment-target-type/equalityexpression-abstract-not-equal-relationalexpression-0.case
+// - src/assignment-target-type/invalid/direct.template
+
+
+$DONOTEVALUATE();
+
+x != y = 1;

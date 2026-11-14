@@ -1,0 +1,382 @@
+/*
+ * Bytecode opcodes. OP(name, size, pops, pushes):
+ *   size   total bytes including the opcode byte
+ *   pops   values removed from the operand stack (the compiler's depth tracking)
+ *   pushes values left on the operand stack
+ * Operands are little-endian u32 unless the comment says otherwise. Jump operands are absolute
+ * byte offsets into the function's bytecode.
+ *
+ * SYM_* ops exist only during compilation. The resolve pass (scope.c) rewrites each one into a
+ * final op of the same size, so the interpreter never sees them.
+ *
+ * Variable-arity ops (CALL, NEW) list pops/pushes as 0 here; the emitter passes the real counts.
+ */
+
+/* ---- stack shuffling */
+OP(NOP, 1, 0, 0)
+OP(POP, 1, 1, 0)
+OP(DUP, 1, 1, 2)
+OP(DUP2, 1, 2, 4)
+OP(ROT3, 1, 3, 3) /* [a b c] -> [c a b] */
+OP(ROT4, 1, 4, 4) /* [a b c d] -> [d a b c] */
+OP(SWAP, 1, 2, 2)
+
+/* ---- constants and frame state */
+OP(PUSH_UNDEF, 1, 0, 1)
+OP(PUSH_NULL, 1, 0, 1)
+OP(PUSH_TRUE, 1, 0, 1)
+OP(PUSH_FALSE, 1, 0, 1)
+OP(PUSH_I32, 5, 0, 1)   /* signed 32-bit immediate */
+OP(PUSH_CONST, 5, 0, 1) /* constant index */
+OP(NEW_REGEXP, 5, 0, 1) /* operand: constant index of a RegExp literal template (J4c); pushes a fresh RegExp */
+OP(PUSH_THIS, 1, 0, 1)
+OP(PUSH_CALLEE, 1, 0, 1)
+OP(CONST_FALSE, 5, 0, 1) /* ignores its operand; pushes false (delete of a local name) */
+OP(CONST_ASSIGN, 5, 0, 0) /* throws TypeError: store to a function's own name in strict code */
+
+/* ---- locals, boxes, upvalues, globals (operand: slot, upvalue index or constant index) */
+OP(GET_LOC, 5, 0, 1)
+OP(SET_LOC, 5, 0, 0)  /* stores the top value and keeps it */
+OP(PUT_LOC, 5, 1, 0)  /* stores and pops */
+OP(GET_BOX, 5, 0, 1)
+OP(SET_BOX, 5, 0, 0)
+OP(INIT_BOX, 5, 1, 0) /* pops v and makes a new box holding v in the slot */
+OP(PUT_BOX, 5, 1, 0) /* pops v and stores it in the box already in the slot (captured root bindings) */
+OP(MAKE_BOX, 5, 0, 0) /* wraps the slot's current value in a new box */
+OP(GET_UPVAL, 5, 0, 1)
+OP(SET_UPVAL, 5, 0, 0)
+OP(GET_GLOBAL, 5, 0, 1)     /* constant index of the name; throws ReferenceError when missing */
+OP(GET_GLOBAL_OPT, 5, 0, 1) /* typeof form: undefined when missing */
+OP(SET_GLOBAL, 5, 0, 0)
+OP(DELETE_GLOBAL, 5, 0, 1)
+OP(DECLARE_GLOBAL, 5, 0, 0)    /* var declaration: defines undefined when absent */
+OP(DEFINE_GLOBAL_FN, 5, 1, 0)  /* pops the function and stores it on the global object */
+/* Script declarations (GlobalDeclarationInstantiation). GLOBAL_CHECK: name constant, then 0 for a
+ * let or const name, 1 for a var name, 2 for a function name; it throws when the name collides
+ * with the realm's lexical record, its var names, or the global object. DECLARE_GLEX: name
+ * constant, then 1 for const; adds an uninitialized (TDZ) binding to the realm's lexical record.
+ * INIT_GLEX pops the value that initializes the named binding. Global reads and writes consult the
+ * record before the global object. */
+OP(GLOBAL_CHECK, 9, 0, 0)
+OP(DECLARE_GLEX, 9, 0, 0)
+OP(INIT_GLEX, 5, 1, 0)
+
+/* ---- dynamic references (with statements, direct eval). The operand is a dynamic site index.
+ * A site checks its runtime scope entries first; when none has the name, control jumps to the
+ * static fallback code that the resolve pass appended (it ends with a jump back to pc + 5, or
+ * for DYN_CALL, to pc + 5 as well, where the PUSH_UNDEF of the call form sits). */
+OP(DYN_GET, 5, 0, 1)
+OP(DYN_TYPEOF, 5, 0, 1)
+OP(DYN_SET, 5, 0, 0)     /* stores the top value and keeps it */
+OP(DYN_DELETE, 5, 0, 1)
+OP(DYN_CALL, 5, 0, 1)    /* found: pushes the callee and its this value (skips the PUSH_UNDEF) */
+/* A reference that is resolved before the right-hand side is evaluated (assignments, compound
+ * assignments, ++ and -- on a name in a scope with a with object or an eval context). DYN_REF
+ * pushes the holder: the with object, the box of an environment record, or undefined when no
+ * dynamic scope has the name. DYN_GET_REF reads through the holder ([h] -> [h v]) and
+ * DYN_SET_REF stores through it ([h v] -> [v]) without looking the name up again. With the
+ * undefined holder they jump to the static fallback (after dropping the holder for the store). */
+OP(DYN_REF, 5, 0, 1)
+OP(DYN_GET_REF, 5, 0, 1)
+OP(DYN_SET_REF, 5, 2, 1)
+OP(EVAL_DECL, 5, 0, 0)   /* sloppy eval: declares the var name (constant) in the variable env */
+OP(EVAL_DEFINE, 5, 1, 0) /* sloppy eval: pops v and stores it under the name (constant) */
+OP(EVAL_CHECK, 9, 0, 0)  /* sloppy eval, before any declaration: name constant, then 1 (var) or 2
+                          * (function); throws SyntaxError on a lexical conflict, TypeError when
+                          * the global object cannot take the declaration */
+
+/* ---- symbolic (compile time only) */
+OP(SYM_GET, 5, 0, 1)
+OP(SYM_SET, 5, 0, 0)
+OP(SYM_INIT, 5, 1, 0)
+OP(SYM_TYPEOF, 5, 0, 1)
+OP(SYM_DELETE, 5, 0, 1)
+OP(SYM_REF, 5, 0, 1)
+OP(SYM_GETREF, 5, 0, 1)
+OP(SYM_SETREF, 5, 2, 1)
+OP(SYM_CALL, 5, 0, 1)  /* a callee name: the static rewrite is a GET, followed by PUSH_UNDEF */
+
+/* ---- properties */
+OP(GET_FIELD, 5, 1, 1)      /* [obj] -> [v]; operand: constant index of key string */
+OP(SET_FIELD, 5, 2, 1)      /* [obj v] -> [v] */
+OP(TO_PROPKEY, 1, 1, 1)     /* [key] -> [canonical key]: ToPropertyKey once for read-modify-write */
+OP(CHECK_BASE, 1, 2, 2)     /* [obj key] -> [obj key]: RequireObjectCoercible(obj) before the key converts */
+OP(GET_INDEX, 1, 2, 1)      /* [obj key] -> [v] */
+OP(SET_INDEX, 1, 3, 1)      /* [obj key v] -> [v] */
+OP(GET_FIELD_THIS, 5, 1, 2) /* [obj] -> [fn obj] */
+OP(GET_INDEX_THIS, 1, 2, 2) /* [obj key] -> [fn obj] */
+OP(DELETE_FIELD, 5, 1, 1)
+OP(DELETE_INDEX, 1, 2, 1)
+OP(DEFINE_FIELD, 5, 1, 0)   /* [obj v] -> [obj]; operand: key constant */
+OP(DEFINE_GETTER, 5, 1, 0)  /* [obj fn] -> [obj] */
+OP(DEFINE_SETTER, 5, 1, 0)  /* [obj fn] -> [obj] */
+OP(DEFINE_INDEX, 5, 1, 0)   /* [arr v] -> [arr]; operand: element index */
+
+/* ---- creation */
+OP(NEW_OBJECT, 1, 0, 1)
+OP(NEW_ARRAY, 5, 0, 1)   /* operand: length (holes are EMPTY) */
+OP(NEW_CLOSURE, 5, 0, 1) /* operand: constant index of the child's CODE */
+OP(NEW_ENV, 1, 0, 1)     /* pushes a new environment record (null-prototype object) */
+OP(TO_OBJECT, 1, 1, 1)   /* with statement: ToObject, TypeError for null and undefined */
+
+/* ---- calls (variable arity: operand is argc) */
+OP(CALL, 5, 0, 0) /* [fn this args...] -> [result] */
+OP(NEW, 5, 0, 0)  /* [ctor args...] -> [object] */
+OP(CALL_EVAL, 5, 0, 0) /* like CALL; the operand is an eval site index. A direct call to the
+                          realm's eval runs the source in the caller's scope */
+
+/* ---- control */
+OP(RETURN, 1, 1, 0)
+OP(THROW, 1, 1, 0)
+OP(RETHROW, 1, 1, 0) /* THROW that keeps the recorded error location (finally dispatch) */
+OP(JMP, 5, 0, 0) /* checks the interrupt hook when the target is backward (a loop back-edge) */
+OP(JMP_ENTRY, 5, 0, 0) /* init block to body: like a forward JMP, never checks the hook */
+OP(JMP_TRUE, 5, 1, 0)
+OP(JMP_FALSE, 5, 1, 0)
+OP(JMP_TRUE_KEEP, 5, 0, 0)  /* truthy: keep and jump; falsy: pop and fall through (a || b) */
+OP(JMP_FALSE_KEEP, 5, 0, 0) /* falsy: keep and jump; truthy: pop and fall through (a && b) */
+
+/* ---- operators */
+OP(ADD, 1, 2, 1)
+OP(SUB, 1, 2, 1)
+OP(MUL, 1, 2, 1)
+OP(DIV, 1, 2, 1)
+OP(MOD, 1, 2, 1)
+OP(EXP, 1, 2, 1)
+OP(SHL, 1, 2, 1)
+OP(SAR, 1, 2, 1)
+OP(SHR, 1, 2, 1)
+OP(BAND, 1, 2, 1)
+OP(BOR, 1, 2, 1)
+OP(BXOR, 1, 2, 1)
+OP(EQ, 1, 2, 1)
+OP(NE, 1, 2, 1)
+OP(SEQ, 1, 2, 1)
+OP(SNE, 1, 2, 1)
+OP(LT, 1, 2, 1)
+OP(GT, 1, 2, 1)
+OP(LE, 1, 2, 1)
+OP(GE, 1, 2, 1)
+OP(IN, 1, 2, 1)
+OP(INSTANCEOF, 1, 2, 1)
+OP(NEG, 1, 1, 1)
+OP(PLUS, 1, 1, 1)
+OP(NOT, 1, 1, 1)
+OP(BNOT, 1, 1, 1)
+OP(TYPEOF, 1, 1, 1)
+OP(TO_NUMERIC, 1, 1, 1)
+OP(INC, 1, 1, 1) /* ToNumeric then +1 */
+OP(DEC, 1, 1, 1)
+
+
+/* ---- J2a: lexical bindings, implicit this and new.target, optional chains, spread, literals.
+ * TDZ_* check that a binding is initialized (operands: slot or upvalue, name constant); they
+ * throw a ReferenceError when the value is EMPTY and otherwise leave the stack alone. */
+OP(PUSH_EMPTY, 1, 0, 1)      /* the uninitialized marker (EMPTY) */
+OP(PUSH_NEW_TARGET, 1, 0, 1) /* the frame's new.target, undefined for a call */
+OP(TDZ_LOC, 9, 0, 0)
+OP(TDZ_BOX, 9, 0, 0)
+OP(TDZ_UPVAL, 9, 0, 0)
+OP(TO_STRING, 1, 1, 1)       /* ToString (template substitutions) */
+/* Optional chain link: tests sp[-1 - ofs]. When it is nullish, pops ofs + 1 values, pushes
+ * undefined and jumps to the target (operand 1). Otherwise falls through. */
+OP(OPT_NULLISH, 9, 0, 0)
+/* ?? and ??=: a value that is not nullish is kept and the jump is taken; a nullish value is
+ * popped and execution falls through. */
+OP(JMP_NOT_NULLISH_KEEP, 5, 0, 0)
+/* Array and argument lists built at run time. [arr v] -> [arr] appends v; [arr] -> [arr]
+ * appends a hole; [arr iterable] -> [arr] appends every value of the iterable. */
+OP(ARRAY_PUSH, 1, 2, 1)
+OP(ARRAY_HOLE, 1, 1, 1)
+OP(ARRAY_SPREAD, 1, 2, 1)
+/* Calls with an argument array: [fn this args] -> [result], [ctor args] -> [object]. */
+OP(CALL_SPREAD, 1, 3, 1)
+OP(NEW_SPREAD, 1, 2, 1)
+/* Object literals: [obj key v] -> [obj] (CreateDataProperty of ToPropertyKey(key)), the
+ * accessor forms [obj key fn] -> [obj], [obj src] -> [obj] (CopyDataProperties), [obj v] ->
+ * [obj] (the __proto__: v form), and [key fn] -> [key fn] (SetFunctionName; operand 0 none, 1
+ * "get", 2 "set"). */
+OP(DEFINE_COMPUTED, 1, 3, 1)
+OP(DEFINE_GETTER_COMPUTED, 1, 3, 1)
+OP(DEFINE_SETTER_COMPUTED, 1, 3, 1)
+OP(COPY_DATA_PROPS, 1, 2, 1)
+OP(SET_PROTO_LIT, 1, 2, 1)
+OP(SET_FN_NAME, 5, 2, 2)
+/* [v1 .. vn] -> [arr]: an array of the n values on the stack (operand n). Starts an argument
+ * list or an array literal that has a spread. */
+OP(ARRAY_FROM_STACK, 5, 0, 1)
+
+/* ---- for-in. The iterator is one stack value (an internal array). */
+OP(FOR_IN_INIT, 1, 1, 1)
+OP(FOR_IN_NEXT, 5, 0, 1) /* pushes the next key, or jumps to the operand when exhausted */
+
+/* ---- J2b: destructuring. An iterator record is a varray [iterator, next method, flags] (or
+ * [array, next index, flags] for an array without @@iterator, see iter_init in interp.c); it is
+ * kept in a compiler temporary, so the exception handler of a pattern needs only the stack depth.
+ * REQ_COERCIBLE throws for null and undefined. OBJ_REST: [src excl] -> [obj], CopyDataProperties
+ * without the keys of the excl array. */
+OP(REQ_COERCIBLE, 1, 1, 1)
+OP(ITER_INIT, 1, 1, 1)        /* [v] -> [rec]: GetIterator */
+OP(ITER_VALUE, 1, 1, 1)       /* [rec] -> [v]: IteratorStepValue; undefined once done */
+OP(ITER_REST, 1, 1, 1)        /* [rec] -> [arr]: the remaining values */
+OP(ITER_CLOSE, 1, 1, 0)       /* [rec] -> []: IteratorClose on normal completion */
+OP(ITER_CLOSE_THROW, 1, 1, 0) /* [rec] -> []: IteratorClose on throw completion (errors ignored) */
+OP(OBJ_REST, 1, 2, 1)         /* [src excl] -> [obj] */
+
+/* ---- J2c: iteration and generators. A generator's frame is saved
+ * into its generator object when it suspends and copied back onto the VM stack when it resumes;
+ * see the design note at the top of the generator section of interp.c.
+ * GEN_START: the body start of a generator function (after the parameters are bound). Creates
+ * the generator object, saves the frame, and returns the object to the caller. The first next()
+ * resumes at the following op with nothing pushed.
+ * YIELD / YIELD_RAW: [v] -> suspends; the generator's next() returns v wrapped (YIELD) or as the
+ * inner iterator result object itself (YIELD_RAW, for yield*). On resumption the stack gets
+ * [received mode], mode 0 for next, 1 for throw, 2 for return.
+ * GEN_RESUME: [received mode] -> [received]. Mode 1 throws received at this op (the handlers of
+ * the yield apply). Mode 2 jumps to the operand with [received] on the stack (the return path,
+ * compiled as a return statement); mode 0 falls through.
+ * ITER_GET: [v] -> [rec]: GetIterator with the general protocol only (no array fast path), for
+ * yield*. DELEGATE_STEP: [rec received mode] calls the inner iterator's next, throw or return
+ * (per mode). When the inner result is done it leaves [value] and jumps to operand 1 (normal
+ * completion) or operand 2 (return completion, for a return with a done result or without a return
+ * method). Otherwise it leaves [rec result] and falls through to the YIELD_RAW that follows.
+ * ITER_NEXT: [rec] -> [rec v] (IteratorStepValue), or jumps to the operand with [rec] when done.
+ * ITER_CLOSE_KEEP: [rec] -> [rec]: IteratorClose on a normal completion; the record stays. */
+OP(GEN_START, 1, 0, 0)
+OP(YIELD, 1, 1, 2)
+OP(YIELD_RAW, 1, 1, 2)
+OP(GEN_RESUME, 5, 2, 1)
+OP(DELEGATE_STEP, 9, 3, 2)
+OP(ITER_GET, 1, 1, 1)
+OP(ITER_NEXT, 5, 0, 1)
+OP(ITER_CLOSE_KEEP, 1, 0, 0)
+
+/* ---- J2d: classes, super, [[HomeObject]], private names.
+ * SET_HOME d: sets the [[HomeObject]] of the closure on top (sp[-1]) to the value d + 1 slots below
+ * it; the stack is unchanged. PUSH_HOME pushes the frame callee's [[HomeObject]] (undefined when
+ * none). ROT5 and DUP3 are stack shuffles for the compound assignments on super references.
+ * Super references: a super property reference is [this home] (or [this home key]); SUPER_GET* and
+ * SUPER_SET* read and write through home.[[GetPrototypeOf]]() with receiver this. SUPER_GET_THIS*
+ * is the call form: [this home] -> [fn this]. SUPER_CALL argc: [fn nt args...] -> [result] where
+ * fn is the active function (its [[GetPrototypeOf]] is the super constructor); SUPER_CALL_SPREAD
+ * takes the argument list as one array-like. SUPER_DELETE throws (delete of a super reference).
+ * CHECK_THIS: [v] -> [v], ReferenceError when v is uninitialized (a derived constructor's this).
+ * THIS_UNINIT: [v] -> [], ReferenceError when v is initialized (second super() call).
+ * CTOR_RETURN: [v this] -> [r], the result of a derived constructor's return.
+ * INIT_FIELDS: [fn this] -> [], runs the instance initializers of the class constructor fn on this.
+ * CLASS_SETUP: [heritage F] -> [F P], where heritage is EMPTY when there is no extends clause; it
+ * links F and P = F.prototype. CLASS_SET_INIT: [F P pinit init] -> []; pinit and init are the
+ * private installer and the field initializer (undefined when absent). CLASS_RUN_STATIC: [F sinit]
+ * -> [], calls the static initializer with this = F.
+ * NEW_PRIVATE: operand is the name constant; pushes a new private name (a private symbol).
+ * PRIV_GET: [obj key] -> [v]; PRIV_GET_THIS: [obj key] -> [fn obj]; PRIV_SET: [obj key v] -> [v];
+ * PRIV_IN: [key obj] -> [bool]; PRIV_DEF: [obj key v] -> [obj] (a field); PRIV_DEF_METHOD: [obj key
+ * fn] -> [obj]; PRIV_DEF_ACCESSOR: [obj key get set] -> [obj].
+ * DEFINE_METHOD kind: [obj key fn] -> [] defines a non-enumerable class method (kind 0), getter
+ * (1) or setter (2) on obj; it sets the function's [[HomeObject]] to obj and its name from key. */
+OP(ROT5, 1, 5, 5)
+OP(DUP3, 1, 3, 6)
+OP(PUSH_HOME, 1, 0, 1)
+OP(SET_HOME, 5, 2, 2)
+OP(SUPER_GET, 5, 2, 1)
+OP(SUPER_GET_INDEX, 1, 3, 1)
+OP(SUPER_SET, 5, 3, 1)
+OP(SUPER_SET_INDEX, 1, 4, 1)
+OP(SUPER_GET_THIS, 5, 2, 2)
+OP(SUPER_GET_THIS_INDEX, 1, 3, 2)
+OP(SUPER_CALL, 5, 0, 0)
+OP(SUPER_CALL_SPREAD, 1, 3, 1)
+OP(SUPER_DELETE, 1, 2, 1)
+OP(CHECK_THIS, 1, 1, 1)
+OP(THIS_UNINIT, 1, 1, 0)
+OP(CTOR_RETURN, 1, 2, 1)
+OP(INIT_FIELDS, 1, 2, 0)
+OP(CLASS_SETUP, 1, 2, 2)
+OP(CLASS_SET_INIT, 1, 4, 0)
+OP(CLASS_RUN_STATIC, 1, 2, 0)
+OP(NEW_PRIVATE, 5, 0, 1)
+OP(PRIV_GET, 1, 2, 1)
+OP(PRIV_GET_THIS, 1, 2, 2)
+OP(PRIV_SET, 1, 3, 1)
+OP(PRIV_IN, 1, 2, 1)
+OP(PRIV_DEF, 1, 3, 1)
+OP(PRIV_DEF_METHOD, 1, 3, 1)
+OP(PRIV_DEF_ACCESSOR, 1, 4, 1)
+OP(DEFINE_METHOD, 5, 3, 0)
+
+/* ---- J3b: async functions, async generators, for-await.
+ * ASYNC_START: the body start of an async function (after the parameters). Creates the promise
+ * and keeps the frame in its async state; the frame continues in place. A throw before this op
+ * (parameter binding) rejects the promise that the call returns.
+ * ASYNC_GEN_START: GEN_START for an async generator (creates the generator object).
+ * AWAIT: [v] -> [received mode]. Suspends the frame until v settles; the resumption pushes the
+ * value and the mode (0 fulfilled, 1 rejected), which GEN_RESUME 0 turns into a throw or [received].
+ * ASYNC_YIELD: [v] -> [received mode], the yield of an async generator with v already awaited. The
+ * head request is completed with {value: v, done: false}; when another request is queued the
+ * frame continues with its completion pushed (no suspension), else it suspends.
+ * ASYNC_ITER_INIT: [v] -> [rec]: GetIterator(v, async), with CreateAsyncFromSyncIterator when v
+ * has no @@asyncIterator.
+ * ASYNC_ITER_CALL: [rec] -> [rec res]: Call(next, iterator) with no await and no result check.
+ * ASYNC_ITER_STEP: [rec received] -> [rec v]: the awaited result must be an object (TypeError
+ * otherwise); done jumps to the operand with [rec], else v is the result's value.
+ * ASYNC_CLOSE_CALL: [rec] -> [rec res]: calls the iterator's return method. When there is none it
+ * jumps to the operand with [rec].
+ * ASYNC_CLOSE_CHECK: [rec received] -> [rec]: the awaited return result must be an object.
+ * yield* in an async generator (14.4.14): the loop keeps [rec received mode].
+ * ASYNC_DELEGATE_CALL: [rec received mode] -> [rec mode res]: the inner next (mode 0), throw (1) or
+ * return (2) called with received. A missing throw jumps to operand 1 with [rec]; a missing return
+ * jumps to operand 2 with [received].
+ * ASYNC_DELEGATE_CHECK: [rec mode received awaitMode]: the awaited result: a
+ * rejection throws, a non-object throws a TypeError. When done it leaves [value] and jumps to
+ * operand 1 (return completion, when mode is 2) or operand 2 (normal completion). Otherwise it
+ * leaves [rec value] for the ASYNC_YIELD that follows.
+ * ASYNC_DELEGATE_NOTHROW: [rec] -> throws the TypeError of a missing throw method.
+ * ASYNC_RET_PREP: [rec received mode] -> [rec mode received] for a return resumption (mode 2), so
+ * that its value is awaited first (AWAIT, then ASYNC_RET_FINISH); other modes jump to operand 1.
+ * ASYNC_RET_FINISH: [rec mode received awaitMode] -> [rec received mode']: the awaited value is
+ * a return (mode' 2) when it fulfilled, or a throw (mode' 1) when it rejected. */
+OP(ASYNC_START, 1, 0, 0)
+OP(ASYNC_GEN_START, 1, 0, 0)
+OP(AWAIT, 1, 1, 2)
+OP(ASYNC_YIELD, 1, 1, 2)
+OP(ASYNC_ITER_INIT, 1, 1, 1)
+OP(ASYNC_ITER_CALL, 1, 0, 1)
+OP(ASYNC_ITER_STEP, 5, 1, 1)
+OP(ASYNC_CLOSE_CALL, 5, 0, 1)
+OP(ASYNC_CLOSE_CHECK, 1, 1, 0)
+OP(ASYNC_DELEGATE_CALL, 9, 3, 3)
+OP(ASYNC_DELEGATE_CHECK, 9, 4, 2)
+OP(ASYNC_DELEGATE_NOTHROW, 1, 1, 0)
+OP(ASYNC_RET_PREP, 5, 3, 3)
+OP(ASYNC_RET_FINISH, 1, 4, 3)
+
+/* ---- J3c: ES modules. A module's body is a function whose root
+ * bindings are boxes (its init block makes them, and instantiates its function declarations);
+ * GEN_START ends the instantiation and suspends the frame until the module is evaluated.
+ * IMPORT_GET k: the value of an import. Constant k is a token varray [module holder, index], so
+ * that the op keeps the size of the SYM op it rewrites; ReferenceError while the exporter's binding
+ * is uninitialized. IMPORT_META k: the import.meta object of the module whose holder is constant k.
+ * DYN_IMPORT k: [specifier options] -> [promise]; k is the constant of the referrer's holder
+ * (undefined in a script). */
+OP(IMPORT_GET, 5, 0, 1)
+OP(IMPORT_META, 5, 0, 1)
+OP(DYN_IMPORT, 5, 2, 1)
+
+/* ---- J5i: superinstructions. A fused op covers two adjacent ops of
+ * one basic block and has the byte size of both, so every later op keeps its offset: the second
+ * part's operands sit at the offsets they have in the unfused pair (OPERAND(n) in interp.c). The
+ * compiler's peephole (compiler.c, embi_jsc_fuse) emits them from the table embi_js_fuse_defs in
+ * bytecode.h, and only when neither part's start is a jump target, a protected-range boundary or a
+ * resume point. Operands: the first part's, then the second's. Only the pairs that clear the keep
+ * rule of J5.md section 6 are here; the ablation data is in the J5i report. */
+OP(GET_LOC_I32, 10, 0, 2)        /* GET_LOC slot; PUSH_I32 imm */
+OP(INC_SET_LOC, 6, 1, 1)         /* INC; SET_LOC slot */
+
+/* ---- J6a: appended last so that no earlier opcode changes its number. */
+OP(SUPER_BASE, 1, 3, 3)     /* [this home key] -> [this base key]: GetSuperBase before the key converts; base is a stand-in whose prototype is the super base, so the SUPER_* ops can use it as their home */
+OP(CALL_EVAL_SPREAD, 5, 3, 1) /* eval(...args): [fn this args] -> [result]; CALL_EVAL with a spread */
+/* CF1: the entry jump of a switch statement, to its first case test (the operand, as JMP). The case tests are
+ * chained: DUP, PUSH_CONST k or PUSH_I32 n, SEQ, JMP_TRUE body, JMP next test. The interpreter runs a chain of such
+ * constant tests in one step, comparing sp[-1] with each constant as SEQ does (they have no other effect), and goes on
+ * at the first body that matches or at the first op that is not such a test. */
+OP(SWITCH_JMP, 5, 0, 0)

@@ -1,0 +1,2 @@
+# Expected failures of the testharness.js run in uievents (generated; see tests/wpt-th/README.md).
+uievents/interface/click-event.htm :: synthetic click event is a PointerEvent :: not-yet assert_equals: Click is a PointerEvent expected function "function PointerEvent() { [nativ

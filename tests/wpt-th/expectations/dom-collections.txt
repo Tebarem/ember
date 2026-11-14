@@ -1,0 +1,2 @@
+# Expected failures of the testharness.js run in dom-collections (generated; see tests/wpt-th/README.md).
+dom/collections/HTMLCollection-as-prototype.html :: HTMLCollection as a prototype and setting own properties :: not-yet assert_equals: expected (string) "foo" but got (object) Element node <p id="named"></p>

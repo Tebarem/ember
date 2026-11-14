@@ -1,0 +1,7 @@
+// Copyright 2020 Qu Xing. All rights reserved.
+// This code is governed by the BSD license found in the LICENSE file.
+
+
+assert.throws(SyntaxError, function() {
+  eval("for(;false;)");
+});

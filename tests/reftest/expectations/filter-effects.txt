@@ -1,0 +1,20 @@
+css/filter-effects/backdrop-filter-backdrop-root-clip-path-2.html layout an inline element with a clip-path and an absolutely positioned child has no fragment of its own, so it forms no stacking context or containing block
+css/filter-effects/backdrop-filter-blur-large-value.html bug a blur with sigma 100000 px is clamped to 2048 and run on the 2x pyramid, so a 400x200 backdrop ends as 0x69,0x96 instead of the flat mean 0x80,0x80 (max difference 33; exact for sigma up to about the box size)
+css/filter-effects/backdrop-filter-fixed-clip.html bug a backdrop-filter over a position: fixed sibling inside an overflow: hidden box differs by up to 29 in the overlap (12100 px); not diagnosed
+css/filter-effects/drop-shadow-scale.html paint blur pyramid (R3b): a sigma above the direct limit is blurred on a downsampled pyramid whose grid follows the layer origin, so the test and its reference differ by <= 2 levels over the whole tail (57682 px, 56000 allowed)
+css/filter-effects/filter-cb-abspos-inline-001.html layout a filtered inline with block children, or an inline containing block, has no fragment of its own, so it forms no stacking context or containing block
+css/filter-effects/filter-function/filter-function-001.html not-yet the filter() image function (CSS Images 4 section 2.2.1)
+css/filter-effects/filter-function/filter-function-002.html not-yet the filter() image function (CSS Images 4 section 2.2.1)
+css/filter-effects/filter-function/filter-function-003.html not-yet the filter() image function (CSS Images 4 section 2.2.1)
+css/filter-effects/filter-function/filter-function-005.html not-yet the filter() image function (CSS Images 4 section 2.2.1)
+css/filter-effects/filter-function/filter-function-006.html not-yet the filter() image function (CSS Images 4 section 2.2.1)
+css/filter-effects/filter-function/filter-function-007.html not-yet the filter() image function (CSS Images 4 section 2.2.1)
+css/filter-effects/filter-function/filter-function-conic-gradient.html not-yet the filter() image function (CSS Images 4 section 2.2.1)
+css/filter-effects/filter-function/filter-function-linear-gradient.html not-yet the filter() image function (CSS Images 4 section 2.2.1)
+css/filter-effects/filter-function/filter-function-radial-gradient.html not-yet the filter() image function (CSS Images 4 section 2.2.1)
+css/filter-effects/filter-function/filter-function-repeating-conic-gradient.html not-yet the filter() image function (CSS Images 4 section 2.2.1)
+css/filter-effects/filter-function/filter-function-repeating-linear-gradient.html not-yet the filter() image function (CSS Images 4 section 2.2.1)
+css/filter-effects/filter-function/filter-function-repeating-radial-gradient.html not-yet the filter() image function (CSS Images 4 section 2.2.1)
+css/filter-effects/filtered-inline-applies-to-block.html layout a filtered inline with block children, or an inline containing block, has no fragment of its own, so it forms no stacking context or containing block
+css/filter-effects/filtered-inline-applies-to-float.html layout a filtered inline with block children, or an inline containing block, has no fragment of its own, so it forms no stacking context or containing block
+css/filter-effects/filtered-inline-is-container-with-block-content.html layout a filtered inline with block children, or an inline containing block, has no fragment of its own, so it forms no stacking context or containing block

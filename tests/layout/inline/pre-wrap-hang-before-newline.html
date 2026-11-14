@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>Inline layout: spaces before a preserved newline hang</title>
+<script src="/resources/testharness.js"></script>
+<script src="/resources/testharnessreport.js"></script>
+<script src="/resources/check-layout-th.js"></script>
+<link rel="stylesheet" href="/fonts/ahem.css">
+<style>
+
+body { margin: 0 } .a { font: 20px/20px Ahem } #d { width: 100px; white-space: pre-wrap }
+</style>
+<body onload="checkLayout('#d')">
+<!-- Derivation: CSS Text 3 section 4.1.3. The two spaces before the preserved line feed hang (take no room), so XX fits on line 1 and ZZ is on line 2 at y 20. Height 40. -->
+<div id="d" class="a" data-expected-width="100" data-expected-height="40">XX  
+<span id="z" data-offset-x="0" data-offset-y="20" data-expected-width="40" data-expected-height="20">ZZ</span></div>
+</body>

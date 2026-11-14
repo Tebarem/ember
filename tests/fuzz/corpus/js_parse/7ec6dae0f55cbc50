@@ -1,0 +1,11 @@
+// Copyright (C) 2016 the V8 project authors. All rights reserved.
+// This code is governed by the BSD license found in the LICENSE file.
+
+
+var other = $262.createRealm().global;
+var C = new other.Function();
+
+var P = new Proxy(function() {}, {});
+var p = Reflect.construct(P, [], C);
+
+assert.sameValue(Object.getPrototypeOf(p), C.prototype);

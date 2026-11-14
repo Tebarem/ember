@@ -1,0 +1,45 @@
+css/css-backgrounds/background-attachment-fixed-inside-transform-1.html bug
+css/css-backgrounds/background-clip/clip-border-area-complex-color.html bug
+css/css-backgrounds/background-clip/clip-border-area-complex.html bug
+css/css-backgrounds/background-clip/clip-border-area-corner-shape.html bug
+css/css-backgrounds/background-clip/clip-border-area-double.html bug
+css/css-backgrounds/background-clip/clip-border-area-multiple-backgrounds.html bug
+css/css-backgrounds/background-clip/clip-border-area-rounded.html bug
+css/css-backgrounds/background-clip/clip-border-area-text.html bug
+css/css-backgrounds/background-clip/clip-border-shape-table-part-background.html not-yet border-shape (CSS Borders 4); its reference clips with clip-path circle(), which now paints
+css/css-backgrounds/background-clip/clip-text-background-table-cell.html r3-effects box-shadow, text-shadow, filters, masks, clip-path, blend modes, border-image (R3)
+css/css-backgrounds/background-clip/clip-text-blend-mode.html r3-effects box-shadow, text-shadow, filters, masks, clip-path, blend modes, border-image (R3)
+css/css-backgrounds/background-clip/clip-text-constrain-geometry.html r3-effects box-shadow, text-shadow, filters, masks, clip-path, blend modes, border-image (R3)
+css/css-backgrounds/background-clip/clip-text-descendants.html r3-effects box-shadow, text-shadow, filters, masks, clip-path, blend modes, border-image (R3)
+css/css-backgrounds/background-clip/clip-text-ellipsis.html r3-effects box-shadow, text-shadow, filters, masks, clip-path, blend modes, border-image (R3)
+css/css-backgrounds/background-clip/clip-text-flex.html r3-effects box-shadow, text-shadow, filters, masks, clip-path, blend modes, border-image (R3)
+css/css-backgrounds/background-clip/clip-text-fragmentation.html paint background-clip: text over the fragments of a box that a column break cuts
+css/css-backgrounds/background-clip/clip-text-inline-block-child.html r3-effects box-shadow, text-shadow, filters, masks, clip-path, blend modes, border-image (R3)
+css/css-backgrounds/background-clip/clip-text-inline.html r3-effects box-shadow, text-shadow, filters, masks, clip-path, blend modes, border-image (R3)
+css/css-backgrounds/background-clip/clip-text-multi-line.html r3-effects box-shadow, text-shadow, filters, masks, clip-path, blend modes, border-image (R3)
+css/css-backgrounds/background-clip/clip-text-multiline-background-image.html r3-effects box-shadow, text-shadow, filters, masks, clip-path, blend modes, border-image (R3)
+css/css-backgrounds/background-clip/clip-text-multiline-linebreak.html r3-effects box-shadow, text-shadow, filters, masks, clip-path, blend modes, border-image (R3)
+css/css-backgrounds/background-clip/clip-text-on-body-not-propagated-to-root.html r3-effects box-shadow, text-shadow, filters, masks, clip-path, blend modes, border-image (R3)
+css/css-backgrounds/background-clip/clip-text-out-of-flow-child.html r3-effects box-shadow, text-shadow, filters, masks, clip-path, blend modes, border-image (R3)
+css/css-backgrounds/background-clip/clip-text-relative-child.html r3-effects box-shadow, text-shadow, filters, masks, clip-path, blend modes, border-image (R3)
+css/css-backgrounds/background-clip/clip-text-scaled.html r3-effects box-shadow, text-shadow, filters, masks, clip-path, blend modes, border-image (R3)
+css/css-backgrounds/background-clip/clip-text-stacking-context-child-002.html r3-effects box-shadow, text-shadow, filters, masks, clip-path, blend modes, border-image (R3)
+css/css-backgrounds/background-clip/clip-text-stacking-context-child.html r3-effects box-shadow, text-shadow, filters, masks, clip-path, blend modes, border-image (R3)
+css/css-backgrounds/background-clip/clip-text-text-decorations.html r3-effects box-shadow, text-shadow, filters, masks, clip-path, blend modes, border-image (R3)
+css/css-backgrounds/background-clip/clip-text-text-emphasis.html r3-effects box-shadow, text-shadow, filters, masks, clip-path, blend modes, border-image (R3)
+css/css-backgrounds/background-origin/origin-padding-box_with_radius.html font-metrics a few antialiasing pixels: glyph or line metrics of the default font differ from the reference's
+css/css-backgrounds/border-image-calc.html r3-effects border-image: calc() in the slice values differs (399 px); not analysed
+css/css-backgrounds/border-image-repeat-round-003.html layout table height distribution: the reference is a fixed table whose extra height all goes to its first row (table height distribution bug), so the ref renders a full-height stripe; the border image itself renders as the spec describes
+css/css-backgrounds/border-image-repeat-round-stretch-001.html layout table height distribution: the reference is a fixed table whose extra height all goes to its first row (table height distribution bug), so the ref renders a full-height stripe; the border image itself renders as the spec describes
+css/css-backgrounds/border-image-repeat-stretch-round-001.html layout table height distribution: the reference is a fixed table whose extra height all goes to its first row (table height distribution bug), so the ref renders a full-height stripe; the border image itself renders as the spec describes
+css/css-backgrounds/border-radius-clip-002.htm bug
+css/css-backgrounds/box-shadow-border-radius-001.html r3-effects box-shadow, text-shadow, filters, masks, clip-path, blend modes, border-image (R3)
+css/css-backgrounds/box-shadow-overlapping-001.html r3-effects box-shadow, text-shadow, filters, masks, clip-path, blend modes, border-image (R3)
+css/css-backgrounds/box-shadow/slice-block-fragmentation-001.html paint box-shadow of a box cut by a column break is not sliced: the shadow also paints at the cut edges (the fragment has no cut flags for paint)
+css/css-backgrounds/box-shadow/slice-block-fragmentation-002.html paint box-shadow of a box cut by a column break is not sliced: the shadow also paints at the cut edges (the fragment has no cut flags for paint)
+css/css-backgrounds/box-shadow/slice-block-fragmentation-003.html paint box-shadow of a box cut by a column break is not sliced: the shadow also paints at the cut edges (the fragment has no cut flags for paint)
+css/css-backgrounds/box-shadow/slice-inline-fragmentation-001.html r3-effects box-shadow, text-shadow, filters, masks, clip-path, blend modes, border-image (R3)
+css/css-backgrounds/box-shadow/slice-inline-fragmentation-002.html r3-effects box-shadow, text-shadow, filters, masks, clip-path, blend modes, border-image (R3)
+css/css-backgrounds/box-shadow/slice-inline-fragmentation-003.html r3-effects box-shadow, text-shadow, filters, masks, clip-path, blend modes, border-image (R3)
+css/css-backgrounds/inner-border-non-renderable.html r3-effects box-shadow, text-shadow, filters, masks, clip-path, blend modes, border-image (R3)
+css/css-backgrounds/linear-gradient-currentcolor-first-line.html not-yet ::first-line

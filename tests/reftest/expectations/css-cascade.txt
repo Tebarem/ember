@@ -1,0 +1,5 @@
+css/css-cascade/all-prop-initial-visited.html not-yet :visited (no link history is kept)
+css/css-cascade/revert-layer-005.html bug
+css/css-cascade/revert-layer-011.html bug
+css/css-cascade/scope-pseudo-element.html not-yet ::marker details
+css/css-cascade/scope-ua-shadow-host.html not-yet @scope

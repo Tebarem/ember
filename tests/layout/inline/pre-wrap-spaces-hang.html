@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>Inline layout: pre-wrap wraps and hangs the spaces</title>
+<script src="/resources/testharness.js"></script>
+<script src="/resources/testharnessreport.js"></script>
+<script src="/resources/check-layout-th.js"></script>
+<link rel="stylesheet" href="/fonts/ahem.css">
+<style>
+
+body { margin: 0 } .a { font: 20px/20px Ahem } #d { width: 100px; white-space: pre-wrap }
+</style>
+<body onload="checkLayout('#d')">
+<!-- Derivation: CSS Text 3 section 4.1.3. pre-wrap preserves the two spaces and allows a break after them. XX plus two spaces is 80px and the spaces hang at the end of line 1, so the line holds XX and the spaces. YY (40px) is on line 2 and the ZZ after the line feed on line 3: three lines, height 60. -->
+<div id="d" class="a" data-expected-width="100" data-expected-height="60">XX  YY
+<span id="z" data-offset-x="0" data-offset-y="40" data-expected-width="40" data-expected-height="20">ZZ</span></div>
+</body>

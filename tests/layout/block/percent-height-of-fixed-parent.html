@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>Percentage height resolves against a definite parent height</title>
+<script src="/resources/testharness.js"></script>
+<script src="/resources/testharnessreport.js"></script>
+<script src="/resources/check-layout-th.js"></script>
+<style>
+body { margin: 0 }
+</style>
+<body onload="checkLayout('#o')">
+<!-- Derivation: CSS 2.1 10.5. #o has a definite height of 100px, so 50% of it is 50px for #i. #i is the
+first child, at y = 0. -->
+<div id="o" style="height: 100px" data-expected-height="100"><div id="i" style="height: 50%" data-expected-height="50" data-offset-y="0"></div></div>
+</body>

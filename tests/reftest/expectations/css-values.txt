@@ -1,0 +1,5 @@
+css/css-values/attr-namespace-case-sensitivity.xhtml xhtml attr() with a namespace prefix needs XML namespaces; the runner parses XHTML as HTML
+css/css-values/attr-namespace-valid.xhtml xhtml attr() with a namespace prefix needs XML namespaces; the runner parses XHTML as HTML
+css/css-values/calc-background-size-round-percentage.html bug
+css/css-values/urls/referrer-policy/no-referrer/url-image-set-referrer-policy.sub.html needs-http the test needs HTTP response headers (a Referer check)
+css/css-values/viewport-units-scrollbars-auto-vhw-001.html bug

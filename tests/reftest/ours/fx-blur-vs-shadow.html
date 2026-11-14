@@ -1,0 +1,11 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>a blurred box-shadow equals a blurred black box under the element</title>
+<link rel="match" href="fx-blur-vs-shadow-ref.html">
+<meta name="fuzzy" content="maxDifference=0-32;totalPixels=0-6000">
+<style>
+body { margin: 0; background: #fff }
+.a { position: absolute }
+</style>
+<div class="a" style="left:60px;top:60px;width:80px;height:50px;background:#fff;box-shadow:0 0 20px #000"></div>
+<div class="a" style="left:260px;top:60px;width:80px;height:50px;background:#fff;border-radius:16px;box-shadow:6px 8px 12px 2px #00f"></div>

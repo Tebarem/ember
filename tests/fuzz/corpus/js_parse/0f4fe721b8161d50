@@ -1,0 +1,10 @@
+// This file was procedurally generated from the following sources:
+// - src/dynamic-import/not-extensible-args.case
+// - src/dynamic-import/syntax/invalid/nested-do-while.template
+
+
+$DONOTEVALUATE();
+
+do {
+  import('./empty_FIXTURE.js', {}, '');
+} while (false);

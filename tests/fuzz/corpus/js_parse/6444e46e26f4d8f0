@@ -1,0 +1,25 @@
+// Copyright (c) 2012 Ecma International.  All rights reserved.
+// This code is governed by the BSD license found in the LICENSE file.
+
+
+
+
+var arrObj = [];
+
+function getFunc() {
+  return 3;
+}
+Object.defineProperty(arrObj, "1", {
+  get: getFunc,
+  configurable: true
+});
+
+assert.throws(TypeError, function() {
+  arrObj[1] = 4;
+});
+verifyEqualTo(arrObj, "1", getFunc());
+
+verifyProperty(arrObj, "1", {
+  enumerable: false,
+  configurable: true,
+});

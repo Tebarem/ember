@@ -1,0 +1,1 @@
+import{t as e}from"./index-BDi8ylvU.js";var t=e();function n(){return(0,t.jsxs)(`section`,{children:[(0,t.jsx)(`h1`,{children:`About`}),(0,t.jsx)(`p`,{children:`This route is code-split: its module is loaded by a dynamic import when the route is first visited.`})]})}export{n as default};

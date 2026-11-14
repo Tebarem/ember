@@ -1,0 +1,8 @@
+// This file was procedurally generated from the following sources:
+// - src/identifier-names/typeof-escaped.case
+// - src/identifier-names/default/covered-obj-prop-name.template
+
+
+var obj = ({ typ\u0065of: 42 });
+
+assert.sameValue(obj['typeof'], 42, 'property exists');

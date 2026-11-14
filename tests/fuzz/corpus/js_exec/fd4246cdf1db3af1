@@ -1,0 +1,12 @@
+// Copyright (C) 2015 the V8 project authors. All rights reserved.
+// This code is governed by the BSD license found in the LICENSE file.
+
+
+assert.throws(TypeError, function() {
+  Set.prototype.clear.call(new Map());
+});
+
+assert.throws(TypeError, function() {
+  var s = new Set();
+  s.clear.call(new Map());
+});

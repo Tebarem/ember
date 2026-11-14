@@ -1,0 +1,8 @@
+// This file was procedurally generated from the following sources:
+// - src/assignment-target-type/relationalexpression-greater-than-or-equal-to-shiftexpression-1.case
+// - src/assignment-target-type/invalid/parenthesized.template
+
+
+$DONOTEVALUATE();
+
+(1 >= 2) = 1;

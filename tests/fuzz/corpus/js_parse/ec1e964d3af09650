@@ -1,0 +1,9 @@
+// This file was procedurally generated from the following sources:
+// - src/declarations/const.case
+// - src/declarations/redeclare/switch-attempt-to-redeclare-let-declaration.template
+
+
+
+$DONOTEVALUATE();
+
+switch (0) { case 1: let f; default: const f = 0 }

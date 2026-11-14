@@ -1,0 +1,7 @@
+// Copyright (C) 2024 Jordan Harband. All rights reserved.
+// This code is governed by the BSD license found in the LICENSE file.
+
+
+
+assert.sameValue(isConstructor(Error.isError), false, 'isConstructor(Error.isError) must return false');
+assert.throws(TypeError, function () { new Error.isError(); });

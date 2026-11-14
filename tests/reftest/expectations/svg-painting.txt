@@ -1,0 +1,11 @@
+svg/painting/marker-005.svg bug the reference draws the overflow=auto marker rect of the second row twice (an unclipped copy and a clip-path copy), so its left and top edge pixels carry the antialiasing of both (18 pixels, at most 8 levels); not matched
+svg/painting/marker-orient-001.svg platform passes on D3D12; on Mesa llvmpipe 2 antialiasing pixels of a rotated marker edge differ (at most 29 levels)
+svg/painting/reftests/non-scaling-stroke-008.html not-yet vector-effect: non-scaling-stroke is not implemented
+svg/painting/reftests/paint-context-003.svg not-yet context-fill and context-stroke (SVG 2 section 13.2) are not implemented
+svg/painting/reftests/paint-context-004.svg not-yet context-fill and context-stroke (SVG 2 section 13.2) are not implemented
+svg/painting/reftests/paint-context-006.svg not-yet context-fill and context-stroke (SVG 2 section 13.2) are not implemented
+svg/painting/reftests/paint-context-007.svg not-yet context-fill and context-stroke (SVG 2 section 13.2) are not implemented
+svg/painting/reftests/paint-context-008.svg not-yet context-fill and context-stroke (SVG 2 section 13.2) are not implemented
+svg/painting/reftests/text-shadow-01.html paint the shadow is drawn (a filtered group, as the shadow of html text) but the reference sits 1 px to the right of the test (margin-left 21 against x=20) and the blur tails (up to 8 px at levels 254..246) of the two differ at 542 px (fuzzy allows 400, max 196 of 200)
+svg/painting/reftests/text-shadow-02.html paint stroked text and its shadow are drawn; the 1 px stroke ring of the glyph outline plus the 14x14 rect leaves the outline-edge pixels at half coverage (up to 133 levels off the solid reference, fuzzy allows 75) and the shadow of a ring is lighter than that of the solid reference
+svg/painting/reftests/text-shadow-03.html paint the reference is text-shadow-02 (a ring and a rect, whose shadow is the shadow of a ring) while this test draws a filled and stroked glyph, whose shadow is the shadow of a solid square: 513 px differ by up to 108 levels without fuzz

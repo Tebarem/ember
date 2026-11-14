@@ -1,0 +1,18 @@
+// This file was procedurally generated from the following sources:
+// - src/computed-property-names/computed-property-name-from-async-arrow-function-expression.case
+// - src/computed-property-names/evaluation/object-literal.template
+
+
+
+let o = {
+  [async () => {}]: 1
+};
+
+assert.sameValue(
+  o[async () => {}],
+  1
+);
+assert.sameValue(
+  o[String(async () => {})],
+  1
+);

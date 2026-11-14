@@ -1,0 +1,10 @@
+// This file was procedurally generated from the following sources:
+// - src/identifier-names/void-escaped.case
+// - src/identifier-names/default/member-expr.template
+
+
+var obj = {};
+
+obj.voi\u0064 = 42;
+
+assert.sameValue(obj['void'], 42, 'property exists');

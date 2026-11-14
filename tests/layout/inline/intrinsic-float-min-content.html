@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>Inline layout: a float does not add to the min-content width of the line around it</title>
+<script src="/resources/testharness.js"></script>
+<script src="/resources/testharnessreport.js"></script>
+<script src="/resources/check-layout-th.js"></script>
+<link rel="stylesheet" href="/fonts/ahem.css">
+<style>
+body { margin: 0 } .a { font: 20px/20px Ahem } #d { width: 50px } #o { float: left }
+</style>
+<body onload="checkLayout('#d')">
+<!-- UNVERIFIED: derived by hand from the specs, not yet checked in Chromium. Derivation: CSS Sizing 3 section 5.1 (the min-content contribution of a float is its own min-content, not added to the words). The inner float is 30px wide; the words XX XX have a minimum of 40px; so the min-content of o is max(30, 40) = 40px and its max-content is 30 + 100 = 130px. In 50px available the shrink-to-fit width is min(max(40, 50), 130) = 50px. (Adding the float to the word would give 70px.) The first XX does not fit in the 20px left beside the 30px float, so it moves below the float (the float is 10px tall): lines at y 10 and 30, so o is 50px tall. -->
+<div id="d" class="a"><div id="o" class="a" data-expected-width="50" data-expected-height="50"><span style="float:left;width:30px;height:10px"></span>XX XX</div></div>
+</body>

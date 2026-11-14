@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  #tc { float: left; display: table-cell; }
+  #tr { position: absolute; display: table-row; }
+  #tn { display: table-cell; }
+  #rv { display: inline; }
+  #rv { display: revert; }
+  #rv2 { color: rgb(1, 2, 3); }
+  #rv2 { color: revert; }
+</style>
+</head>
+<body>
+<div id="tc"></div><div id="tr"></div><div id="tn"></div><div id="rv"></div><div id="rv2"></div>
+<!-- expect: tc display block -->
+<!-- expect: tr display block -->
+<!-- expect: tn display table-cell -->
+<!-- expect: rv display block -->
+<!-- expect: rv2 color color(srgb 0 0 0) -->
+</body>
+</html>

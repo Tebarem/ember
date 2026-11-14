@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>min-width and max-width clamp the used width</title>
+<script src="/resources/testharness.js"></script>
+<script src="/resources/testharnessreport.js"></script>
+<script src="/resources/check-layout-th.js"></script>
+<style>
+body { margin: 0 } div { height: 10px }
+</style>
+<body onload="checkLayout('body > div')">
+<!-- Derivation: CSS 2.1 10.4. #m asks for 500px but max-width is 200px, so the used width is 200px. #n asks
+for 10px but min-width is 50px, so the used width is 50px. #n comes after #m (10px tall), so
+its top is y = 10px. -->
+<div id="m" style="width: 500px; max-width: 200px" data-expected-width="200" data-offset-y="0"></div>
+<div id="n" style="width: 10px; min-width: 50px" data-expected-width="50" data-offset-y="10"></div>
+</body>

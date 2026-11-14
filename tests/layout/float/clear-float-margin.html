@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>A cleared float: its margin box, not its border box, goes below the float it clears</title>
+<script src="/resources/testharness.js"></script>
+<script src="/resources/testharnessreport.js"></script>
+<script src="/resources/check-layout-th.js"></script>
+<style>
+body { margin: 0 } #c { position: relative; width: 200px } .l { float: left; width: 50px }
+</style>
+<body onload="checkLayout('#c > div')">
+<!-- Derivation (CSS 2.1 9.5.2 for floats): the first float is 20 tall (0..20). The second clears it: its
+margin box top goes to 20, so its border top is at 20 + its 10px margin-top = 30. -->
+<div id="c">
+  <div class="l" style="height: 20px" data-offset-x="0" data-offset-y="0" data-expected-width="50" data-expected-height="20"></div>
+  <div class="l" style="height: 10px; clear: left; margin-top: 10px" data-offset-x="0" data-offset-y="30" data-expected-width="50" data-expected-height="10"></div>
+</div>
+</body>

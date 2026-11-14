@@ -1,0 +1,8 @@
+// This file was procedurally generated from the following sources:
+// - src/assignment-target-type/unaryexpression-tilde-unaryexpression-1.case
+// - src/assignment-target-type/invalid/direct.template
+
+
+$DONOTEVALUATE();
+
+~1 = 1;

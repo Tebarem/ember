@@ -1,0 +1,17 @@
+// Copyright (C) 2016 the V8 project authors. All rights reserved.
+// This code is governed by the BSD license found in the LICENSE file.
+
+
+var x = 'outside';
+var probeParams, probeBody;
+
+class C {
+  set a(_ = probeParams = function() { return x; }) {
+    var x = 'inside';
+    probeBody = function() { return x; };
+  }
+}
+C.prototype.a = undefined;
+
+assert.sameValue(probeParams(), 'outside');
+assert.sameValue(probeBody(), 'inside');

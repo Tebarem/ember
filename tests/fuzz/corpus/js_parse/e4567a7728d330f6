@@ -1,0 +1,20 @@
+// This file was procedurally generated from the following sources:
+// - src/dstr-assignment/array-elem-iter-get-err.case
+// - src/dstr-assignment/error/for-of.template
+
+var iterable = {};
+iterable[Symbol.iterator] = function() {
+  throw new Test262Error();
+};
+var _;
+
+var counter = 0;
+
+assert.throws(Test262Error, function() {
+  for ([ _ ] of [iterable]) {
+    counter += 1;
+  }
+  counter += 1;
+});
+
+assert.sameValue(counter, 0);

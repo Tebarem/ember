@@ -1,0 +1,1 @@
+WHATWG Encoding Standard index files and encodings.json from https://github.com/whatwg/encoding at be17ac5c49881336538acfc7b40dba3c8009144b (single-byte encodings only; the CJK indexes are out of scope). License: LICENSE in this directory (BSD 3-Clause for portions incorporated into source code).

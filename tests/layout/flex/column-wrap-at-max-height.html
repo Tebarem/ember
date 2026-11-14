@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>A column wrap container with only a max-height breaks lines at it</title>
+<script src="/resources/testharness.js"></script>
+<script src="/resources/testharnessreport.js"></script>
+<script src="/resources/check-layout-th.js"></script>
+<style>
+body { margin: 0 } #c { display: flex; flex-direction: column; flex-wrap: wrap; width: 100px; max-height: 30px; align-items: flex-start }
+.i { width: 20px; height: 10px; flex: none }
+</style>
+<body onload="checkLayout('#c > div')">
+<!-- Derivation (CSS Flexbox 1 9.2 step 4 with the max-height as the available main size): the container's
+height is indefinite, so the items are measured against max-height 30px. Three 10px items fill the first
+column exactly (30 <= 30); the fourth starts a second line. Each line is 20px wide, and align-content:
+stretch (the default) splits the 60px free cross space: each line is 50px wide, so the second column starts
+at x = 50. Items sit at the start of their line (align-items: flex-start). Provenance: derived by hand from CSS Flexbox 1 9.2 and 9.4 (not run in Chromium, none is available here); the vendored WPT flex-wrap tests with a column direction exercise the same line breaking. -->
+<div id="c">
+  <div id="i1" class="i" data-expected-width="20" data-expected-height="10" data-offset-x="0" data-offset-y="0"></div>
+  <div id="i2" class="i" data-expected-width="20" data-expected-height="10" data-offset-x="0" data-offset-y="10"></div>
+  <div id="i3" class="i" data-expected-width="20" data-expected-height="10" data-offset-x="0" data-offset-y="20"></div>
+  <div id="i4" class="i" data-expected-width="20" data-expected-height="10" data-offset-x="50" data-offset-y="0"></div>
+</div>
+</body>

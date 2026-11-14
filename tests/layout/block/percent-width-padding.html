@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>Percentage width is the content box; padding adds to the border box</title>
+<script src="/resources/testharness.js"></script>
+<script src="/resources/testharnessreport.js"></script>
+<script src="/resources/check-layout-th.js"></script>
+<style>
+body { margin: 0 }
+</style>
+<body onload="checkLayout('#p')">
+<!-- Derivation: CSS 2.1 10.2, box-sizing content-box. The containing block is 800px wide. The content width
+is 50% of 800 = 400px, and the padding adds 10px on each side, so the border box is 400 + 20 = 420px
+wide. The height is 10px of content plus 10px of padding on top and bottom, 30px. -->
+<div id="p" style="width: 50%; padding: 10px; height: 10px" data-expected-width="420" data-expected-height="30" data-expected-padding-left="10" data-expected-padding-top="10"></div>
+</body>

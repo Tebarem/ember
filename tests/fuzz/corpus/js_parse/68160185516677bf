@@ -1,0 +1,9 @@
+// This file was procedurally generated from the following sources:
+// - src/declarations/function.case
+// - src/declarations/redeclare-allow-sloppy-function/block-attempt-to-redeclare-async-function-declaration.template
+
+
+
+$DONOTEVALUATE();
+
+{ async function f() {} function f() {} }

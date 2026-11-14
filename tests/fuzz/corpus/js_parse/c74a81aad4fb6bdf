@@ -1,0 +1,38 @@
+// This file was procedurally generated from the following sources:
+// - src/annex-b-fns/global-existing-non-enumerable-global-init.case
+// - src/annex-b-fns/global/switch-case.template
+
+var global = fnGlobalObject();
+Object.defineProperty(global, 'f', {
+  value: 'x',
+  enumerable: false,
+  writable: true,
+  configurable: true
+});
+
+$262.evalScript(`
+assert.sameValue(f, 'x');
+verifyProperty(global, 'f', {
+  enumerable: false,
+  writable: true,
+  configurable: true
+}, { restore: true });
+`);
+
+$262.evalScript(`
+
+switch (1) {
+  case 1:
+    function f() { return 'inner declaration'; }
+}
+
+`);
+
+$262.evalScript(`
+assert.sameValue(f(), 'inner declaration');
+verifyProperty(global, 'f', {
+  enumerable: false,
+  writable: true,
+  configurable: true
+});
+`);

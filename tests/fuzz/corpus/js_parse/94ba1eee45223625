@@ -1,0 +1,22 @@
+// This file was procedurally generated from the following sources:
+// - src/dstr-assignment-for-await/obj-id-simple-no-strict.case
+// - src/dstr-assignment-for-await/default/async-gen-decl.template
+
+let eval;
+
+let iterCount = 0;
+async function * fn() {
+  for await ({ eval } of [{ eval: 1 }]) {
+    
+    iterCount += 1;
+  }
+}
+
+let promise = fn().next();
+
+promise
+  .then(() => {
+    assert.sameValue(eval, 1);
+    assert.sameValue(iterCount, 1, 'iteration occurred as expected');
+  }, $DONE)
+  .then($DONE, $DONE);

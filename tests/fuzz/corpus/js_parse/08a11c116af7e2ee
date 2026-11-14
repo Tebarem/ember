@@ -1,0 +1,22 @@
+// Copyright (C) 2016 the V8 project authors. All rights reserved.
+// This code is governed by the BSD license found in the LICENSE file.
+
+
+var getTime = Date.prototype.getTime;
+var args = (function() {
+  return arguments;
+}());
+
+assert.sameValue(typeof getTime, 'function');
+
+assert.throws(TypeError, function() {
+  getTime.call({});
+}, 'ordinary object');
+
+assert.throws(TypeError, function() {
+  getTime.call([]);
+}, 'array exotic object');
+
+assert.throws(TypeError, function() {
+  getTime.call(args);
+}, 'arguments exotic object');

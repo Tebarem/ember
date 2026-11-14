@@ -1,0 +1,11 @@
+// Copyright (C) 2024 André Bargull. All rights reserved.
+// This code is governed by the BSD license found in the LICENSE file.
+
+
+
+verifyProperty(Date.prototype.setMilliseconds, "length", {
+  value: 1,
+  writable: false,
+  enumerable: false,
+  configurable: true,
+});

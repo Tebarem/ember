@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html id="root">
+<head>
+<style>
+  @property --n { syntax: "<length>"; inherits: false; initial-value: 1px; }
+  #dk { color-scheme: dark; color: light-dark(rgb(255, 0, 0), rgb(0, 0, 255)); }
+  #lt { color: light-dark(rgb(255, 0, 0), rgb(0, 0, 255)); }
+  #pa { --n: 5px; }
+  #pb { width: var(--n); }
+  #pc { --q: 7px; }
+  #pd { width: var(--q); }
+</style>
+</head>
+<body>
+<div id="dk"></div>
+<div id="lt"></div>
+<div id="pa"><span id="pb"></span></div>
+<div id="pc"><span id="pd"></span></div>
+<!-- expect: dk color color(srgb 0 0 1) --><!-- light-dark result: W2c serializes resolved colors as color(); report #18 -->
+<!-- expect: lt color color(srgb 1 0 0) -->
+<!-- expect: pb width 1px -->
+<!-- expect: pd width 7px -->
+</body>
+</html>

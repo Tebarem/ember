@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>Inline layout: a forced break from br</title>
+<script src="/resources/testharness.js"></script>
+<script src="/resources/testharnessreport.js"></script>
+<script src="/resources/check-layout-th.js"></script>
+<link rel="stylesheet" href="/fonts/ahem.css">
+<style>
+
+body { margin: 0 } .a { font: 20px/20px Ahem } #d { width: 80px }
+</style>
+<body onload="checkLayout('#d')">
+<!-- Derivation: CSS Text 3 section 5 and HTML <br>. Each Ahem glyph is 20px. 'XX YY' is 100px, wider than 80px, so the line breaks at the space: 'XX' then 'YY'. The br ends the line, and 'ZZ' starts a new line. Three lines of 20px: height 60. ZZ is on the third line at y 40. -->
+<div id="d" class="a" data-expected-width="80" data-expected-height="60">XX YY<br><span id="z" data-offset-x="0" data-offset-y="40" data-expected-width="40" data-expected-height="20">ZZ</span></div>
+</body>

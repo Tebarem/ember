@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>Grid: auto-fit collapses empty tracks and their gutters</title>
+<script src="/resources/testharness.js"></script>
+<script src="/resources/testharnessreport.js"></script>
+<script src="/resources/check-layout-th.js"></script>
+<style>
+body { margin: 0 }
+#g { display: grid; position: relative; width: 200px; height: 20px; grid-template-columns: repeat(auto-fit, 50px);
+     column-gap: 10px }
+#a { grid-column: 1; grid-row: 1 }
+#b { grid-column: 3; grid-row: 1 }
+</style>
+<body onload="checkLayout('#g > div')">
+<!--
+Derivation (CSS Grid 2 section 7.2.3.2): repeat(auto-fit, 50px) in 200px with a 10px gap gives
+floor((200 + 10) / (50 + 10)) = 3 repetitions. Only the first track (#a) is covered, so the tracks 2 and 3 are
+empty and collapse: they take no size and their gutters collapse with them. #b in track 3 therefore starts
+after one gutter, at 50 + 10 = 60. Note: this is the collapsed-gutter rule of the spec as implemented; if
+Chromium keeps two gutters around the collapsed track the expected x of #b is 70 and this fixture must change.
+Provenance: derived by hand; not run in Chromium in this environment.
+-->
+<div id="g">
+  <div id="a" data-expected-width="50" data-expected-height="20" data-offset-x="0" data-offset-y="0"></div>
+  <div id="b" data-expected-width="50" data-expected-height="20" data-offset-x="60" data-offset-y="0"></div>
+</div>
+</body>

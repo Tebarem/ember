@@ -1,0 +1,10 @@
+// This file was procedurally generated from the following sources:
+// - src/async-generators/yield-as-label-identifier-escaped.case
+// - src/async-generators/syntax/async-expression.template
+
+$DONOTEVALUATE();
+
+
+var gen = async function *() {
+  yi\u0065ld: ;
+};

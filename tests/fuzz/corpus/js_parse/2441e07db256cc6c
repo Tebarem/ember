@@ -1,0 +1,9 @@
+// This file was procedurally generated from the following sources:
+// - src/declarations/var.case
+// - src/declarations/redeclare-allow-var/block-attempt-to-redeclare-function-declaration.template
+
+
+
+$DONOTEVALUATE();
+
+{ function f() {} var f }

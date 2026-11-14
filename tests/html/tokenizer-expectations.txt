@@ -1,0 +1,8 @@
+# HTML tokenizer html5lib expectations (W1b).
+# Format: <file>#<index> <reason>
+# <file> is the html5lib tokenizer test file name; <index> is the test's position in that file's
+# "tests" array (counted from 0). Each listed test is an allowed failure for all of its initial
+# states. Keep this list minimal and give every entry a reason.
+xmlViolation.test#0 Expected output applies the XML coercion of U+FFFF to U+FFFD ('Coercing an HTML DOM into an infoset'); the HTML tokenizer keeps the code point and reports noncharacter-in-input-stream.
+xmlViolation.test#1 Expected output applies the XML coercion that turns a form feed into a space; the HTML tokenizer keeps U+000C.
+xmlViolation.test#2 Expected output applies the XML coercion that rewrites '--' inside comments; the HTML tokenizer keeps the comment data unchanged.

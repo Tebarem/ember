@@ -1,0 +1,19 @@
+div
+            {
+                height: 96px;
+            }
+            #wrapper
+            {
+                padding-right: 96px;
+				width: 50px;
+            }
+            #div1
+            {
+                border-right: 8px solid red;
+                padding-right: inherit;
+            }
+            #div2
+            {
+                border-right: 8px solid black;
+                margin-right: -104px;
+            }

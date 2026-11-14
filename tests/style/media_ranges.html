@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html id="root">
+<head>
+<style>
+  #m { color: rgb(9, 9, 9); }
+  @media (aspect-ratio > 1/1) { #m { color: rgb(1, 2, 3); } }
+  #n { color: rgb(9, 9, 9); }
+  @media not (foo: bar) { #n { color: rgb(4, 5, 6); } }
+  #o { color: rgb(9, 9, 9); }
+  @media (400px <= width <= 1000px) { #o { color: rgb(7, 7, 7); } }
+  #q { color: rgb(9, 9, 9); }
+  @media (width > 1000px) { #q { color: rgb(8, 8, 8); } }
+  #w { color: rgb(9, 9, 9); }
+  @media (min-width: 700px) and (max-width: 900px) { #w { color: rgb(6, 6, 6); } }
+  #z { color: rgb(9, 9, 9); }
+  @media (min-width: 700px) and (foo) or (height) { #z { color: rgb(5, 5, 5); } }
+</style>
+</head>
+<body>
+<div id="m"></div>
+<div id="n"></div>
+<div id="o"></div>
+<div id="q"></div>
+<div id="w"></div>
+<div id="z"></div>
+<!-- expect: m color rgb(1, 2, 3) -->
+<!-- expect: n color rgb(9, 9, 9) -->
+<!-- expect: o color rgb(7, 7, 7) -->
+<!-- expect: q color rgb(9, 9, 9) -->
+<!-- expect: w color rgb(6, 6, 6) -->
+<!-- expect: z color rgb(9, 9, 9) -->
+</body>
+</html>

@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>Inline layout: the line box grows to the tallest inline box of mixed font sizes</title>
+<script src="/resources/testharness.js"></script>
+<script src="/resources/testharnessreport.js"></script>
+<script src="/resources/check-layout-th.js"></script>
+<link rel="stylesheet" href="/fonts/ahem.css">
+<style>
+body { margin: 0 } .a { font: 20px/1.5 Ahem } #d { width: 300px }
+</style>
+<body onload="checkLayout('#d')">
+<!-- UNVERIFIED: derived by hand from the specs, not yet checked in Chromium. Derivation: CSS 2.1 10.8. The line-height is the number 1.5, so the strut is 30px tall (ascent 16 + 5, descent 4 + 5) and the 40px span is 60px tall (ascent 32 + 10, descent 8 + 10). The line box reaches 42 above the baseline and 18 below: 60px tall with the baseline at 42. The content areas are the fonts' only: x is 20px tall at y 42 - 16 = 26, and s is 40px tall at y 42 - 32 = 10. -->
+<div id="d" class="a" data-expected-width="300" data-expected-height="60"><span id="x" data-offset-x="0" data-offset-y="26" data-expected-width="40" data-expected-height="20">XX</span><span id="s" style="font-size:40px" data-offset-x="40" data-offset-y="10" data-expected-width="80" data-expected-height="40">YY</span></div>
+</body>

@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>In rtl, an absolutely positioned box with auto insets sits at the static position's right edge</title>
+<script src="/resources/testharness.js"></script>
+<script src="/resources/testharnessreport.js"></script>
+<script src="/resources/check-layout-th.js"></script>
+<style>
+body { margin: 0 } #c { position: relative; direction: rtl; width: 200px; height: 20px }
+</style>
+<body onload="checkLayout('#c > div')">
+<!-- Derivation (CSS 2.1 10.3.7): with left and right both auto, the box takes its static position, which
+in rtl is the right edge of the content box (x = 200). Its width of 50 puts its left edge at
+200 - 50 = 150. Its static top is the top of the content box (y = 0). -->
+<div id="c">
+  <div style="position: absolute; width: 50px; height: 10px" data-offset-x="150" data-offset-y="0" data-expected-width="50" data-expected-height="10"></div>
+</div>
+</body>

@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>Inline layout: white-space break-spaces wraps after each preserved space</title>
+<script src="/resources/testharness.js"></script>
+<script src="/resources/testharnessreport.js"></script>
+<script src="/resources/check-layout-th.js"></script>
+<link rel="stylesheet" href="/fonts/ahem.css">
+<style>
+body { margin: 0 } .a { font: 20px/20px Ahem } #d { width: 60px; white-space: break-spaces }
+</style>
+<body onload="checkLayout('#d')">
+<!-- UNVERIFIED: derived by hand from the specs, not yet checked in Chromium. Derivation: CSS Text 3 section 4.1.3. With break-spaces the preserved spaces do not hang and a line may break after each. The two spaces of "XX  YY" are kept: line 1 is "XX " (60px, fits) and the second space starts line 2: " YY" is 60px. The first span a is at (0, 0), and b follows the second space at x 20 on line 2 (y 20). Height 40. -->
+<div id="d" class="a" data-expected-width="60" data-expected-height="40"><span id="a" data-offset-x="0" data-offset-y="0" data-expected-width="40" data-expected-height="20">XX</span>  <span id="b" data-offset-x="20" data-offset-y="20" data-expected-width="40" data-expected-height="20">YY</span></div>
+</body>

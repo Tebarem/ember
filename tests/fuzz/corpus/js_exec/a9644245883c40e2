@@ -1,0 +1,9 @@
+// This file was procedurally generated from the following sources:
+// - src/dstr-binding/ary-ptrn-elem-id-init-fn-name-fn.case
+// - src/dstr-binding/default/let-stmt.template
+
+
+let [fn = function () {}, xFn = function x() {}] = [];
+
+assert.sameValue(fn.name, 'fn');
+assert.notSameValue(xFn.name, 'xFn');

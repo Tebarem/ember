@@ -1,0 +1,8 @@
+// This file was procedurally generated from the following sources:
+// - src/identifier-names/else-escaped.case
+// - src/identifier-names/default/covered-obj-prop-name.template
+
+
+var obj = ({ \u0065lse: 42 });
+
+assert.sameValue(obj['else'], 42, 'property exists');

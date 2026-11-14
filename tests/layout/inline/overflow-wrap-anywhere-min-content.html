@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>Inline layout: overflow-wrap anywhere lowers the min-content width to one character</title>
+<script src="/resources/testharness.js"></script>
+<script src="/resources/testharnessreport.js"></script>
+<script src="/resources/check-layout-th.js"></script>
+<link rel="stylesheet" href="/fonts/ahem.css">
+<style>
+body { margin: 0 } .a { font: 20px/20px Ahem } #d { width: 50px } #f { float: left; overflow-wrap: anywhere }
+</style>
+<body onload="checkLayout('#d')">
+<!-- UNVERIFIED: derived by hand from the specs, not yet checked in Chromium. Derivation: CSS Text 3 section 5.5 and CSS Sizing 3. With anywhere, soft wrap opportunities between characters count for min-content, so the float's min-content is 20px and its max-content 160px. Its shrink-to-fit width in 50px available is min(max(20, 50), 160) = 50px. The 8 characters take 2 per line (40px), 4 lines of 20px: 80px tall. -->
+<div id="d" class="a"><div id="f" class="a" data-expected-width="50" data-expected-height="80">XXXXXXXX</div></div>
+</body>

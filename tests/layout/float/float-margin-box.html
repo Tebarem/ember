@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>The margin box of a float, not its border box, is what a BFC box avoids</title>
+<script src="/resources/testharness.js"></script>
+<script src="/resources/testharnessreport.js"></script>
+<script src="/resources/check-layout-th.js"></script>
+<style>
+body { margin: 0 } #c { position: relative; width: 200px } .bfc { overflow: hidden; height: 10px }
+</style>
+<body onload="checkLayout('#c > div')">
+<!-- Derivation (CSS 2.1 9.5.1): the float's margin box is 10 + 50 + 10 = 70px wide and 10 + 20 + 10 = 40px
+tall, so its border box is at (10, 10). The BFC box at row 0 is beside the margin box: its free interval is
+70..200, so x = 70 and its auto width is 130. -->
+<div id="c">
+  <div style="float: left; width: 50px; height: 20px; margin: 10px" data-offset-x="10" data-offset-y="10" data-expected-width="50" data-expected-height="20"></div>
+  <div class="bfc" data-offset-x="70" data-offset-y="0" data-expected-width="130" data-expected-height="10"></div>
+</div>
+</body>

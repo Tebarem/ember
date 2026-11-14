@@ -1,0 +1,43 @@
+{
+  "app": "react-router",
+  "viewport": [800, 600],
+  "steps": [
+    {"op": "wait-for", "sel": ".shell", "ms": 3000, "boot": true},
+    {"op": "expect-paint", "n": 2},
+    {"op": "expect-text", "sel": "h1", "text": "Home"},
+    {"op": "expect-path", "text": "/"},
+    {"op": "expect-count", "sel": ".nav a", "n": 3},
+    {"op": "expect-class", "sel": ".nav a", "nth": 0, "text": "active"},
+
+    {"op": "click", "sel": ".nav a", "nth": 1},
+    {"op": "expect-text", "sel": "h1", "text": "Users", "ms": 1500},
+    {"op": "expect-path", "text": "/users"},
+    {"op": "expect-class", "sel": ".nav a", "nth": 1, "text": "active"},
+    {"op": "expect-class", "sel": ".nav a", "nth": 0, "text": "active", "flag": false},
+    {"op": "expect-count", "sel": ".users li", "n": 4, "ms": 1500},
+    {"op": "expect-text", "sel": ".users li", "nth": 0, "text": "Ada Lovelace London"},
+    {"op": "expect-text", "sel": ".users li", "nth": 3, "text": "Barbara Liskov Boston"},
+    {"op": "expect-paint", "n": 15},
+
+    {"op": "click", "sel": ".nav a", "nth": 2},
+    {"op": "expect-text", "sel": "h1", "text": "About", "ms": 1500},
+    {"op": "expect-path", "text": "/about"},
+    {"op": "expect-class", "sel": ".nav a", "nth": 2, "text": "active"},
+
+    {"op": "eval", "js": "history.back()"},
+    {"op": "expect-text", "sel": "h1", "text": "Users", "ms": 1500},
+    {"op": "expect-path", "text": "/users"},
+    {"op": "expect-count", "sel": ".users li", "n": 4},
+    {"op": "eval", "js": "history.forward()"},
+    {"op": "expect-text", "sel": "h1", "text": "About", "ms": 1500},
+    {"op": "expect-path", "text": "/about"},
+
+    {"op": "click", "sel": ".nav a", "nth": 0},
+    {"op": "expect-text", "sel": "h1", "text": "Home", "ms": 1500},
+    {"op": "expect-path", "text": "/"},
+    {"op": "expect-class", "sel": ".nav a", "nth": 0, "text": "active"},
+    {"op": "click", "sel": ".nav a", "nth": 1},
+    {"op": "expect-count", "sel": ".users li", "n": 4, "ms": 1500},
+    {"op": "expect-paint", "n": 15}
+  ]
+}

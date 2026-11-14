@@ -1,0 +1,20 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Crisp text</title>
+<!-- Measurement page of W4h (tests/unit/text/test_text_crisp.c): 1 px stems ("l") and flat bars at
+     the x-height and the baseline ("z") in the default face at 13 to 16 px, dark text (29) on white.
+     Each line is 24 px high, in the order l 13, z 13, l 14, z 14, l 15, z 15, l 16, z 16. -->
+<style>
+html { background: #fff; }
+body { margin: 0; padding: 0 0 0 10px; color: #1d1d1d; background: #fff; }
+div { height: 24px; line-height: 24px; white-space: pre; }
+.s13 { font-size: 13px; } .s14 { font-size: 14px; } .s15 { font-size: 15px; } .s16 { font-size: 16px; }
+</style>
+<div class="s13">l l l l l l l l l l l l l l l l l l l l</div>
+<div class="s13">z z z z z z z z z z z z z z z z z z z z</div>
+<div class="s14">l l l l l l l l l l l l l l l l l l l l</div>
+<div class="s14">z z z z z z z z z z z z z z z z z z z z</div>
+<div class="s15">l l l l l l l l l l l l l l l l l l l l</div>
+<div class="s15">z z z z z z z z z z z z z z z z z z z z</div>
+<div class="s16">l l l l l l l l l l l l l l l l l l l l</div>
+<div class="s16">z z z z z z z z z z z z z z z z z z z z</div>

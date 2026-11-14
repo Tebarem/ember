@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>A float inside a plain block shares the BFC of the block around it</title>
+<script src="/resources/testharness.js"></script>
+<script src="/resources/testharnessreport.js"></script>
+<script src="/resources/check-layout-th.js"></script>
+<style>
+body { margin: 0 } #c { position: relative; width: 200px } .bfc { overflow: hidden; height: 10px }
+</style>
+<body onload="checkLayout('#c > div')">
+<!-- Derivation (CSS 2.1 9.5): the plain block #in does not establish a BFC, so its float is in the BFC of
+#c. The BFC box after #in is beside that float: x = 100 and width 100. -->
+<div id="c">
+  <div>
+    <div style="float: left; width: 100px; height: 20px" data-offset-x="0" data-offset-y="0" data-expected-width="100" data-expected-height="20"></div>
+  </div>
+  <div class="bfc" data-offset-x="100" data-offset-y="0" data-expected-width="100" data-expected-height="10"></div>
+</div>
+</body>

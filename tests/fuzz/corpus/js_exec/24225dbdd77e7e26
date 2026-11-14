@@ -1,0 +1,16 @@
+// This file was procedurally generated from the following sources:
+// - src/class-elements/err-delete-member-expression-private-method-accessor-set.case
+// - src/class-elements/delete-error/cls-expr-field-delete.template
+
+
+
+$DONOTEVALUATE();
+
+var C = class {
+  #x;
+  
+  x = delete this.#m
+;
+
+  
+}

@@ -1,0 +1,10 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>filter plus backdrop-filter on a box that extends past the viewport edges</title>
+<link rel="match" href="fx-backdrop-filter-offscreen-ref.html">
+<meta name="fuzzy" content="maxDifference=0-255;totalPixels=0-200000">
+<style>
+body { margin: 0; background: #f00 }
+.a { position: absolute }
+</style>
+<div class="a" style="left:-80px;top:-60px;width:2000px;height:1500px;backdrop-filter:invert(1);filter:blur(10px)"></div>

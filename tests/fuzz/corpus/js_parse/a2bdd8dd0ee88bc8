@@ -1,0 +1,15 @@
+// This file was procedurally generated from the following sources:
+// - src/dstr-assignment/obj-empty-undef.case
+// - src/dstr-assignment/error/for-of.template
+
+
+var counter = 0;
+
+assert.throws(TypeError, function() {
+  for ({} of [undefined]) {
+    counter += 1;
+  }
+  counter += 1;
+});
+
+assert.sameValue(counter, 0);

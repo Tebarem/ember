@@ -1,0 +1,18 @@
+// This file was procedurally generated from the following sources:
+// - src/class-elements/private-field-as-async-arrow-function.case
+// - src/class-elements/default/cls-expr.template
+
+
+
+var C = class {
+  #m = async () => 'test262';
+
+  method() {
+    return this.#m();
+  }
+}
+
+let c = new C();
+
+c.method().then((value) => assert.sameValue(value, 'test262'))
+  .then($DONE, $DONE);

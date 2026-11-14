@@ -1,0 +1,9 @@
+// This file was procedurally generated from the following sources:
+// - src/dynamic-import/assignment-expr-not-optional.case
+// - src/dynamic-import/syntax/invalid/nested-async-arrow-fn-return-await.template
+
+
+$DONOTEVALUATE();
+
+(async () => await import())
+

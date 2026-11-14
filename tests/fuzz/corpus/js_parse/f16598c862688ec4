@@ -1,0 +1,6 @@
+// Copyright (C) 2011 the V8 project authors. All rights reserved.
+// This code is governed by the BSD license found in the LICENSE file.
+
+
+$DONOTEVALUATE();
+while (false) let x = 1;

@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>A right float sits at the right edge, and clear: right moves a block below it</title>
+<script src="/resources/testharness.js"></script>
+<script src="/resources/testharnessreport.js"></script>
+<script src="/resources/check-layout-th.js"></script>
+<style>
+body { margin: 0 } #c { position: relative; width: 200px } .clr { clear: right; height: 10px }
+</style>
+<body onload="checkLayout('#c > div')">
+<!-- Derivation (CSS 2.1 9.5.1 and 9.5.2): a 60px right float goes to the right edge, x = 200 - 60 = 140.
+The block with clear: right has its border top at the bottom of that float, 40px. Its width is auto, so
+it fills the 200px container. -->
+<div id="c">
+  <div style="float: right; width: 60px; height: 40px" data-offset-x="140" data-offset-y="0" data-expected-width="60" data-expected-height="40"></div>
+  <div class="clr" data-offset-x="0" data-offset-y="40" data-expected-width="200" data-expected-height="10"></div>
+</div>
+</body>

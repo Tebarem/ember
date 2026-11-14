@@ -1,0 +1,10 @@
+svg/shapes/ellipse-01.svg not-yet the geometry properties cx, cy, r, rx, ry, x, y as CSS properties (SVG 2 section 9) are not implemented; only the attributes are read
+svg/shapes/ellipse-02.svg not-yet the geometry properties cx, cy, r, rx, ry, x, y as CSS properties (SVG 2 section 9) are not implemented; only the attributes are read
+svg/shapes/ellipse-03.svg not-yet the geometry properties cx, cy, r, rx, ry, x, y as CSS properties (SVG 2 section 9) are not implemented; only the attributes are read
+svg/shapes/ellipse-05.svg not-yet the geometry properties cx, cy, r, rx, ry, x, y as CSS properties (SVG 2 section 9) are not implemented; only the attributes are read
+svg/shapes/ellipse-06.svg not-yet the geometry properties cx, cy, r, rx, ry, x, y as CSS properties (SVG 2 section 9) are not implemented; only the attributes are read
+svg/shapes/ellipse-07.svg not-yet the geometry properties cx, cy, r, rx, ry, x, y as CSS properties (SVG 2 section 9) are not implemented; only the attributes are read
+svg/shapes/ellipse-08.svg not-yet the geometry properties cx, cy, r, rx, ry, x, y as CSS properties (SVG 2 section 9) are not implemented; only the attributes are read
+svg/shapes/rect-rx-set-by-css.svg not-yet the geometry properties cx, cy, r, rx, ry, x, y as CSS properties (SVG 2 section 9) are not implemented; only the attributes are read
+svg/shapes/reftests/pathlength-002.svg not-yet the pathLength attribute (SVG 2 section 9.8) is not implemented
+svg/shapes/reftests/pathlength-005.html not-yet the pathLength attribute (SVG 2 section 9.8) is not implemented

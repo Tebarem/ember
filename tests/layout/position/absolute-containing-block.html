@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>The containing block of an absolutely positioned box is its nearest positioned ancestor</title>
+<script src="/resources/testharness.js"></script>
+<script src="/resources/testharnessreport.js"></script>
+<script src="/resources/check-layout-th.js"></script>
+<style>
+body { margin: 0 } #outer { position: relative; margin: 20px 0 0 30px; width: 300px; height: 200px }
+#mid { padding: 10px; width: 200px; height: 100px }
+#rel { position: relative; padding: 10px; width: 100px; height: 80px }
+</style>
+<body onload="checkLayout('#abs, #abs2')">
+<!-- Derivation (CSS Position 3 section 2): #mid is not positioned, so the containing block of #abs is the
+padding box of #outer (no border, so it starts at its border edge). left 5 and top 5 give offsetLeft 5
+and offsetTop 5, relative to #outer, which is the offsetParent. #mid's padding does not count.
+#rel is positioned, so it is the containing block and the offsetParent of #abs2. Its padding box starts
+at its own border edge, so left 5 and top 5 give offsetLeft 5 and offsetTop 5 again. -->
+<div id="outer">
+  <div id="mid">
+    <div id="abs" style="position: absolute; left: 5px; top: 5px; width: 10px; height: 10px" data-offset-x="5" data-offset-y="5" data-expected-width="10" data-expected-height="10"></div>
+  </div>
+  <div id="rel">
+    <div id="abs2" style="position: absolute; left: 5px; top: 5px; width: 10px; height: 10px" data-offset-x="5" data-offset-y="5" data-expected-width="10" data-expected-height="10"></div>
+  </div>
+</div>
+</body>

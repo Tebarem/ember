@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>Inline layout: an inline-block with overflow hidden uses its margin edge</title>
+<script src="/resources/testharness.js"></script>
+<script src="/resources/testharnessreport.js"></script>
+<script src="/resources/check-layout-th.js"></script>
+<link rel="stylesheet" href="/fonts/ahem.css">
+<style>
+body { margin: 0 } .a { font: 20px/20px Ahem } #d { width: 100px }
+</style>
+<body onload="checkLayout('#d')">
+<!-- Derivation: CSS 2.1 10.8.1. Overflow other than visible puts the baseline at the bottom margin
+edge, as for an empty box. The height is 34 and the box is at y 0, as in atomic-margin-bottom.html. -->
+<div id="d" class="a" data-expected-width="100" data-expected-height="34"><span id="i" style="display:inline-block;width:20px;height:20px;margin-bottom:10px;overflow:hidden" data-offset-x="0" data-offset-y="0" data-expected-width="20" data-expected-height="20"><span>XX</span></span></div>
+</body>

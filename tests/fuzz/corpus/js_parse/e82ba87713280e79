@@ -1,0 +1,12 @@
+// Copyright 2009 the Sputnik authors.  All rights reserved.
+// This code is governed by the BSD license found in the LICENSE file.
+
+
+
+// CHECK#1
+try{
+  throw undefined;
+}
+catch(e){
+  if (e!==undefined) throw new Test262Error('#1: Exception === undefined. Actual:  Exception ==='+ e  );
+}

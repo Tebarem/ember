@@ -1,0 +1,13 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>filter: grayscale(), brightness(), contrast(), sepia() on solid colors</title>
+<link rel="match" href="fx-filter-grayscale-ref.html">
+<meta name="fuzzy" content="maxDifference=0-3;totalPixels=0-40000">
+<style>
+body { margin: 0; background: #fff }
+.a { position: absolute }
+</style>
+<div class="a" style="left:20px;top:20px;width:60px;height:60px;background:#f00;filter:grayscale(1)"></div>
+<div class="a" style="left:100px;top:20px;width:60px;height:60px;background:#808080;filter:brightness(.5)"></div>
+<div class="a" style="left:180px;top:20px;width:60px;height:60px;background:#c0c0c0;filter:contrast(0)"></div>
+<div class="a" style="left:260px;top:20px;width:60px;height:60px;background:#fff;filter:sepia(1)"></div>

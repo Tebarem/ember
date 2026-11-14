@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>Inline layout: text-align centers a line within the block</title>
+<script src="/resources/testharness.js"></script>
+<script src="/resources/testharnessreport.js"></script>
+<script src="/resources/check-layout-th.js"></script>
+<link rel="stylesheet" href="/fonts/ahem.css">
+<style>
+body { margin: 0 } .a { font: 20px/20px Ahem } #d { width: 100px; text-align: center }
+</style>
+<body onload="checkLayout('#d')">
+<!-- Derivation: CSS Text 3 section 7.1. The line holds one span of "XX", 2 * 20 = 40px wide. In a 100px
+block that is centered, so the span starts at (100 - 40) / 2 = 30px. The line is one line of 20px. -->
+<div id="d" class="a" data-expected-width="100" data-expected-height="20"><span id="s" data-expected-width="40" data-expected-height="20" data-offset-x="30" data-offset-y="0">XX</span></div>
+</body>

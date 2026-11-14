@@ -1,0 +1,22 @@
+Test certificates for the N1 network tests (tests/unit/net). Private keys are committed on purpose: they protect nothing.
+All are ECDSA P-256, valid 2026-01-01 to 2046-01-01.
+
+  ca.crt / ca.key              the test CA the tests trust (emb_runtime_net_add_root style)
+  server.crt / server.key      subjectAltName DNS:localhost, IP:127.0.0.1, signed by ca
+  other.crt / other.key        subjectAltName DNS:other.test only: a hostname mismatch for 127.0.0.1, signed by ca
+  rogue-ca.crt, rogue-server.*  a CA the tests do not trust and a localhost certificate signed by it
+
+Made with the vendored Mbed TLS (v4.2.0) tools: cert_write (third_party/mbedtls/programs/x509/cert_write.c) and
+gen_key.c here (Mbed TLS 4 has no gen_key program). From a default-configuration Mbed TLS build with programs:
+
+  python -m venv v && v/Scripts/pip install jinja2 jsonschema      (the generator packages Mbed TLS needs)
+  cmake -S third_party/mbedtls -B build-mbed-tools -G Ninja -DCMAKE_BUILD_TYPE=Release -DENABLE_PROGRAMS=ON \
+        -DENABLE_TESTING=OFF -DGEN_FILES=ON -DPython3_EXECUTABLE=<that python>
+  cmake --build build-mbed-tools --target cert_write mbedtls mbedx509 tfpsacrypto
+  cc -std=c2x -Ithird_party/mbedtls/include -Ithird_party/mbedtls/tf-psa-crypto/include \
+     -Ibuild-mbed-tools/tf-psa-crypto/include -Ibuild-mbed-tools/include \
+     -Ithird_party/mbedtls/tf-psa-crypto/drivers/builtin/include tests/data/net/gen_key.c -o build-mbed-tools/gen_key \
+     build-mbed-tools/library/libmbedtls.a build-mbed-tools/library/libmbedx509.a build-mbed-tools/library/libtfpsacrypto.a -lbcrypt
+  cd tests/data/net && sh make_certs.sh ../../../build-mbed-tools/programs/x509/cert_write ../../../build-mbed-tools/gen_key
+
+make_certs.sh holds the exact cert_write command lines. (-lbcrypt is for Windows; omit it elsewhere.)

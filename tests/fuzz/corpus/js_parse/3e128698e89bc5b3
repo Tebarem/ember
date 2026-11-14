@@ -1,0 +1,13 @@
+// Copyright (C) 2015 André Bargull. All rights reserved.
+// This code is governed by the BSD license found in the LICENSE file.
+
+
+
+var ArrayIteratorProto = Object.getPrototypeOf([][Symbol.iterator]());
+
+verifyProperty(ArrayIteratorProto.next, "length", {
+  value: 0,
+  writable: false,
+  enumerable: false,
+  configurable: true
+});

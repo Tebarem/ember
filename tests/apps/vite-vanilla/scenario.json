@@ -1,0 +1,23 @@
+{
+  "app": "vite-vanilla",
+  "viewport": [800, 600],
+  "steps": [
+    {"op": "wait-for", "sel": "#counter", "ms": 3000, "boot": true},
+    {"op": "expect-paint", "n": 3},
+    {"op": "expect-text", "sel": "#counter", "text": "count is 0"},
+    {"op": "expect-text", "sel": "#data", "text": "Loaded from data.json (3 items)", "ms": 1500},
+    {"op": "expect-count", "sel": "img.logo", "n": 1},
+    {"op": "expect-eval", "js": "String(document.querySelector('img.logo').complete)", "text": "true", "ms": 1500},
+    {"op": "click", "sel": "#counter"},
+    {"op": "click", "sel": "#counter"},
+    {"op": "expect-text", "sel": "#counter", "text": "count is 2"},
+    {"op": "expect-storage", "name": "vite-vanilla-count", "text": "2"},
+    {"op": "reload"},
+    {"op": "wait-for", "sel": "#counter", "ms": 3000},
+    {"op": "expect-text", "sel": "#counter", "text": "count is 2"},
+    {"op": "click", "sel": "#counter"},
+    {"op": "expect-text", "sel": "#counter", "text": "count is 3"},
+    {"op": "expect-text", "sel": "#data", "text": "Loaded from data.json (3 items)", "ms": 1500},
+    {"op": "expect-paint", "n": 3}
+  ]
+}

@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  @layer a.b, c;
+  @layer x { #g { width: 22px; } }
+  @layer x.y { #g { width: 11px; } }
+  @layer a.b { #h { width: 5px; } }
+  @layer c { #h { width: 6px; } }
+  @layer a { #h { width: 7px; } }
+  @layer p.q { #i { width: 1px; } }
+  @layer p.r { #i { width: 2px; } }
+  @layer p { #i { width: 3px; } }
+  @layer m.n.o { #j { width: 8px; } }
+  @layer m.n { #j { width: 9px; } }
+  @layer w.s { #k { width: 10px !important; } }
+  @layer w { #k { width: 12px !important; } }
+</style>
+</head>
+<body>
+<div id="g"></div><div id="h"></div><div id="i"></div><div id="j"></div><div id="k"></div>
+<!-- expect: g width 22px -->
+<!-- expect: h width 6px -->
+<!-- expect: i width 3px -->
+<!-- expect: j width 9px -->
+<!-- expect: k width 10px -->
+</body>
+</html>
