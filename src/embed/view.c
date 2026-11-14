@@ -1105,6 +1105,12 @@ bool embi_view_update(emb_view *v)
     if (v->doc == nullptr) {
         return false;
     }
+    /* N1f: a task of this frame resumed the load and the parse stopped again (at a render-blocking sheet or a parser-blocking
+     * script), or a script laid the half-built document out: nothing of it is painted until the load goes on. The layout
+     * serial is not taken, so the first update after the load paints the document. */
+    if (embi_doc_load_suspended(v->doc)) {
+        return false;
+    }
     const bool anim_kept = child && embi_gfx_anim_pending(v->gfx);
 
     /* Scrollbars: those that fade are repainted until they are gone. */
