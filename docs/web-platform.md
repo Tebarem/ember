@@ -4,7 +4,7 @@ Ember implements a subset of the web platform for application and game UIs. This
 that is measured. The sources of truth are the code under `src/`, the WebIDL files in `src/bindings/idl/`, and the
 expectation files under `tests/` (see [Testing](testing.md)): each lists the tests that are known to fail, with a reason.
 
-Numbers here come from files in the repository and were checked at commit `5658cf3b` (2026-11-14).
+Numbers here come from files in the repository and were checked at commit `7e80abf3` (2026-11-14).
 
 ## At a glance
 
@@ -73,9 +73,8 @@ Supported:
 
 Known gaps (each has failing, tagged tests in `tests/reftest/expectations/`):
 
-- Multi-column layout covers block containers. Not yet: `column-span: all` on elements below the container's direct
-  children, `box-decoration-break: clone`, shadows and `background-clip: text` across column breaks, the `orphans` and
-  `widows` properties (both are fixed at 2), and floats and `clear` that respect the column they fall in.
+- Multi-column layout covers block containers. Not yet: `box-decoration-break: clone`, the `orphans` and `widows`
+  properties (both are fixed at 2), and floats and `clear` that respect the column they fall in.
 - Vertical and sideways `writing-mode` values (39 tagged `writing-mode`).
 - Grid: `subgrid` and grid lanes (masonry). Grid lanes account for 657 of the `not-yet` reftests.
 - `ruby`, `text-wrap` modes (`balance`, `pretty`), `hyphens: auto` (it acts as `manual`), `text-autospace`, `text-justify`,
@@ -148,18 +147,18 @@ From the WebIDL files in `src/bindings/idl/` and the script preludes in `src/bin
 
 ## Conformance numbers
 
-All counts are derived from files in the repository at commit `5658cf3b`. They are not a statement about any browser
+All counts are derived from files in the repository at commit `7e80abf3`. They are not a statement about any browser
 compatibility beyond these suites.
 
 **Layout and render reftests** (vendored subsets of web-platform-tests, run by `test_paint_reftest` at 800x600 on a software
 or hardware device):
 
 - `tests/wpt/reftests.txt` plus `tests/reftest/ours/reftests.txt` list 12,098 tests (12,080 from WPT, 18 of our own).
-- The expectation files list 1,746 of them as known failures (or, for 5 tagged `platform`, as passing on some drivers only).
-  The last full run passed 10,348 of 12,098 (85.5%).
-- The tags of the 1,746: `not-yet` 1,195 (657 of them grid lanes), `bug` 197, `font-metrics` 135, `layout` 53, `out-of-scope` 40,
-  `writing-mode` 37, `r3-effects` 29, `paint` 24, `needs-http` 21, `not-applicable` 6, `platform` 5, `xhtml` 4.
-- The CSS2 suite is the largest part (5,577 tests, 303 listed).
+- The expectation files list 1,739 of them as known failures (or, for 5 tagged `platform`, as passing on some drivers only).
+  The last full run passed 10,355 of 12,098 (85.6%).
+- The tags of the 1,739: `not-yet` 1,195 (657 of them grid lanes), `bug` 197, `font-metrics` 135, `layout` 49, `out-of-scope` 40,
+  `writing-mode` 37, `r3-effects` 29, `paint` 21, `needs-http` 21, `not-applicable` 6, `platform` 5, `xhtml` 4.
+- The CSS2 suite is the largest part (5,577 tests, 299 listed).
 - The selection excludes tests that need scripts, `reftest-wait`, vertical writing modes, print media, iframes and other
   features the engine does not host; so these numbers say little about those areas.
 

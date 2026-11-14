@@ -94,8 +94,8 @@ Ember is a preview, built and tested on Windows, Linux and macOS (macOS is less 
   [Architecture](docs/architecture.md#budgets) says how each is measured and which are not met yet.
 - test262: every variant of `test/language` and `test/built-ins` that is not skipped for an unsupported feature passes,
   except 4. Intl is a minimal en-US subset.
-- Layout and render reftests (a subset of web-platform-tests run by Ember's own runner): 10,348 of 12,098 pass (85.5%), from a
-  full run at commit `5658cf3b`.
+- Layout and render reftests (a subset of web-platform-tests run by Ember's own runner): 10,355 of 12,098 pass (85.6%), from a
+  full run at commit `7e80abf3`.
 - html5lib tree construction: at least 99% pass (the unit test enforces it).
 
 ## Documentation
