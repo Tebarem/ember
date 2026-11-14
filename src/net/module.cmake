@@ -62,7 +62,7 @@ if(NOT TARGET ember_mbedtls)
     foreach(_f psa_crypto psa_crypto_client psa_crypto_random psa_crypto_slot_management psa_util tf_psa_crypto_version)
         list(APPEND _mb_srcs "${_tf}/core/${_f}.c")
     endforeach()
-    foreach(_f aes aesce aesni bignum bignum_core chacha20 chachapoly cipher cipher_wrap ctr_drbg ecdsa ecp ecp_curves entropy
+    foreach(_f aes aesce aesni bignum bignum_core chacha20 chacha20_neon chachapoly cipher cipher_wrap ctr_drbg ecdsa ecp ecp_curves entropy
                entropy_poll gcm hmac_drbg poly1305 psa_crypto_aead psa_crypto_cipher psa_crypto_ecp psa_crypto_hash
                psa_crypto_mac psa_crypto_rsa psa_util_internal rsa rsa_alt_helpers sha256 sha512)
         list(APPEND _mb_srcs "${_tf}/drivers/builtin/src/${_f}.c")
