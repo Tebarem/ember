@@ -2139,16 +2139,17 @@ void embi_gfx_destroy(embi_gfx *gx)
     embi_free(gx, sizeof *gx);
 }
 
-SDL_GPUTexture *embi_gfx_texture_create(embi_gfx *gx, uint32_t w, uint32_t h)
+SDL_GPUTexture *embi_gfx_texture_create(embi_gfx *gx, uint32_t w, uint32_t h, bool sampled)
 {
-    return embi_gfx_texture_create_on(gx->dev, gx->fmt, w, h);
+    return embi_gfx_texture_create_on(gx->dev, gx->fmt, w, h, sampled);
 }
 
-SDL_GPUTexture *embi_gfx_texture_create_on(SDL_GPUDevice *dev, SDL_GPUTextureFormat fmt, uint32_t w, uint32_t h)
+SDL_GPUTexture *embi_gfx_texture_create_on(SDL_GPUDevice *dev, SDL_GPUTextureFormat fmt, uint32_t w, uint32_t h,
+                                           bool sampled)
 {
     SDL_GPUTextureCreateInfo ci;
     memset(&ci, 0, sizeof ci);
-    ci.type = SDL_GPU_TEXTURETYPE_2D;
+    ci.type = sampled ? SDL_GPU_TEXTURETYPE_2D_ARRAY : SDL_GPU_TEXTURETYPE_2D;
     ci.format = fmt;
     ci.usage = SDL_GPU_TEXTUREUSAGE_COLOR_TARGET | SDL_GPU_TEXTUREUSAGE_SAMPLER;
     ci.width = w > 0 ? w : 1;

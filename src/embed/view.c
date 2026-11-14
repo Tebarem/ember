@@ -242,7 +242,9 @@ static void set_texture_size(emb_view *v, uint32_t dw, uint32_t dh)
         return;
     }
     embi_gfx_texture_destroy(v->gfx, v->tex);
-    v->tex = embi_gfx_texture_create(v->gfx, dw, dh);
+    /* A frame's texture is drawn by its parent and a window's by the present: the renderer samples both. */
+    const bool sampled = embi_frames_parent(v) != nullptr || v->mode == EMB_VIEW_WINDOWED;
+    v->tex = embi_gfx_texture_create(v->gfx, dw, dh, sampled);
     v->dev_w = dw;
     v->dev_h = dh;
     v->force_full = true;
@@ -273,7 +275,7 @@ typedef struct gfx_job {
 static int SDLCALL tex_job_main(void *arg)
 {
     gfx_job *j = arg;
-    j->tex = embi_gfx_texture_create_on(j->dev, j->cfg.format, j->tex_w, j->tex_h);
+    j->tex = embi_gfx_texture_create_on(j->dev, j->cfg.format, j->tex_w, j->tex_h, false); /* an offscreen root view's */
     return 0;
 }
 
