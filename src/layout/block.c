@@ -120,6 +120,7 @@ embi_frag *embi_lay_new_frag(embi_lctx *c, embi_box *b, uint8_t kind)
     }
     if (b != nullptr && !embi_box_is_text(b) && b->frag == nullptr) {
         b->frag = f;
+        b->tflags &= (uint8_t)~EMBI_TF_SPLIT; /* a column cut of the last layout is gone (multicol.c sets it again if the box is cut) */
     }
     return f;
 }
@@ -451,7 +452,7 @@ static flow_st flow_init(embi_lctx *c, embi_frag *f, float cw, float cb_h, float
     s.c = c;
     s.f = f;
     s.cw = cw;
-    s.span_w = NAN;
+    s.span_w = c->span_k != nullptr && c->span_k == f->box ? c->span_w : NAN;
     s.cb_h = cb_h;
     s.ox = ox;
     s.oy = oy;
@@ -780,6 +781,15 @@ static void block_flow(flow_st *s, embi_box *b)
             s->cw = s->span_w;
             flow_child(s, k);
             s->cw = cw0;
+        } else if (!isnan(s->span_w) && embi_lay_mc_plain(k)) {
+            /* A spanner below k spans the columns too (multicol.c): k's flow knows the width. */
+            const embi_box *pk = s->c->span_k;
+            float pw = s->c->span_w;
+            s->c->span_k = k;
+            s->c->span_w = s->span_w;
+            flow_child(s, k);
+            s->c->span_k = pk; /* k may lay its content out again: its own flow reads it again */
+            s->c->span_w = pw;
         } else {
             flow_child(s, k);
         }

@@ -118,8 +118,13 @@ static uint32_t element_rects(const embi_layout_engine *e, const embi_element *e
         return 0;
     }
     if (box->kind != EMBI_BK_INLINE && (box->tflags & EMBI_TF_SPLIT) != 0 && box->frag != nullptr) {
-        /* A box that a multi-column container cut: one rectangle per column it crosses (CSSOM View: one per fragment). */
-        collect_box(root, box, u, any, &count, out, cap);
+        /* A box that a multi-column container cut: one rectangle per column it crosses (CSSOM View: one per fragment). All its
+         * pieces lie below its nearest multi-column container, which is found from the first piece. */
+        const embi_frag *top = box->frag->parent;
+        while (top != nullptr && (top->box == nullptr || (top->box->tflags & EMBI_TF_MC) == 0)) {
+            top = top->parent;
+        }
+        collect_box(top != nullptr ? embi_frag_first(top) : root, box, u, any, &count, out, cap);
         if (count != 0) {
             return count;
         }

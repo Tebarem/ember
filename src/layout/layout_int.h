@@ -374,6 +374,8 @@ typedef struct embi_lctx {
         float w, h;
     } cq[EMBI_CQ_DEPTH];
     uint32_t ncq;
+    const embi_box *span_k; /* multicol.c: the plain block being laid out in the flow of a multi-column container; its flow is given span_w */
+    float span_w;
     bool no_pseudo;  /* the document has no generated (pseudo-element) styles: the box build skips the lookups */
     uint32_t bdepth; /* element nesting depth while the box tree is built */
     uint32_t max_depth; /* the depth past which elements get no box (EMBI_LAY_MAX_DEPTH) */
@@ -664,6 +666,9 @@ void embi_lay_mc_geom(const embi_lctx *c, const embi_box *b, float U, embi_mc_ge
 void embi_lay_mc_intrinsic(const embi_lctx *c, const embi_box *b, float *mn, float *mx);
 /* Whether k, a child of a multi-column container, spans all its columns (column-span: all). */
 bool embi_lay_is_spanner(const embi_lctx *c, const embi_box *k);
+/* Whether k is an ordinary block container (no new formatting context, no fragmentation context, in flow): a column-span: all
+ * box below it spans the columns of the multi-column container above it (section 6 of the spec). */
+bool embi_lay_mc_plain(const embi_box *k);
 
 typedef struct embi_mc_in {
     embi_mc_geo g;

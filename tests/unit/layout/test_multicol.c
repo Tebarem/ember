@@ -254,4 +254,111 @@ EMB_TEST(a_tall_empty_box_is_cut_at_the_end_of_each_column)
     lh_free(&h);
 }
 
+EMB_TEST(column_span_all_below_a_plain_block_spans_the_container)
+{
+    lh h = lh_make("<body><div id=m style='width:200px;column-count:2;column-gap:0'>"
+                   "<div id=a style='height:20px;overflow:hidden'></div>"
+                   "<div id=d style='padding:0 10px'>"
+                   "<div id=n1 style='height:20px;overflow:hidden'></div>"
+                   "<div id=s style='height:10px;column-span:all;margin:0 5px'></div>"
+                   "<div id=n2 style='height:20px;overflow:hidden'></div><div id=n3 style='height:20px;overflow:hidden'></div>"
+                   "</div></div></body>",
+                   "");
+    embi_rectf m, r, rs[4];
+    EMB_REQUIRE(rect1(&h, "m", &m));
+    EMB_CHECK(near(m.h, 50));
+    EMB_REQUIRE(rect1(&h, "s", &r));
+    /* the whole width of the container (less its own margins), not that of a column or of d's content box */
+    EMB_CHECK(near(r.x, 5) && near(r.y, 20) && near(r.w, 190) && near(r.h, 10));
+    EMB_REQUIRE(rect1(&h, "n1", &r));
+    EMB_CHECK(near(r.x, 110) && near(r.y, 0)); /* second column of the first set: a fills the first */
+    EMB_REQUIRE(rect1(&h, "n2", &r));
+    EMB_CHECK(near(r.x, 10) && near(r.y, 30));
+    EMB_REQUIRE(rect1(&h, "n3", &r));
+    EMB_CHECK(near(r.x, 110) && near(r.y, 30));
+    /* d is cut around the spanner: one piece before it, and the piece after it is cut over the two columns */
+    EMB_CHECK_EQ_INT((int)rects(&h, "d", rs, 4), 3);
+    EMB_CHECK(near(rs[0].x, 100) && near(rs[0].y, 0) && near(rs[0].h, 20));
+    EMB_CHECK(near(rs[1].x, 0) && near(rs[1].y, 30) && near(rs[1].h, 20));
+    EMB_CHECK(near(rs[2].x, 100) && near(rs[2].y, 30) && near(rs[2].h, 20));
+    lh_free(&h);
+}
+
+EMB_TEST(column_span_all_two_levels_down_and_a_spanner_that_ends_its_parent)
+{
+    lh h = lh_make("<body><div id=m style='width:200px;column-count:2;column-gap:0'>"
+                   "<div id=o style='border-bottom:4px solid'><div id=i>"
+                   "<div id=x style='height:20px;overflow:hidden'></div>"
+                   "<div id=s style='height:10px;column-span:all'></div></div></div>"
+                   "<div id=y style='height:20px;overflow:hidden'></div></div></body>",
+                   "");
+    embi_rectf r, rs[4];
+    EMB_REQUIRE(rect1(&h, "s", &r));
+    EMB_CHECK(near(r.x, 0) && near(r.w, 200));
+    EMB_CHECK(near(r.y, 20)); /* x fills a column of 20px (the first set is balanced to the content) */
+    /* the border that closes o is drawn after the spanner, in a piece of its own */
+    EMB_CHECK_EQ_INT((int)rects(&h, "o", rs, 4), 2);
+    EMB_CHECK(near(rs[1].y, 30) && near(rs[1].h, 4));
+    EMB_CHECK(near(rs[1].w, 100)); /* the width of a column: its content was laid out in one */
+    lh_free(&h);
+}
+
+EMB_TEST(a_box_that_is_no_longer_cut_has_one_rectangle_and_no_split_flag)
+{
+    lh h = lh_make("<body><div id=m style='column-width:300px'>"
+                   "<div id=box style='height:400px;background:#ccc'></div></div></body>",
+                   "");
+    embi_rectf rs[4];
+    embi_element *el = lh_id(&h, "box");
+    EMB_REQUIRE(el != nullptr);
+    EMB_CHECK_EQ_INT((int)rects(&h, "box", rs, 4), 2); /* two balanced columns in the 800px viewport */
+    EMB_CHECK((((const embi_box *)el->box)->tflags & EMBI_TF_SPLIT) != 0);
+    /* a narrow viewport: one column, and the box is not cut */
+    embi_layout_set_viewport(h.eng, 320.0f, 600.0f);
+    (void)embi_layout_document(h.eng, h.doc);
+    EMB_CHECK_EQ_INT((int)rects(&h, "box", rs, 4), 1);
+    /* the flag was left over from the cut layout: every lookup would walk the tree */
+    EMB_CHECK((((const embi_box *)el->box)->tflags & EMBI_TF_SPLIT) == 0);
+    EMB_CHECK(near(rs[0].h, 400));
+    lh_free(&h);
+}
+
+EMB_TEST(a_pathological_column_width_makes_a_bounded_number_of_fragments)
+{
+    /* 1024 columns of 1px, and nine nested boxes that each cross all of them: 9 * 1023 pieces without the budget */
+    lh h = lh_make("<body><div id=m style='width:3000px;column-width:1px;column-gap:0;column-fill:auto;height:4px'>"
+                   "<div><div><div><div><div><div><div><div id=t style='height:6000px'></div>"
+                   "</div></div></div></div></div></div></div></div></div></body>",
+                   "");
+    uint32_t boxes, frags;
+    size_t bytes;
+    embi_layout_stats(h.eng, h.doc, &boxes, &frags, &bytes);
+    EMB_CHECK(frags > 3000u); /* cut up to the budget */
+    EMB_CHECK(frags < 4096u + 100u);
+    embi_rectf rs[8];
+    EMB_CHECK(rects(&h, "t", rs, 8) >= 1u);
+    lh_free(&h);
+}
+
+EMB_TEST(br_clear_attribute_clears_floats_of_the_columns_and_outside_them)
+{
+    /* the float is 250px tall and breaks over the columns of 100px; the line break that clears it ends the block, which is as tall as
+     * the float, so its border lands in the third column */
+    lh h = lh_make("<body><div id=m style='width:300px;column-width:100px;column-gap:0;column-fill:auto;height:100px'>"
+                   "<div style='width:100%'><div style='float:left;width:15px;height:250px'></div></div>"
+                   "<div id=cl style='border-bottom:3px solid'><br clear=all></div></div>"
+                   "<div style='float:left;width:15px;height:50px'></div>"
+                   "<div id=o style='border-bottom:3px solid'><br clear=left></div>"
+                   "<div id=n style='border-bottom:3px solid'><br clear=right></div></body>",
+                   "");
+    embi_rectf rs[4], r;
+    EMB_CHECK_EQ_INT((int)rects(&h, "cl", rs, 4), 3);
+    EMB_CHECK(near(rs[2].x, 200) && near(rs[2].y, 0) && near(rs[2].h, 53)); /* 250 - 200 + the border */
+    EMB_REQUIRE(rect1(&h, "o", &r));
+    EMB_CHECK(near(r.h, 53)); /* clear: left: below the 50px float */
+    EMB_REQUIRE(rect1(&h, "n", &r));
+    EMB_CHECK(r.h < 30); /* clear: right: no float on the right */
+    lh_free(&h);
+}
+
 EMB_TEST_MAIN()

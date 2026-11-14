@@ -9,6 +9,23 @@
  * and a margin at a break is truncated because the next column starts at the top of the border box that follows the break.
  * Balancing is a search over the column height that only reruns the break finder, never the layout.
  *
+ * A column-span: all box spans the columns when only ordinary block containers lie between it and the container (section 6:
+ * no nested multi-column container, formatting context, float or other out-of-flow box). Such a box is lifted out of the
+ * ancestors that hold it: each ancestor becomes a piece before it and a piece after it (same cut rules as a column break),
+ * and the spanner becomes a child of the container (mc_lift). block.c lays a spanner out at the container's content width
+ * wherever it sits in that chain.
+ *
+ * The 2px ink tolerance. The scrollable overflow of a box (ov) includes the ink of its glyphs, which reaches a pixel or two
+ * past the line box (descenders, italic overhang, the anti-aliased edge). Content that sticks out of a box by at most 2px
+ * (MC_INK) is that ink and not a float or a child taller than its parent: it does not count as content of the column
+ * set (the end of the content, and where a column may end), so a descender never makes an extra column or a taller set.
+ * Only an overflow of more than 2px (a float, a box in a parent without height) is content.
+ *
+ * Fragment budget. A box that crosses N columns becomes N fragments, and with column-width: 1px a wide container has up to
+ * 1024 columns: nested boxes would multiply that. At most MC_MAXPIECES (4096) extra fragments are made per container; past
+ * that no box is cut any more and the rest of the content is placed, uncut, in the last column (it overflows it). Memory and
+ * time stay bounded, layout always finishes.
+ *
  * Not done: floats and clear do not look at the column they fall in (a float is a tall box of the one-column flow and is
  * cut like a block), flex, grid and table boxes and replaced and scroll boxes are monolithic, the position of an absolutely
  * positioned box with a static position is that of the one-column flow, and a background image is laid out per fragment.
@@ -20,6 +37,8 @@
 
 #define MC_EPS 0.01f
 #define MC_MAXCOLS 1024u
+#define MC_MAXPIECES 4096u /* the fragments a container makes by cutting boxes (see the header comment) */
+#define MC_INK 2.0f        /* glyph ink: overflow of this size past a box is not content */
 #define MC_ORPHANS 2u
 #define MC_WIDOWS 2u
 
@@ -64,6 +83,7 @@ typedef struct mc_ctx {
     bool cands;
     float brk[MC_MAXCOLS + 1u];
     uint32_t ncol;
+    uint32_t pieces; /* the fragments made so far by mc_dist */
     const mc_par *top; /* the columns of the container itself (a float that sticks out of its parent goes there) */
 } mc_ctx;
 
@@ -260,7 +280,7 @@ static void mc_collect(mc_ctx *m, const embi_frag *first, float gy)
         if (!flt) {
             prev = k;
             /* what sticks out of the box (a float taller than its parent) is content before the break too */
-            prev_bot = k->inl == 0 && (k->flags & (EMBI_FF_CLIP | EMBI_FF_SCROLL)) == 0 && top + k->ov[3] > bot + 2.0f ? top + k->ov[3] : bot;
+            prev_bot = k->inl == 0 && (k->flags & (EMBI_FF_CLIP | EMBI_FF_SCROLL)) == 0 && top + k->ov[3] > bot + MC_INK ? top + k->ov[3] : bot;
         }
         if (mono) {
             mc_item it = {top, bot, true};
@@ -520,6 +540,10 @@ static void mc_dist(mc_ctx *m, embi_frag *g, float gy, const mc_par *par, uint32
     float gb = gy + g->h;
     uint32_t c0 = mc_col_of(m, gy);
     uint32_t c1 = g->h > MC_EPS ? mc_col_end(m, gb) : c0;
+    if (m->pieces + (c1 - c0) > MC_MAXPIECES && c1 > c0) {
+        /* The budget of fragments is spent: the box stays in one piece, in the last column. */
+        c0 = c1 = m->ncol - 1u;
+    }
     /* A float may stick out of its parent, into columns where the parent has no piece: its pieces there go to the container. */
     bool ext = g->kind == EMBI_FK_BOX && mc_is_float(g) && (c0 < lo || c1 > hi);
     if (!ext) {
@@ -555,6 +579,7 @@ static void mc_dist(mc_ctx *m, embi_frag *g, float gy, const mc_par *par, uint32
         return;
     }
     uint32_t np = c1 - c0 + 1u;
+    m->pieces += np - 1u;
     mc_par *gp = embi_calloc(np, sizeof *gp);
     if (gp == nullptr) {
         const mc_par *pp = &par[c0 - off];
@@ -632,9 +657,154 @@ static void mc_dist(mc_ctx *m, embi_frag *g, float gy, const mc_par *par, uint32
 
 /* ------------------------------------------------------------------ the column sets */
 
-static bool mc_frag_is_span(const embi_lctx *c, const embi_box *b, const embi_frag *k)
+bool embi_lay_mc_plain(const embi_box *k)
 {
-    return k->kind == EMBI_FK_BOX && k->box != nullptr && k->box->parent == b && embi_lay_is_spanner(c, k->box);
+    return k->kind == EMBI_BK_BLOCK && !embi_box_is_text(k) &&
+           (k->flags & (EMBI_BF_BFC | EMBI_BF_FLOAT | EMBI_BF_ABSPOS | EMBI_BF_INLINE_LEVEL | EMBI_BF_ATOMIC | EMBI_BF_REPLACED |
+                        EMBI_BF_CLIP | EMBI_BF_SCROLL)) == 0 &&
+           (k->tflags & EMBI_TF_MC) == 0;
+}
+
+/* A fragment of a spanner (a child of the container, or of an ordinary block that the container holds). */
+static bool mc_frag_is_span(const embi_lctx *c, const embi_frag *k)
+{
+    return k->kind == EMBI_FK_BOX && k->box != nullptr && k->inl == 0 && embi_lay_is_spanner(c, k->box);
+}
+
+static bool mc_frag_plain(const embi_frag *k)
+{
+    return k->kind == EMBI_FK_BOX && k->box != nullptr && k->inl == 0 && embi_lay_mc_plain(k->box);
+}
+
+/* Whether a spanner lies below k, through ordinary blocks only. */
+static bool mc_has_span(const embi_lctx *c, const embi_frag *k, uint32_t depth)
+{
+    for (const embi_frag *q = k->first; q != nullptr; q = q->next) {
+        if (mc_frag_is_span(c, q) || (depth < 32u && mc_frag_plain(q) && mc_has_span(c, q, depth + 1u))) {
+            return true;
+        }
+    }
+    return false;
+}
+
+typedef EMBI_VEC(embi_frag *) mc_fpvec;
+
+/* Sets the edges of a piece P of a lifted block (y absolute oy, the block ends at the absolute bot) and its overflow. */
+static void mc_close_piece(embi_lctx *c, embi_frag *P, float oy, float bot, const float bdr[4], const float pad[4],
+                           const float mg[4], bool first, bool last)
+{
+    mc_set_met(c, P, bdr, pad, mg, first, last);
+    float h = bot - oy;
+    if (!last) {
+        /* a piece that is cut ends at its last child (the margin before the cut is not part of it) */
+        h = first ? bdr[1] + pad[1] : 0.0f;
+        for (embi_frag *k = P->first; k != nullptr; k = k->next) {
+            h = k->y + k->h > h ? k->y + k->h : h;
+        }
+    }
+    P->h = h;
+    P->ov[0] = bdr[0];
+    P->ov[1] = first ? bdr[1] : 0.0f;
+    P->ov[2] = P->w - bdr[2];
+    P->ov[3] = h - (last ? bdr[3] : 0.0f);
+    for (embi_frag *k = P->first; k != nullptr; k = k->next) {
+        embi_lay_ov_add_child(P, k);
+    }
+}
+
+/* A piece of k that starts at the absolute block position ay. */
+static embi_frag *mc_new_piece(embi_lctx *c, const embi_frag *k, float ay)
+{
+    embi_frag *P = embi_lay_new_frag(c, k->box, EMBI_FK_BOX);
+    if (P != nullptr) {
+        P->flags = (uint8_t)(k->flags & ~EMBI_FF_EXT);
+        P->x = k->x;
+        P->y = ay;
+        P->w = k->w;
+        P->bl_first = NAN;
+        P->bl_last = NAN;
+    }
+    return P;
+}
+
+/* Lifts the spanners out of the ordinary block k, whose top is at the absolute block position ay of the one-column flow (the y of
+ * its children are relative to it). Appends to out, in flow order, the pieces of k (k itself first: a piece before each spanner
+ * and one after the last) and the spanners, which get an x in the container's frame (ox is its content start) and their absolute
+ * y. The y of the pieces are absolute too, and the caller makes them relative to the piece it appends them to. */
+static void mc_lift(embi_lctx *c, embi_frag *k, float ay, float ox, uint32_t depth, mc_fpvec *out)
+{
+    float bdr[4], pad[4], mg[4];
+    for (int i = 0; i < 4; i++) {
+        bdr[i] = embi_frag_bdr(k, i);
+        pad[i] = embi_frag_pad(k, i);
+        mg[i] = embi_frag_mg(k, i);
+    }
+    float abot = ay + k->h;
+    k->y = ay;
+    embi_frag *kids = k->first;
+    k->first = nullptr;
+    k->last = nullptr;
+    k->box->tflags |= EMBI_TF_SPLIT;
+    mc_fpvec pcs = {0}, sub = {0};
+    embi_frag *cur = k;
+    float cur_ay = ay;
+    embi_vec_push(&pcs, k);
+    embi_vec_push(out, k);
+    for (embi_frag *x = kids; x != nullptr;) {
+        embi_frag *nx = x->next;
+        float axy = ay + x->y;
+        bool lift = depth < 32u && mc_frag_plain(x) && mc_has_span(c, x, 0);
+        embi_vec_clear(&sub);
+        if (lift) {
+            mc_lift(c, x, axy, ox, depth + 1u, &sub);
+        } else {
+            x->y = axy;
+            if (mc_frag_is_span(c, x)) {
+                x->x = ox + (x->x - (bdr[0] + pad[0])); /* its margin from the content edge, in the container */
+            }
+            embi_vec_push(&sub, x);
+        }
+        for (uint32_t i = 0; i < sub.len; i++) {
+            embi_frag *e = sub.data[i];
+            if (mc_frag_is_span(c, e)) {
+                cur = nullptr;
+                embi_vec_push(out, e);
+                continue;
+            }
+            if (cur == nullptr) {
+                /* the next piece of k starts at e, without top border and padding */
+                cur = mc_new_piece(c, k, e->y);
+                if (cur == nullptr) {
+                    cur = k;
+                    cur_ay = ay;
+                } else {
+                    cur_ay = e->y;
+                    embi_vec_push(&pcs, cur);
+                    embi_vec_push(out, cur);
+                }
+            }
+            e->y -= cur_ay;
+            embi_lay_frag_append(cur, e);
+        }
+        x = nx;
+    }
+    bool tail = cur != nullptr;
+    if (!tail && bdr[3] + pad[3] + mg[3] > 0.0f) {
+        /* a spanner is the last child: what closes the block (bottom border, padding, margin) follows it */
+        float th = bdr[3] + pad[3];
+        embi_frag *P = mc_new_piece(c, k, abot - th);
+        if (P != nullptr) {
+            embi_vec_push(&pcs, P);
+            embi_vec_push(out, P);
+            tail = true;
+        }
+    }
+    for (uint32_t i = 0; i < pcs.len; i++) {
+        embi_frag *P = pcs.data[i];
+        mc_close_piece(c, P, P->y, abot, bdr, pad, mg, i == 0, tail && i + 1u == pcs.len);
+    }
+    embi_vec_free(&sub);
+    embi_vec_free(&pcs);
 }
 
 /* Cuts one run of children (a chain of fragments starting at seg, between two spanners) into columns at out_top; returns the
@@ -730,6 +900,7 @@ static float mc_segment(mc_ctx *m, embi_frag *f, embi_frag *seg, float A, float 
 
 float embi_lay_multicol(embi_lctx *c, embi_box *b, embi_frag *f, const embi_mc_in *in)
 {
+    (void)b;
     mc_ctx *m = embi_calloc(1, sizeof *m);
     if (m == nullptr) {
         return in->ch;
@@ -739,9 +910,39 @@ float embi_lay_multicol(embi_lctx *c, embi_box *b, embi_frag *f, const embi_mc_i
     embi_frag *kids = f->first;
     f->first = nullptr;
     f->last = nullptr;
+    /* The spanners below ordinary blocks become children of the container (the blocks are cut around them). */
+    {
+        mc_fpvec flat = {0}, sub = {0};
+        bool any = false;
+        for (embi_frag *k = kids; k != nullptr; k = k->next) {
+            any = any || (mc_frag_plain(k) && mc_has_span(c, k, 0));
+        }
+        if (any) {
+            for (embi_frag *k = kids; k != nullptr;) {
+                embi_frag *nx = k->next;
+                if (mc_frag_plain(k) && mc_has_span(c, k, 0)) {
+                    embi_vec_clear(&sub);
+                    mc_lift(c, k, k->y, in->ox, 0, &sub);
+                    for (uint32_t i = 0; i < sub.len; i++) {
+                        embi_vec_push(&flat, sub.data[i]);
+                    }
+                } else {
+                    embi_vec_push(&flat, k);
+                }
+                k = nx;
+            }
+            for (uint32_t i = 0; i < flat.len; i++) {
+                flat.data[i]->parent = f;
+                flat.data[i]->next = i + 1u < flat.len ? flat.data[i + 1u] : nullptr;
+            }
+            kids = flat.data[0];
+        }
+        embi_vec_free(&sub);
+        embi_vec_free(&flat);
+    }
     uint32_t nspan = 0;
     for (embi_frag *k = kids; k != nullptr; k = k->next) {
-        nspan += mc_frag_is_span(c, b, k) ? 1u : 0u;
+        nspan += mc_frag_is_span(c, k) ? 1u : 0u;
     }
     embi_mcol *rec = embi_lay_alloc(&c->ld->fa, sizeof *rec + (nspan + 1u) * sizeof(embi_mcset), alignof(embi_mcol));
     if (rec != nullptr) {
@@ -759,7 +960,7 @@ float embi_lay_multicol(embi_lctx *c, embi_box *b, embi_frag *f, const embi_mc_i
     embi_frag *k = kids;
     while (k != nullptr) {
         embi_frag *seg = k, *tail = nullptr;
-        while (k != nullptr && !mc_frag_is_span(c, b, k)) {
+        while (k != nullptr && !mc_frag_is_span(c, k)) {
             tail = k;
             k = k->next;
         }
@@ -772,8 +973,8 @@ float embi_lay_multicol(embi_lctx *c, embi_box *b, embi_frag *f, const embi_mc_i
             for (embi_frag *q = seg; q != nullptr; q = q->next) {
                 A = q->y < A ? q->y : A;
                 float qb = q->y + q->h;
-                if (q->kind == EMBI_FK_BOX && q->inl == 0 && (q->flags & (EMBI_FF_CLIP | EMBI_FF_SCROLL)) == 0 && q->y + q->ov[3] > qb + 2.0f) {
-                    qb = q->y + q->ov[3]; /* what sticks out (a float, a child of a box without height) is content too; up to 2px is glyph ink */
+                if (q->kind == EMBI_FK_BOX && q->inl == 0 && (q->flags & (EMBI_FF_CLIP | EMBI_FF_SCROLL)) == 0 && q->y + q->ov[3] > qb + MC_INK) {
+                    qb = q->y + q->ov[3]; /* what sticks out (a float, a child of a box without height) is content too; up to MC_INK is glyph ink */
                 }
                 Z = qb > Z ? qb : Z;
             }
