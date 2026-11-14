@@ -29,6 +29,12 @@ if(NOT TARGET SDL3_net-static)
     # SDL_net uses getaddrinfo and friends, which glibc hides under strict -std=c23 (CMAKE_C_EXTENSIONS is OFF for
     # Ember): build it as gnu23 so the POSIX declarations are visible.
     set_target_properties(SDL3_net-static PROPERTIES POSITION_INDEPENDENT_CODE ON C_EXTENSIONS ON)
+    if(WIN32)
+        # SDL_net defines static read() and write() wrappers over Winsock; the MinGW-w64 headers of some toolchains
+        # (MSYS2 UCRT64) declare the POSIX-named read/write of io.h under gnu23, which conflicts. NO_OLDNAMES keeps
+        # the unprefixed CRT names out.
+        target_compile_definitions(SDL3_net-static PRIVATE NO_OLDNAMES)
+    endif()
     ember_set_sanitizers(SDL3_net-static)
 endif()
 
@@ -56,7 +62,7 @@ if(NOT TARGET ember_mbedtls)
     foreach(_f psa_crypto psa_crypto_client psa_crypto_random psa_crypto_slot_management psa_util tf_psa_crypto_version)
         list(APPEND _mb_srcs "${_tf}/core/${_f}.c")
     endforeach()
-    foreach(_f aes aesni bignum bignum_core chacha20 chachapoly cipher cipher_wrap ctr_drbg ecdsa ecp ecp_curves entropy
+    foreach(_f aes aesce aesni bignum bignum_core chacha20 chachapoly cipher cipher_wrap ctr_drbg ecdsa ecp ecp_curves entropy
                entropy_poll gcm hmac_drbg poly1305 psa_crypto_aead psa_crypto_cipher psa_crypto_ecp psa_crypto_hash
                psa_crypto_mac psa_crypto_rsa psa_util_internal rsa rsa_alt_helpers sha256 sha512)
         list(APPEND _mb_srcs "${_tf}/drivers/builtin/src/${_f}.c")

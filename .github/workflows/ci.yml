@@ -71,7 +71,7 @@ jobs:
 
     steps:
       - name: Checkout (with submodules)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           submodules: recursive
 
@@ -117,7 +117,7 @@ jobs:
       # ---- Slang (cached) --------------------------------------------------
       - name: Restore Slang cache
         id: slang-cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: slang
           key: slang-${{ env.SLANG_VERSION }}-${{ matrix.slang_asset }}
@@ -204,6 +204,9 @@ jobs:
           ASAN_OPTIONS: detect_stack_use_after_return=0
           ASAN_SYMBOLIZER_PATH: /usr/lib/llvm-19/bin/llvm-symbolizer
           LSAN_OPTIONS: suppressions=${{ github.workspace }}/tests/lsan.supp:print_suppressions=0
+          # Mesa llvmpipe is dlclosed by the Vulkan loader, which leaves its leaks with unsymbolized frames that no
+          # suppression can match by module. Preloading it keeps it mapped, so tests/lsan.supp matches libvulkan_lvp.
+          LD_PRELOAD: ${{ runner.os == 'Linux' && matrix.sanitize == 'ON' && '/usr/lib/x86_64-linux-gnu/libvulkan_lvp.so' || '' }}
         run: ctest --test-dir build --output-on-failure --no-tests=error
 
       # ---- Framework gate: the six apps of tests/apps and vite-vanilla, strict ------------------
@@ -261,7 +264,7 @@ jobs:
 
       - name: Upload golden-image failures
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: gold-out-${{ matrix.name }}
           path: build/tests/gold-out
