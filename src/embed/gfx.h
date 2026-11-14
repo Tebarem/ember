@@ -42,11 +42,15 @@ void embi_gfx_destroy(embi_gfx *gx);
  * during embi_gfx_create), set it afterwards on the thread that owns the text engine. */
 void embi_gfx_attach_text(embi_gfx *gx, embi_text *text);
 
-/* A texture usable as a frame target and as a sampled layer, in the renderer's format. */
-SDL_GPUTexture *embi_gfx_texture_create(embi_gfx *gx, uint32_t w, uint32_t h);
+/* A texture usable as a frame target, in the renderer's format. With sampled, the renderer can also draw it as a layer
+ * (an iframe's picture, a window's present): it is then a one-layer 2D array, like every texture the shaders sample
+ * (see gpu/atlas.h); Metal reads a plain 2D texture bound there wrongly. Without, it is a plain 2D texture (the target of
+ * an offscreen view, which the embedder samples or blits as one). */
+SDL_GPUTexture *embi_gfx_texture_create(embi_gfx *gx, uint32_t w, uint32_t h, bool sampled);
 /* The same on a device and a format, without a renderer (the view makes its target on a thread while the renderer is
  * still being made). Thread safe, like all SDL_gpu resource creation. */
-SDL_GPUTexture *embi_gfx_texture_create_on(SDL_GPUDevice *dev, SDL_GPUTextureFormat fmt, uint32_t w, uint32_t h);
+SDL_GPUTexture *embi_gfx_texture_create_on(SDL_GPUDevice *dev, SDL_GPUTextureFormat fmt, uint32_t w, uint32_t h,
+                                           bool sampled);
 void embi_gfx_texture_destroy(embi_gfx *gx, SDL_GPUTexture *t);
 
 /* The natural size of an absolute image URL, fetching and decoding it when it was never requested. Returns false
