@@ -73,7 +73,7 @@ jobs:
       - name: Checkout (with submodules)
         uses: actions/checkout@v4
         with:
-          submodules: true
+          submodules: recursive
 
       # ---- Toolchain: Windows (MSYS2 UCRT64) -------------------------------
       - name: Set up MSYS2 UCRT64 toolchain
