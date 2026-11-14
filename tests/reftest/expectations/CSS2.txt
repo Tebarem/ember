@@ -78,10 +78,6 @@ css/CSS2/floats-clear/floats-039.xht bug
 css/CSS2/floats-clear/floats-143.xht bug synthetic bold (font-weight 900) on text split over two floats differs from one run by 3 anti-aliased pixels at the split
 css/CSS2/floats-clear/floats-144.xht bug
 css/CSS2/floats-clear/floats-154.xht font-metrics default font strut: its ascent is 1.07em (Noto Sans), over the 1em the reference assumes (passes with Times-like metrics)
-css/CSS2/floats-clear/floats-clear-multicol-000.html layout <br clear> does not clear floats (also outside columns), so the orange line is not pushed below the floats
-css/CSS2/floats-clear/floats-clear-multicol-001.html layout <br clear> does not clear floats (also outside columns), so the orange line is not pushed below the floats
-css/CSS2/floats-clear/floats-clear-multicol-balancing-000.html layout <br clear> does not clear floats (also outside columns), so the orange line is not pushed below the floats
-css/CSS2/floats-clear/floats-clear-multicol-balancing-001.html layout <br clear> does not clear floats (also outside columns), so the orange line is not pushed below the floats
 css/CSS2/floats/float-root.html bug
 css/CSS2/floats/floats-wrap-bfc-006.xht bug a table with a caption beside a stack of left floats: the table box is not moved below floats it cannot fit beside (block.c BFC avoidance with captions)
 css/CSS2/floats/floats-zero-height-wrap-002.xht bug inline-blocks wrapping around a zero-height cleared float: the line is placed beside the 100px float in the ref, not in ours (float.c / inline.c line bands)

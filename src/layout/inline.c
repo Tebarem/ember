@@ -5075,12 +5075,8 @@ bool embi_lay_ifc(embi_lctx *c, embi_box *b, embi_frag *bf, const embi_ifc_frame
             clamped = true;
             break;
         }
-        /* The end of the paragraph ends the loop, unless a forced break leaves items (floats) behind it:
-         * those start a line of their own, as a float after a <br> does. */
-        if (ce.e >= len && !(ce.forced && split_of(&x, ce.e) < x.it.len)) {
-            break;
-        }
-        /* A <br clear> moves the next line below the floats it clears. */
+        /* A <br clear> moves the next line below the floats it clears; a <br clear> that ends the content also
+         * makes the block as tall as the clearance (the line after it would start there). */
         if (ce.forced && fr->ex != nullptr) {
             uint8_t clr = br_clear_at(&x, ce.e);
             if (clr != 0) {
@@ -5089,6 +5085,11 @@ bool embi_lay_ifc(embi_lctx *c, embi_box *b, embi_frag *bf, const embi_ifc_frame
                     Y = cb;
                 }
             }
+        }
+        /* The end of the paragraph ends the loop, unless a forced break leaves items (floats) behind it:
+         * those start a line of their own, as a float after a <br> does. */
+        if (ce.e >= len && !(ce.forced && split_of(&x, ce.e) < x.it.len)) {
+            break;
         }
         if (ce.e <= s && !ce.forced) {
             break; /* no progress: the rest has no break */

@@ -42,4 +42,26 @@ EMB_TEST(three_columns_get_two_rules)
     ph_free(&h);
 }
 
+EMB_TEST(box_shadow_of_a_cut_box_is_sliced_at_the_cuts)
+{
+    /* a 300px box in three columns of 100px (gap 20px): one piece per column */
+    ph h = ph_make("<div style='width:340px;column-count:3;column-gap:20px;column-fill:auto;height:100px'>"
+                   "<div style='height:300px;box-shadow:5px 5px #000'></div></div>",
+                   "");
+    EMB_CHECK_EQ_INT(ph_count(&h.dl, EMBI_DI_SHADOW), 3);
+    int i0 = ph_find(&h.dl, 0, EMBI_DI_SHADOW);
+    EMB_REQUIRE(i0 >= 0);
+    int i1 = ph_find(&h.dl, (uint32_t)i0 + 1u, EMBI_DI_SHADOW);
+    EMB_REQUIRE(i1 >= 0);
+    int i2 = ph_find(&h.dl, (uint32_t)i1 + 1u, EMBI_DI_SHADOW);
+    EMB_REQUIRE(i2 >= 0);
+    const embi_ditem *a = &h.dl.items.data[i0], *b = &h.dl.items.data[i1], *c = &h.dl.items.data[i2];
+    /* the shadow reaches 1px past its shape (sigma 0); the first piece is cut at its bottom edge (y 100), the middle one at both, and the
+     * last one at the top, and it ends 5px below its box */
+    EMB_CHECK(a->rect[1] == 4.0f && a->rect[1] + a->rect[3] == 100.0f);
+    EMB_CHECK(b->rect[1] == 0.0f && b->rect[1] + b->rect[3] == 100.0f);
+    EMB_CHECK(c->rect[1] == 0.0f && c->rect[1] + c->rect[3] == 106.0f);
+    ph_free(&h);
+}
+
 EMB_TEST_MAIN()

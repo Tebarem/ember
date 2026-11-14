@@ -13,7 +13,7 @@ css/css-backgrounds/background-clip/clip-text-constrain-geometry.html r3-effects
 css/css-backgrounds/background-clip/clip-text-descendants.html r3-effects box-shadow, text-shadow, filters, masks, clip-path, blend modes, border-image (R3)
 css/css-backgrounds/background-clip/clip-text-ellipsis.html r3-effects box-shadow, text-shadow, filters, masks, clip-path, blend modes, border-image (R3)
 css/css-backgrounds/background-clip/clip-text-flex.html r3-effects box-shadow, text-shadow, filters, masks, clip-path, blend modes, border-image (R3)
-css/css-backgrounds/background-clip/clip-text-fragmentation.html paint background-clip: text over the fragments of a box that a column break cuts
+css/css-backgrounds/background-clip/clip-text-fragmentation.html paint background-clip: text is not implemented (the whole clip-text-* family; here the box paints a solid background over its columns)
 css/css-backgrounds/background-clip/clip-text-inline-block-child.html r3-effects box-shadow, text-shadow, filters, masks, clip-path, blend modes, border-image (R3)
 css/css-backgrounds/background-clip/clip-text-inline.html r3-effects box-shadow, text-shadow, filters, masks, clip-path, blend modes, border-image (R3)
 css/css-backgrounds/background-clip/clip-text-multi-line.html r3-effects box-shadow, text-shadow, filters, masks, clip-path, blend modes, border-image (R3)
@@ -35,9 +35,6 @@ css/css-backgrounds/border-image-repeat-stretch-round-001.html layout table heig
 css/css-backgrounds/border-radius-clip-002.htm bug
 css/css-backgrounds/box-shadow-border-radius-001.html r3-effects box-shadow, text-shadow, filters, masks, clip-path, blend modes, border-image (R3)
 css/css-backgrounds/box-shadow-overlapping-001.html r3-effects box-shadow, text-shadow, filters, masks, clip-path, blend modes, border-image (R3)
-css/css-backgrounds/box-shadow/slice-block-fragmentation-001.html paint box-shadow of a box cut by a column break is not sliced: the shadow also paints at the cut edges (the fragment has no cut flags for paint)
-css/css-backgrounds/box-shadow/slice-block-fragmentation-002.html paint box-shadow of a box cut by a column break is not sliced: the shadow also paints at the cut edges (the fragment has no cut flags for paint)
-css/css-backgrounds/box-shadow/slice-block-fragmentation-003.html paint box-shadow of a box cut by a column break is not sliced: the shadow also paints at the cut edges (the fragment has no cut flags for paint)
 css/css-backgrounds/box-shadow/slice-inline-fragmentation-001.html r3-effects box-shadow, text-shadow, filters, masks, clip-path, blend modes, border-image (R3)
 css/css-backgrounds/box-shadow/slice-inline-fragmentation-002.html r3-effects box-shadow, text-shadow, filters, masks, clip-path, blend modes, border-image (R3)
 css/css-backgrounds/box-shadow/slice-inline-fragmentation-003.html r3-effects box-shadow, text-shadow, filters, masks, clip-path, blend modes, border-image (R3)
