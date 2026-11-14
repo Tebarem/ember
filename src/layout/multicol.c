@@ -595,6 +595,7 @@ static void mc_dist(mc_ctx *m, embi_frag *g, float gy, const mc_par *par, uint32
         mg[i] = embi_frag_mg(g, i);
     }
     float x0 = g->x;
+    uint8_t cut0 = g->cut; /* a piece that mc_lift made is cut again */
     embi_frag *kids = g->first;
     g->first = nullptr;
     g->last = nullptr;
@@ -613,6 +614,7 @@ static void mc_dist(mc_ctx *m, embi_frag *g, float gy, const mc_par *par, uint32
             }
         }
         bool first = j == c0, last = j == c1;
+        P->cut = (uint8_t)((first ? (cut0 & EMBI_CUT_BEFORE) : EMBI_CUT_BEFORE) | (last ? (cut0 & EMBI_CUT_AFTER) : EMBI_CUT_AFTER));
         float ptop = gy > m->brk[j] ? gy : m->brk[j];
         float pbot = last ? gb : (gb < m->brk[j + 1u] ? gb : m->brk[j + 1u]);
         bool in = j >= lo && j <= hi;
@@ -801,6 +803,7 @@ static void mc_lift(embi_lctx *c, embi_frag *k, float ay, float ox, uint32_t dep
     }
     for (uint32_t i = 0; i < pcs.len; i++) {
         embi_frag *P = pcs.data[i];
+        P->cut = (uint8_t)((i != 0 ? EMBI_CUT_BEFORE : 0u) | (tail && i + 1u == pcs.len ? 0u : EMBI_CUT_AFTER));
         mc_close_piece(c, P, P->y, abot, bdr, pad, mg, i == 0, tail && i + 1u == pcs.len);
     }
     embi_vec_free(&sub);

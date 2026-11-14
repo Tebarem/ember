@@ -81,6 +81,7 @@ void embi_pb_shadows(embi_pst *p, const embi_frag *f, const embi_style *s, const
     }
     float outer[4], pb[4], inner[4];
     bool have = false;
+    uint8_t cut = f->kind == EMBI_FK_BOX && f->inl == 0 ? f->cut : 0u;
     /* The first shadow is on top: they are emitted last to first. */
     for (uint32_t k = v->shadows.n; k-- > 0;) {
         const embi_shadow *sh = &v->shadows.p[k];
@@ -96,7 +97,10 @@ void embi_pb_shadows(embi_pst *p, const embi_frag *f, const embi_style *s, const
             continue;
         }
         if (!have) {
-            embi_pb_radii(p, s, bb[2], bb[3], embi_pb_fontsize(s), outer);
+            /* A box that a column break cut paints its shadow as if it were whole, sliced at the cuts (box-decoration-break:
+             * slice): its corners at a cut are square. */
+            unsigned sq = ((cut & EMBI_CUT_BEFORE) != 0 ? 3u : 0u) | ((cut & EMBI_CUT_AFTER) != 0 ? 12u : 0u);
+            embi_pb_radii_mask(p, s, bb[2], bb[3], embi_pb_fontsize(s), sq, outer);
             float bdr[4] = {embi_frag_bdr(f, 0), embi_frag_bdr(f, 1), embi_frag_bdr(f, 2), embi_frag_bdr(f, 3)};
             embi_pb_boxes(f, bb, pb, nullptr);
             embi_pb_inner_radii(outer, bdr, inner);
@@ -123,6 +127,27 @@ void embi_pb_shadows(embi_pst *p, const embi_frag *f, const embi_style *s, const
                 rec.clip_radii[i] = outer[i];
             }
             memcpy(rec.clip, bb, sizeof rec.clip);
+            if (cut != 0) {
+                /* the shadow of the whole box, cut where the piece ends: the shape goes on past a cut by more than it reaches,
+                 * and the quad (padded for the edge's smoothing) is clipped to the piece there */
+                float ext = reach + fabsf(y) + fabsf(spread) + 1.0f;
+                if ((cut & EMBI_CUT_BEFORE) != 0) {
+                    rec.shape[1] -= ext;
+                    rec.shape[3] += ext;
+                }
+                if ((cut & EMBI_CUT_AFTER) != 0) {
+                    rec.shape[3] += ext;
+                }
+                float top = (cut & EMBI_CUT_BEFORE) != 0 ? bb[1] : rec.shape[1] - reach;
+                float bot = (cut & EMBI_CUT_AFTER) != 0 ? bb[1] + bb[3] : rec.shape[1] + rec.shape[3] + reach;
+                float quad[4] = {rec.shape[0] - reach, top, rec.shape[2] + 2.0f * reach, bot - top};
+                if (!(quad[3] > 0.0f)) {
+                    continue;
+                }
+                const float none[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+                push_shadow(p, quad, &rec, color, EMBI_SHADOW_OUTER, xf, embi_pb_clip(p, quad, none, xf, clip));
+                continue;
+            }
             float quad[4] = {rec.shape[0] - reach, rec.shape[1] - reach, rec.shape[2] + 2.0f * reach,
                              rec.shape[3] + 2.0f * reach};
             push_shadow(p, quad, &rec, color, EMBI_SHADOW_OUTER, xf, clip);

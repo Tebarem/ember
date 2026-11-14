@@ -24,6 +24,10 @@ enum {
     EMBI_FK_TEXT = 3, /* a run of text (text is set) */
 };
 
+/* Fragment.cut: the box continues before this piece (its top edge is a cut), and after it (its bottom edge is a cut). */
+#define EMBI_CUT_BEFORE 0x01u
+#define EMBI_CUT_AFTER 0x02u
+
 /* Fragment flags. */
 #define EMBI_FF_STACKING 0x01u /* a stacking context (W3d sets it, W4 reads it) */
 #define EMBI_FF_SCROLL 0x02u   /* a scroll container */
@@ -104,6 +108,7 @@ typedef struct embi_frag {
                                   * (embi_frag_tbegin, embi_frag_tend, embi_frag_set_trange) */
         struct {
             uint8_t inl;         /* BOX: 1 for the piece of an inline box (allocated without ov) */
+            uint8_t cut;         /* BOX, not inl: EMBI_CUT_*, the sides where a multi-column container cut the box (multicol.c) */
         };
     };
     /* ---- end of the TEXT tier (48 bytes) ---- */

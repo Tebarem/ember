@@ -20,5 +20,5 @@ css/css-masking/clip-path/clip-path-reference-box-004.html layout clip-path on a
 css/css-masking/clip/clip-fixed-pos-transform-descendant-001.html layout the clip property does not clip a fixed-position descendant whose containing block is the viewport
 css/css-masking/mask-image/mask-image-6.html layout a mask on an inline box: the mask image positions against the first line fragment only
 css/css-masking/mask-image/mask-image-ib-split-2.html layout a mask on an inline split by a block (block-in-inline): the continuation fragments are not joined
-css/css-masking/mask-image/mask-image-ib-split.html paint mask-image on an inline split around a block inside columns: the pieces are painted unmasked
+css/css-masking/mask-image/mask-image-ib-split.html paint mask-image on an inline that a block splits (ib-split): the mask must apply to the block child, the pieces are painted unmasked
 css/css-masking/mask-image/mask-image-inline-sliced-1.html layout a mask on an inline box split into fragments (box-decoration-break: slice)
