@@ -93,8 +93,11 @@ typedef struct embi_bind_host {
     embi_str (*language)(void *user);
     /* A monotonic clock in milliseconds for console.time (default: SDL ticks). */
     double (*now_ms)(void *user);
-    /* Called after window.scrollTo/scrollBy with the new offsets. */
+    /* Called after window.scrollTo/scrollBy with the new offsets (already clamped to the viewport's scroll range). */
     void (*scroll)(void *user, double x, double y);
+    /* The viewport's scroll offset as it is now (the wheel, the keys and a smooth scroll move it too). nullptr: the
+     * bindings' own offsets (scroll_x, scroll_y) are the viewport's. */
+    void (*root_offset)(void *user, double *x, double *y);
     /* Engines for getComputedStyle and the geometry members; nullptr leaves them empty/zero. */
     embi_style_engine *style;
     embi_layout_engine *layout;
@@ -259,6 +262,7 @@ struct embi_bind_ctx {
     const struct embi_svg_geometry_ops *svg_geom; /* R4d/R4c: the geometry of this context's SVG (svg_geometry.h), nullptr: none */
     void *svg_geom_user;     /* its first callback argument */
     void *canvas_host;       /* R4b: the canvas hooks the embedder installed (impl_canvas.c), nullptr: none */
+    void *frames_host;       /* IF1: the frames hooks and the remote window proxies (impl_frames.c), nullptr: none */
     embi_bind_host host;
     embi_bind_counter *counters; /* console.count and console.time labels */
     uint32_t ncounters, cap_counters;
@@ -271,6 +275,7 @@ struct embi_bind_ctx {
     void *style_cache;       /* parsed style attribute of the last CSSStyleDeclaration access (impl_cssom.c) */
     uint32_t group_depth;    /* console.group nesting */
     embi_node *active;       /* document.activeElement (focus()), cleared when it leaves the tree */
+    bool moving;             /* a node is being moved (insert of a node already in the tree): no focus fixup */
     bool freed;
     bool testing;            /* the [Testing] interfaces are exposed on the global */
     embi_bind_timers timers; /* W5c: the embedder's timer hooks (impl_timers.c) */
@@ -350,6 +355,39 @@ void embi_bind_release_timer(embi_bind_ctx *c, void *payload);
 void embi_bind_fire_lifecycle(embi_bind_ctx *c, const char *type);
 /* Fires a plain trusted event (no bubbling) of the given type at a node: the load and error of an <img> (N1d). */
 void embi_bind_fire_node_event(embi_bind_ctx *c, embi_node *node, const char *type);
+/* IF1: fires a plain trusted event (no bubbling) at the window: the resize of a frame's viewport. */
+void embi_bind_fire_window_event(embi_bind_ctx *c, const char *type);
+
+/* IF1 (impl_frames.c): the embedder's frames. Every frame is its own realm; the other windows of the tree are known only by
+ * their window ids (a new id for every document; 0 is none), and appear in the realm as remote window proxies (RemoteWindow:
+ * postMessage, closed, window, self), one per id and realm, so `===` holds for the same document.
+ *   self_id      the id of this realm's window
+ *   parent_id    the parent's window (0 at the top: window.parent is the window itself)
+ *   top_id       the top window (0 at the top)
+ *   content_id   the window of the document shown by iframe (0: none yet; contentWindow is null)
+ *   alive        whether the window id still names a document of the tree (a proxy's closed is the opposite)
+ *   post         queues a message for the window target from this realm's window source: bytes (taken; the caller's buffer
+ *                is emptied) is the structured serialization, origin the sender's, target_origin the origin the receiver
+ *                must have when the message is delivered ("" for any). The embedder delivers it later with
+ *                embi_bind_frames_deliver in the receiver's realm, or drops it. */
+typedef struct embi_bind_frames {
+    void *user;
+    uint32_t (*self_id)(void *user);
+    uint32_t (*parent_id)(void *user);
+    uint32_t (*top_id)(void *user);
+    uint32_t (*content_id)(void *user, embi_element *iframe);
+    bool (*alive)(void *user, uint32_t id);
+    void (*post)(void *user, uint32_t target, uint32_t source, embi_sb *bytes, embi_str origin, embi_str target_origin);
+} embi_bind_frames;
+/* Installs the frames hooks (copied). */
+void embi_bind_set_frames(embi_bind_ctx *c, const embi_bind_frames *f);
+/* Fires the MessageEvent of a message from another frame at the window: data deserialized from bytes, origin, and source the
+ * proxy of window source (null for 0). Runs no microtasks (the caller does). */
+void embi_bind_frames_deliver(embi_bind_ctx *c, embi_str bytes, embi_str origin, uint32_t source);
+/* Frees the frames state of the context (embi_bind_free calls it). */
+void embi_impl_frames_release(embi_bind_ctx *c);
+/* window.parent and window.top: the proxy of the parent (the top) window, or the window itself at the top. */
+embi_js_value embi_impl_frames_parent(embi_bind_ctx *c, embi_bind_obj *self, bool top);
 /* document.currentScript (W5c): sets it to the wrapper of node (a script element), or to null for nullptr. The wrapper is
  * kept alive, and with it the element, until the next call. */
 void embi_bind_set_current_script(embi_bind_ctx *c, embi_node *node);

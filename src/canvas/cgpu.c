@@ -25,6 +25,8 @@
 
 #include <string.h>
 
+#include <SDL3/SDL_timer.h>
+
 #define CG_MAX_STOPS 32
 #define CG_MAX_SIDE CV_MAX_SIDE
 
@@ -44,6 +46,17 @@ typedef struct cgpu_params {
     float stop_col[CG_MAX_STOPS][4];
 } cgpu_params;
 
+/* A texture of a canvas that went away, kept for the next canvas of its size (see embi_canvas_gpu_trim). */
+typedef struct cg_spare {
+    SDL_GPUTexture *tex;
+    uint32_t w, h;
+    uint64_t since_ms; /* SDL_GetTicks when it was put aside */
+} cg_spare;
+
+#define CG_SPARE_MAX 8u                       /* spare textures kept at most */
+#define CG_SPARE_BYTES ((size_t)32 << 20)     /* and their bytes at most */
+#define CG_SPARE_KEEP_MS 2000u                /* how long one is kept unused */
+
 struct embi_canvas_gpu {
     embi_gpu *g;
     SDL_GPUDevice *dev;
@@ -60,7 +73,62 @@ struct embi_canvas_gpu {
     embi_canvas *all;
     size_t bytes;
     EMBI_VEC(embi_cimage *) images;
+    EMBI_VEC(cg_spare) spare; /* oldest first */
+    size_t spare_bytes;
 };
+
+static void spare_free_at(embi_canvas_gpu *g, uint32_t i)
+{
+    const cg_spare sp = g->spare.data[i];
+    SDL_ReleaseGPUTexture(g->dev, sp.tex); /* SDL keeps it alive until the GPU is done with it */
+    g->bytes -= (size_t)sp.w * sp.h * 4;
+    g->spare_bytes -= (size_t)sp.w * sp.h * 4;
+    for (uint32_t k = i + 1; k < g->spare.len; k++) {
+        g->spare.data[k - 1] = g->spare.data[k];
+    }
+    g->spare.len--;
+}
+
+/* Keeps tex (a canvas texture of w x h nothing draws into any more) for a later canvas of that size. */
+static void spare_put(embi_canvas_gpu *g, SDL_GPUTexture *tex, uint32_t w, uint32_t h)
+{
+    const size_t bytes = (size_t)w * h * 4;
+    if (bytes > CG_SPARE_BYTES) {
+        SDL_ReleaseGPUTexture(g->dev, tex);
+        g->bytes -= bytes;
+        return;
+    }
+    while (g->spare.len > 0 && (g->spare.len >= CG_SPARE_MAX || g->spare_bytes + bytes > CG_SPARE_BYTES)) {
+        spare_free_at(g, 0);
+    }
+    const cg_spare sp = {tex, w, h, SDL_GetTicks()};
+    embi_vec_push(&g->spare, sp);
+    g->spare_bytes += bytes;
+}
+
+/* A spare texture of w x h, taken out of the spares; nullptr when there is none. */
+static SDL_GPUTexture *spare_take(embi_canvas_gpu *g, uint32_t w, uint32_t h)
+{
+    for (uint32_t i = g->spare.len; i-- > 0;) {
+        const cg_spare sp = g->spare.data[i];
+        if (sp.w == w && sp.h == h) {
+            for (uint32_t k = i + 1; k < g->spare.len; k++) {
+                g->spare.data[k - 1] = g->spare.data[k];
+            }
+            g->spare.len--;
+            g->spare_bytes -= (size_t)w * h * 4;
+            return sp.tex;
+        }
+    }
+    return nullptr;
+}
+
+void embi_canvas_gpu_trim(embi_canvas_gpu *g, uint64_t now_ms)
+{
+    while (g != nullptr && g->spare.len > 0 && g->spare.data[0].since_ms + CG_SPARE_KEEP_MS <= now_ms) {
+        spare_free_at(g, 0);
+    }
+}
 
 embi_canvas_gpu *embi_canvas_gpu_create(void *gpu, void *renderer, void *pool, int format)
 {
@@ -104,6 +172,10 @@ void embi_canvas_gpu_destroy(embi_canvas_gpu *g)
     while (g->head != nullptr) {
         cgpu_detach(g->head);
     }
+    while (g->spare.len > 0) {
+        spare_free_at(g, g->spare.len - 1);
+    }
+    embi_vec_free(&g->spare);
     images_release(g);
     embi_vec_free(&g->images);
     SDL_WaitForGPUIdle(g->dev);
@@ -182,8 +254,7 @@ void cgpu_detach(embi_canvas *cv)
         return;
     }
     if (cv->tex != nullptr) {
-        SDL_ReleaseGPUTexture(g->dev, cv->tex);
-        g->bytes -= (size_t)cv->tex_w * cv->tex_h * 4;
+        spare_put(g, cv->tex, cv->tex_w, cv->tex_h); /* the bytes stay counted while it is a spare */
         cv->tex = nullptr;
     }
     if (cv->listed) {
@@ -236,6 +307,10 @@ static SDL_GPUTexture *make_tex(embi_canvas_gpu *g, uint32_t w, uint32_t h)
 {
     if (w == 0 || h == 0 || w > CG_MAX_SIDE || h > CG_MAX_SIDE) {
         return nullptr;
+    }
+    SDL_GPUTexture *spare = spare_take(g, w, h);
+    if (spare != nullptr) {
+        return spare; /* its bytes are counted already; the caller clears it */
     }
     SDL_GPUTexture *t = SDL_CreateGPUTexture(
         g->dev, &(SDL_GPUTextureCreateInfo){

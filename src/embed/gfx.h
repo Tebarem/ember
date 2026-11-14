@@ -71,6 +71,10 @@ embi_canvas_gpu *embi_gfx_canvas(embi_gfx *gx);
 /* Forgets every decoded image (and releases their atlas regions), so a new document fetches its images again. Call it
  * between frames. */
 void embi_gfx_reset_images(embi_gfx *gx);
+/* IF1: forgets the images the display list d shows (a frame's old document, before the frame loads another: the cache is
+ * its root's, shared with the other documents of the tree, so it is not reset whole). The resolve hook must be the
+ * list's view's. */
+void embi_gfx_forget_images(embi_gfx *gx, const embi_dl *d);
 
 /* W6c: animated GIF through the frame clock. embi_gfx_anim_tick moves the animated images to now_ms (the same clock as the
  * animation frame) and returns how many changed their frame; embi_gfx_anim_damage then adds, to the damage of the list
@@ -80,9 +84,25 @@ uint32_t embi_gfx_anim_tick(embi_gfx *gx, double now_ms);
 void embi_gfx_anim_damage(embi_gfx *gx, embi_damage *d, const embi_dl *cur, float scale, uint32_t view_w,
                           uint32_t view_h);
 bool embi_gfx_anim_active(const embi_gfx *gx, double now_ms);
+/* IF1: the frames of a view share their root view's renderer. embi_gfx_anim_pending says whether frame changes of animated
+ * images wait for their damage, and embi_gfx_anim_damage_keep adds those rects to a frame's damage without forgetting them
+ * (the root's embi_gfx_anim_damage, which runs after its frames, forgets them). */
+bool embi_gfx_anim_pending(const embi_gfx *gx);
+void embi_gfx_anim_damage_keep(embi_gfx *gx, embi_damage *d, const embi_dl *cur, float scale, uint32_t view_w,
+                               uint32_t view_h);
+/* IF1: the user of the loader callbacks (cfg.user): a frame that shares the renderer sets itself before it paints or draws,
+ * so the images of its list resolve against its own document. */
+void embi_gfx_set_user(embi_gfx *gx, void *user);
+/* IF1: the lookup of the iframes' textures. An image item whose URL is "ember-frame:<element address>" draws the texture fn
+ * gives for the element (w x h device px), premultiplied, stretched over the item's rect; nothing when fn gives none. */
+void embi_gfx_set_frame_lookup(embi_gfx *gx, SDL_GPUTexture *(*fn)(void *user, const void *key, uint32_t *w, uint32_t *h),
+                               void *user);
 
-/* Evicts decoded images over the budget. Call between frames. */
+/* Evicts decoded images over the budget, and the layer textures unused for EMBI_GFX_LAYER_KEEP_MS. Call between frames. */
 void embi_gfx_trim(embi_gfx *gx);
+/* A frame that drew nothing: frees the layer textures unused for EMBI_GFX_LAYER_KEEP_MS (a page that stopped changing gives
+ * its layers back while the host keeps rendering). */
+void embi_gfx_trim_idle(embi_gfx *gx);
 
 typedef struct embi_gfx_target {
     SDL_GPUTexture *tex;

@@ -4,6 +4,19 @@ dictionary GetRootNodeOptions {
     boolean composed = false;
 };
 
+// CSSOM View: Element.scrollIntoView.
+enum ScrollBehavior { "auto", "instant", "smooth" };
+enum ScrollLogicalPosition { "start", "center", "end", "nearest" };
+
+dictionary ScrollOptions {
+    ScrollBehavior behavior = "auto";
+};
+
+dictionary ScrollIntoViewOptions : ScrollOptions {
+    ScrollLogicalPosition block = "start";
+    ScrollLogicalPosition inline = "nearest";
+};
+
 interface mixin NonElementParentNode {
     Element? getElementById(DOMString elementId);
 };
@@ -163,6 +176,7 @@ interface Document : Node {
     readonly attribute DOMString contentType;
     readonly attribute DocumentType? doctype;
     readonly attribute Element? documentElement;
+    readonly attribute Element? scrollingElement;
     HTMLCollection getElementsByTagName(DOMString qualifiedName);
     HTMLCollection getElementsByTagNameNS(DOMString? namespace, DOMString localName);
     HTMLCollection getElementsByClassName(DOMString classNames);
@@ -252,7 +266,7 @@ interface Element : Node {
 
     DOMRectList getClientRects();
     [NewObject] DOMRect getBoundingClientRect();
-    undefined scrollIntoView(optional (boolean or ScrollToOptions) arg);
+    undefined scrollIntoView(optional (boolean or ScrollIntoViewOptions) arg);
     attribute unrestricted double scrollTop;
     attribute unrestricted double scrollLeft;
     readonly attribute long scrollWidth;

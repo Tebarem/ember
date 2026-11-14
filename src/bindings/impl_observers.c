@@ -127,10 +127,12 @@ static bool svg_rect(embi_bind_ctx *c, embi_node *n, double r[4])
     if (!embi_impl_svg_client_bbox(c, n, r)) {
         return false;
     }
-    r[0] += c->scroll_x;
-    r[2] += c->scroll_x;
-    r[1] += c->scroll_y;
-    r[3] += c->scroll_y;
+    double sx = 0.0, sy = 0.0;
+    embi_impl_root_offset(c, &sx, &sy);
+    r[0] += sx;
+    r[2] += sx;
+    r[1] += sy;
+    r[3] += sy;
     return true;
 }
 
@@ -342,6 +344,25 @@ static void clip_walk(embi_node *target, const embi_node *root, const double T[4
             if (w->rect[0] > w->rect[2] || w->rect[1] > w->rect[3]) {
                 w->empty = true;
             }
+        }
+    }
+    /* A position: fixed box of the viewport (the target or a box around it) does not move when the viewport scrolls: its
+     * layout rectangle is where it is in the viewport, so in document coordinates it moves with the viewport's offset,
+     * like a scroll container with the opposite offset. Nothing above it clips it (its containing block is the viewport). */
+    for (const embi_frag *p = own != nullptr ? own : start; p != nullptr; p = p->parent) {
+        if (embi_lay_frag_vp_fixed(p)) {
+            double vx = (double)embi_frag_sx(p->parent), vy = (double)embi_frag_sy(p->parent);
+            w->shift_total[0] -= vx;
+            w->shift_total[1] -= vy;
+            w->shift_up[0] -= vx;
+            w->shift_up[1] -= vy;
+            if (!w->root_found) {
+                w->rect[0] += vx;
+                w->rect[2] += vx;
+                w->rect[1] += vy;
+                w->rect[3] += vy;
+            }
+            break;
         }
     }
 }
@@ -1273,8 +1294,9 @@ static void io_update(embi_bind_ctx *c, obs_reg *reg)
     double vw = 0;
     double vh = 0;
     embi_bind_viewport(c, &vw, &vh, &dpr);
-    double sx = c->scroll_x;
-    double sy = c->scroll_y;
+    double sx = 0.0;
+    double sy = 0.0;
+    embi_impl_root_offset(c, &sx, &sy);
     for (uint32_t i = 0; i < reg->n; i++) {
         if (*(uint8_t *)reg->obs[i] != OBS_IO) {
             continue;

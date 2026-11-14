@@ -947,7 +947,7 @@ static void add_atomic(ifc_st *x, embi_box *k, int32_t parent)
          * an inline-block on its last line box. */
         bool first_bl = k->kind == EMBI_BK_FLEX || k->kind == EMBI_BK_GRID || k->kind == EMBI_BK_TABLE;
         float kbl = first_bl ? f->bl_first : embi_fl(f)->bl_last;
-        bool own = !isnan(kbl) && (k->flags & EMBI_BF_CLIP) == 0;
+        bool own = !isnan(kbl) && ((k->flags & EMBI_BF_CLIP) == 0 || (k->tflags & EMBI_TF_CTLBASE) != 0);
         float bl = own ? kbl : f->h + mb;
         v.lr = r;
         v.frag = f;
@@ -1071,9 +1071,12 @@ static void add_inline(ifc_st *x, embi_box *k, int32_t parent)
     o.p = plen(x);
     o.rtl = rtl;
     o.bm = (uint8_t)mode;
-    /* Inline box margins may be negative (CSS 2.1 10.3.1): they are kept, and move the box's content. */
+    /* Inline box margins may be negative (CSS 2.1 10.3.1): they are kept, and move the box's content. An auto margin
+     * (NaN in mar) is 0 on an inline box. */
     o.ml = rtl ? mar.r : mar.l;
     o.mr = rtl ? mar.l : mar.r;
+    o.ml = isnan(o.ml) ? 0.0f : o.ml;
+    o.mr = isnan(o.mr) ? 0.0f : o.mr;
     o.bl = rtl ? bdr.r + pad.r : bdr.l + pad.l;
     o.br = rtl ? bdr.l + pad.l : bdr.r + pad.r;
     if ((k->flags2 & EMBI_BF2_NOSTART) != 0) {

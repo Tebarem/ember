@@ -76,6 +76,9 @@ void embi_slug_begin_frame(embi_slug *s);
 [[nodiscard]] bool embi_slug_get(embi_slug *s, uint64_t key, const embi_qcurve *curves, uint32_t n,
                                  embi_slug_entry *out);
 
+/* Whether a blob is cached for key (embi_slug_get would then not need the curves). */
+[[nodiscard]] bool embi_slug_has(const embi_slug *s, uint64_t key);
+
 /* Removes the blob for key, if it is cached. Its range is reused after the quarantine, so a
  * prim already recorded in this frame still reads valid data. */
 void embi_slug_drop(embi_slug *s, uint64_t key);

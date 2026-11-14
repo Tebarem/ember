@@ -94,6 +94,10 @@ bool embi_impl_input_can_focus(const embi_element *el);
  * the old element and focus and focusin on the new one, in that order, and sets document.activeElement. A node that is
  * not connected or not focusable is ignored. */
 void embi_impl_input_focus(embi_bind_ctx *c, embi_node *node);
+/* The focus fixup of a removal: when node (about to be removed, still connected) holds the focused element, the focus
+ * leaves it (document.activeElement is the body) and blur and focusout fire at it while it is still in the document, as
+ * Blink does, so document listeners see them. */
+void embi_impl_input_pre_remove(void *ctx, embi_node *node);
 /* The focused element, or nullptr when none (the body is document.activeElement then). */
 embi_node *embi_impl_input_focused(embi_bind_ctx *c);
 /* The host window gained (true) or lost (false) the keyboard focus: focus and focusin, or blur and focusout, on the

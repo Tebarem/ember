@@ -112,6 +112,7 @@ void embi_doc_set_load_done(embi_doc *d, void (*fn)(void *user, const embi_doc_t
 bool embi_doc_load_suspended(const embi_doc *d);
 /* Turns scripts on (the default) or off for later loads: off, no script runs and <noscript> content is built as elements. */
 void embi_doc_set_scripting(embi_doc *d, bool on);
+bool embi_doc_scripting(const embi_doc *d);
 /* Resolves the styles and lays the page out again when the document or the viewport changed. Returns true when the
  * fragments were rebuilt (the layout's text runs are new, so the previous display list must not be compared with the next
  * one). An update that changed nothing, or only paint properties (W6b), returns false and keeps the fragments; the latter
@@ -119,6 +120,13 @@ void embi_doc_set_scripting(embi_doc *d, bool on);
 bool embi_doc_update(embi_doc *d, embi_doc_times *t);
 /* Whether a paint-only update happened since the last call (and forgets it). */
 bool embi_doc_take_paint_pending(embi_doc *d);
+/* The serial of the document's layout (embi_layout_paint_dirty): it moves with every layout that rebuilt the fragments,
+ * whoever ran it, embi_doc_update or a script reading geometry (which lays out at once, so embi_doc_update then finds nothing
+ * to do and returns false). A display list built at another serial shows an old picture. 0 without a document. */
+uint64_t embi_doc_layout_serial(embi_doc *d);
+/* The epoch of the document's shaped runs (embi_layout_run_epoch): it changes when a layout, whoever ran it, freed runs. A
+ * display list built at another epoch names freed runs and must not be read. 0 without a document. */
+uint64_t embi_doc_run_epoch(embi_doc *d);
 /* N1f: whether a <link rel=stylesheet> of the part of the document built so far is still downloading (a script waits for it,
  * as it waits for the styles it may read). Starts the downloads it finds. Always false without the network. */
 bool embi_doc_sheets_pending(embi_doc *d);
@@ -176,6 +184,29 @@ int embi_doc_paint_scroll(embi_doc *d, embi_dl *list, uint32_t content_len, floa
 /* Appends the scrollbars of the scrollers listed in sbs (those with alpha > 0) to out, after their content. Returns the
  * number of items appended. */
 uint32_t embi_doc_emit_scrollbars(embi_doc *d, embi_dl *out, const embi_doc_sb *sbs, uint32_t n);
+/* The styled (classic) scrollbars of the scrollers whose ::-webkit-scrollbar style gives them (src/paint/scroll.h): always
+ * shown, hit by the pointer, and scrolled by it. A scrollbar that the point (x, y) of the viewport is on: the scroller's key,
+ * the bar's axis, the part (1 the thumb, 2 the track before it, 3 the track after it) and the place of the thumb and the track
+ * along the axis in viewport px. */
+typedef struct embi_doc_sbar {
+    const void *key;
+    bool vertical;
+    int part;
+    float track_start, track_len, thumb_start, thumb_len;
+} embi_doc_sbar;
+struct embi_element;
+/* The bar at the viewport point (x, y), when hit (the element the page's hit test finds there) is the bar's scroller or inside
+ * it: a box on top of the scroller (a menu, a popover) takes the point from its bar. */
+bool embi_doc_sbar_at(embi_doc *d, float x, float y, const struct embi_element *hit, embi_doc_sbar *out);
+/* Whether the scroller with key has a styled (or hidden) scrollbar rather than an overlay one. */
+bool embi_doc_sbar_styled(embi_doc *d, const void *key);
+/* Scrolls the scroller so that the thumb of its bar starts at thumb_start (viewport px along the axis). True when it moved. */
+bool embi_doc_sbar_drag(embi_doc *d, const void *key, bool vertical, float thumb_start, float vw, float vh);
+/* Scrolls the scroller by a page (dir is 1 or -1) along the axis. */
+bool embi_doc_sbar_page(embi_doc *d, const void *key, bool vertical, int dir, float vw, float vh);
+/* Sets the scroller and bar whose thumb the pointer is over (axis 1 vertical, 2 horizontal, 0 none). True when it changed. */
+bool embi_doc_sbar_set_hover(embi_doc *d, const void *key, int axis);
+
 /* The keys of the scrollers that have a scrollbar to show: the document key (embi_doc_root_key) for the viewport. */
 const void *embi_doc_root_key(const embi_doc *d);
 /* Whether the scroller with key has an overflow in some axis (so it can show a bar). */

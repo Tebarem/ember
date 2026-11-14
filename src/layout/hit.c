@@ -15,7 +15,8 @@
  * pointer-events: none removes a box as a target and not its children, and visibility: hidden or collapse does the same.
  *
  * The point is in viewport coordinates. The root's scroll offset is applied by content_of, as paint applies it to the
- * children of the root, so the viewport point is compared with what is painted.
+ * children of the root, so the viewport point is compared with what is painted; a position: fixed box of the viewport
+ * takes it back (origin_of), as paint does not move it.
  *
  * embi_layout_hit_test_all (collect mode) runs the same walk without stopping at the first hit: every walk that stops at its
  * first hit in single mode continues, each hit is recorded, and the children of a scope are visited in paint-reverse order
@@ -139,10 +140,18 @@ typedef struct hit_st {
     bool collect;               /* every hit is recorded in out, and no walk stops at its first hit */
     uint32_t planes;            /* collect mode: the planes tested so far (their ranks) */
     hit_out out;
+    struct hit_loc *loc;           /* where the last box hit was hit, in its own space (nullptr: not wanted) */
 } hit_st;
 
 /* Whether a walk that found best (nullptr: nothing yet) still has to look at the rest: collect mode looks at all. */
 #define HIT_OPEN(h, best) ((h)->collect || (best) == nullptr)
+
+
+/* The element of the last box hit and the point in its border box's own space (the transforms undone). */
+typedef struct hit_loc {
+    const embi_element *el;
+    float x, y;
+} hit_loc;
 
 static const hit_rect k_all = {-1.0e30f, -1.0e30f, 1.0e30f, 1.0e30f};
 
@@ -186,11 +195,16 @@ static bool positioned(const embi_frag *f)
     return kw != 0 && kw != EMBI_KW_static;
 }
 
-/* The border box origin of child k of a scope whose content origin is (ox, oy), with its sticky offset. */
+/* The border box origin of child k of a scope whose content origin is (ox, oy), with its sticky offset. A fixed box of the
+ * viewport takes the root's offset back (content_of moved the root's content by it; paint keeps fixed boxes still). */
 static void origin_of(const embi_frag *k, float ox, float oy, float *kx, float *ky)
 {
     float dx = 0.0f, dy = 0.0f;
     embi_lay_sticky_offset(k, &dx, &dy);
+    if (embi_lay_frag_vp_fixed(k)) {
+        dx += embi_frag_sx(k->parent);
+        dy += embi_frag_sy(k->parent);
+    }
     *kx = ox + k->x + dx;
     *ky = oy + k->y + dy;
 }
@@ -617,7 +631,20 @@ void embi_layout_set_svg_hit(embi_layout_svg_hit_fn fn)
     atomic_store_explicit(&g_svg_hit_fn, fn, memory_order_release);
 }
 
+static const embi_element *self_hit_box(hit_st *h, const embi_frag *k, float kx, float ky, const hit_rect *clip);
+
 static const embi_element *self_hit(hit_st *h, const embi_frag *k, float kx, float ky, const hit_rect *clip)
+{
+    const embi_element *r = self_hit_box(h, k, kx, ky, clip);
+    if (r != nullptr && h->loc != nullptr && r == k->box->el) {
+        h->loc->el = r;
+        h->loc->x = h->px - kx;
+        h->loc->y = h->py - ky;
+    }
+    return r;
+}
+
+static const embi_element *self_hit_box(hit_st *h, const embi_frag *k, float kx, float ky, const hit_rect *clip)
 {
     if (h->nocull || k->kind != EMBI_FK_BOX || k->box == nullptr || k->box->el == nullptr || !inside(h, clip)) {
         return nullptr;
@@ -1307,6 +1334,12 @@ const embi_element *embi_layout_hit_svg_fo(const embi_layout_engine *e, const em
 
 embi_element *embi_layout_hit_test(const embi_layout_engine *e, const embi_document *doc, float x, float y)
 {
+    return embi_layout_hit_test_local(e, doc, x, y, nullptr);
+}
+
+embi_element *embi_layout_hit_test_local(const embi_layout_engine *e, const embi_document *doc, float x, float y,
+                                         float local[2])
+{
     const embi_frag *root = embi_layout_root(e, doc);
     if (root == nullptr) {
         return nullptr;
@@ -1321,7 +1354,16 @@ embi_element *embi_layout_hit_test(const embi_layout_engine *e, const embi_docum
     h.vh = root->h;
     h.rem = embi_lay_root_font_px(root);
     h.xf = embi_lay_doc_has_transform(e, doc);
-    return (embi_element *)(uintptr_t)hit_ctx(&h, root, root->x, root->y, k_all);
+    hit_loc loc = {nullptr, 0.0f, 0.0f};
+    h.loc = local != nullptr ? &loc : nullptr;
+    const embi_element *r = hit_ctx(&h, root, root->x, root->y, k_all);
+    if (local != nullptr) {
+        /* The point in the hit element's border box (nan when the element was not the last box hit, which a caller
+         * treats as unknown). */
+        local[0] = r != nullptr && loc.el == r ? loc.x : NAN;
+        local[1] = r != nullptr && loc.el == r ? loc.y : NAN;
+    }
+    return (embi_element *)(uintptr_t)r;
 }
 
 static int cmp_dup(const void *a, const void *b)

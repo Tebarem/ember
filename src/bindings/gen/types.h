@@ -150,95 +150,96 @@ enum embi_iface_id {
     EMBI_IF_ReadableStreamAsyncIterator = 143,
     EMBI_IF_ReadableStreamDefaultController = 144,
     EMBI_IF_ReadableStreamDefaultReader = 145,
-    EMBI_IF_Request = 146,
-    EMBI_IF_ResizeObserver = 147,
-    EMBI_IF_ResizeObserverEntry = 148,
-    EMBI_IF_Response = 149,
-    EMBI_IF_SVGAElement = 150,
-    EMBI_IF_SVGAngle = 151,
-    EMBI_IF_SVGAnimatedAngle = 152,
-    EMBI_IF_SVGAnimatedEnumeration = 153,
-    EMBI_IF_SVGAnimatedLength = 154,
-    EMBI_IF_SVGAnimatedLengthList = 155,
-    EMBI_IF_SVGAnimatedNumber = 156,
-    EMBI_IF_SVGAnimatedNumberList = 157,
-    EMBI_IF_SVGAnimatedPreserveAspectRatio = 158,
-    EMBI_IF_SVGAnimatedRect = 159,
-    EMBI_IF_SVGAnimatedString = 160,
-    EMBI_IF_SVGAnimatedTransformList = 161,
-    EMBI_IF_SVGCircleElement = 162,
-    EMBI_IF_SVGClipPathElement = 163,
-    EMBI_IF_SVGDefsElement = 164,
-    EMBI_IF_SVGDescElement = 165,
-    EMBI_IF_SVGElement = 166,
-    EMBI_IF_SVGEllipseElement = 167,
-    EMBI_IF_SVGForeignObjectElement = 168,
-    EMBI_IF_SVGGElement = 169,
-    EMBI_IF_SVGGeometryElement = 170,
-    EMBI_IF_SVGGradientElement = 171,
-    EMBI_IF_SVGGraphicsElement = 172,
-    EMBI_IF_SVGImageElement = 173,
-    EMBI_IF_SVGLength = 174,
-    EMBI_IF_SVGLengthList = 175,
-    EMBI_IF_SVGLineElement = 176,
-    EMBI_IF_SVGLinearGradientElement = 177,
-    EMBI_IF_SVGMarkerElement = 178,
-    EMBI_IF_SVGMaskElement = 179,
-    EMBI_IF_SVGMatrix = 180,
-    EMBI_IF_SVGMetadataElement = 181,
-    EMBI_IF_SVGNumber = 182,
-    EMBI_IF_SVGNumberList = 183,
-    EMBI_IF_SVGPathElement = 184,
-    EMBI_IF_SVGPatternElement = 185,
-    EMBI_IF_SVGPoint = 186,
-    EMBI_IF_SVGPointList = 187,
-    EMBI_IF_SVGPolygonElement = 188,
-    EMBI_IF_SVGPolylineElement = 189,
-    EMBI_IF_SVGPreserveAspectRatio = 190,
-    EMBI_IF_SVGRadialGradientElement = 191,
-    EMBI_IF_SVGRect = 192,
-    EMBI_IF_SVGRectElement = 193,
-    EMBI_IF_SVGSVGElement = 194,
-    EMBI_IF_SVGScriptElement = 195,
-    EMBI_IF_SVGStopElement = 196,
-    EMBI_IF_SVGStringList = 197,
-    EMBI_IF_SVGStyleElement = 198,
-    EMBI_IF_SVGSwitchElement = 199,
-    EMBI_IF_SVGSymbolElement = 200,
-    EMBI_IF_SVGTSpanElement = 201,
-    EMBI_IF_SVGTextContentElement = 202,
-    EMBI_IF_SVGTextElement = 203,
-    EMBI_IF_SVGTextPathElement = 204,
-    EMBI_IF_SVGTextPositioningElement = 205,
-    EMBI_IF_SVGTitleElement = 206,
-    EMBI_IF_SVGTransform = 207,
-    EMBI_IF_SVGTransformList = 208,
-    EMBI_IF_SVGUnitTypes = 209,
-    EMBI_IF_SVGUseElement = 210,
-    EMBI_IF_SVGViewElement = 211,
-    EMBI_IF_Screen = 212,
-    EMBI_IF_Storage = 213,
-    EMBI_IF_StorageEvent = 214,
-    EMBI_IF_SubmitEvent = 215,
-    EMBI_IF_TestBase = 216,
-    EMBI_IF_TestList = 217,
-    EMBI_IF_TestWidget = 218,
-    EMBI_IF_Text = 219,
-    EMBI_IF_TextDecoder = 220,
-    EMBI_IF_TextEncoder = 221,
-    EMBI_IF_TextEvent = 222,
-    EMBI_IF_TextMetrics = 223,
-    EMBI_IF_TouchEvent = 224,
-    EMBI_IF_TreeWalker = 225,
-    EMBI_IF_UIEvent = 226,
-    EMBI_IF_URL = 227,
-    EMBI_IF_URLSearchParams = 228,
-    EMBI_IF_ValidityState = 229,
-    EMBI_IF_WebSocket = 230,
-    EMBI_IF_WheelEvent = 231,
-    EMBI_IF_Window = 232,
-    EMBI_IF_XMLDocument = 233,
-    EMBI_IF_COUNT = 234,
+    EMBI_IF_RemoteWindow = 146,
+    EMBI_IF_Request = 147,
+    EMBI_IF_ResizeObserver = 148,
+    EMBI_IF_ResizeObserverEntry = 149,
+    EMBI_IF_Response = 150,
+    EMBI_IF_SVGAElement = 151,
+    EMBI_IF_SVGAngle = 152,
+    EMBI_IF_SVGAnimatedAngle = 153,
+    EMBI_IF_SVGAnimatedEnumeration = 154,
+    EMBI_IF_SVGAnimatedLength = 155,
+    EMBI_IF_SVGAnimatedLengthList = 156,
+    EMBI_IF_SVGAnimatedNumber = 157,
+    EMBI_IF_SVGAnimatedNumberList = 158,
+    EMBI_IF_SVGAnimatedPreserveAspectRatio = 159,
+    EMBI_IF_SVGAnimatedRect = 160,
+    EMBI_IF_SVGAnimatedString = 161,
+    EMBI_IF_SVGAnimatedTransformList = 162,
+    EMBI_IF_SVGCircleElement = 163,
+    EMBI_IF_SVGClipPathElement = 164,
+    EMBI_IF_SVGDefsElement = 165,
+    EMBI_IF_SVGDescElement = 166,
+    EMBI_IF_SVGElement = 167,
+    EMBI_IF_SVGEllipseElement = 168,
+    EMBI_IF_SVGForeignObjectElement = 169,
+    EMBI_IF_SVGGElement = 170,
+    EMBI_IF_SVGGeometryElement = 171,
+    EMBI_IF_SVGGradientElement = 172,
+    EMBI_IF_SVGGraphicsElement = 173,
+    EMBI_IF_SVGImageElement = 174,
+    EMBI_IF_SVGLength = 175,
+    EMBI_IF_SVGLengthList = 176,
+    EMBI_IF_SVGLineElement = 177,
+    EMBI_IF_SVGLinearGradientElement = 178,
+    EMBI_IF_SVGMarkerElement = 179,
+    EMBI_IF_SVGMaskElement = 180,
+    EMBI_IF_SVGMatrix = 181,
+    EMBI_IF_SVGMetadataElement = 182,
+    EMBI_IF_SVGNumber = 183,
+    EMBI_IF_SVGNumberList = 184,
+    EMBI_IF_SVGPathElement = 185,
+    EMBI_IF_SVGPatternElement = 186,
+    EMBI_IF_SVGPoint = 187,
+    EMBI_IF_SVGPointList = 188,
+    EMBI_IF_SVGPolygonElement = 189,
+    EMBI_IF_SVGPolylineElement = 190,
+    EMBI_IF_SVGPreserveAspectRatio = 191,
+    EMBI_IF_SVGRadialGradientElement = 192,
+    EMBI_IF_SVGRect = 193,
+    EMBI_IF_SVGRectElement = 194,
+    EMBI_IF_SVGSVGElement = 195,
+    EMBI_IF_SVGScriptElement = 196,
+    EMBI_IF_SVGStopElement = 197,
+    EMBI_IF_SVGStringList = 198,
+    EMBI_IF_SVGStyleElement = 199,
+    EMBI_IF_SVGSwitchElement = 200,
+    EMBI_IF_SVGSymbolElement = 201,
+    EMBI_IF_SVGTSpanElement = 202,
+    EMBI_IF_SVGTextContentElement = 203,
+    EMBI_IF_SVGTextElement = 204,
+    EMBI_IF_SVGTextPathElement = 205,
+    EMBI_IF_SVGTextPositioningElement = 206,
+    EMBI_IF_SVGTitleElement = 207,
+    EMBI_IF_SVGTransform = 208,
+    EMBI_IF_SVGTransformList = 209,
+    EMBI_IF_SVGUnitTypes = 210,
+    EMBI_IF_SVGUseElement = 211,
+    EMBI_IF_SVGViewElement = 212,
+    EMBI_IF_Screen = 213,
+    EMBI_IF_Storage = 214,
+    EMBI_IF_StorageEvent = 215,
+    EMBI_IF_SubmitEvent = 216,
+    EMBI_IF_TestBase = 217,
+    EMBI_IF_TestList = 218,
+    EMBI_IF_TestWidget = 219,
+    EMBI_IF_Text = 220,
+    EMBI_IF_TextDecoder = 221,
+    EMBI_IF_TextEncoder = 222,
+    EMBI_IF_TextEvent = 223,
+    EMBI_IF_TextMetrics = 224,
+    EMBI_IF_TouchEvent = 225,
+    EMBI_IF_TreeWalker = 226,
+    EMBI_IF_UIEvent = 227,
+    EMBI_IF_URL = 228,
+    EMBI_IF_URLSearchParams = 229,
+    EMBI_IF_ValidityState = 230,
+    EMBI_IF_WebSocket = 231,
+    EMBI_IF_WheelEvent = 232,
+    EMBI_IF_Window = 233,
+    EMBI_IF_XMLDocument = 234,
+    EMBI_IF_COUNT = 235,
 };
 #define EMBI_IF_NONE 0xFFFFu
 #define EMBI_NS_COUNT 1
@@ -415,6 +416,7 @@ extern const embi_bind_iface embi_gen_iface_ReadableStream;
 extern const embi_bind_iface embi_gen_iface_ReadableStreamAsyncIterator;
 extern const embi_bind_iface embi_gen_iface_ReadableStreamDefaultController;
 extern const embi_bind_iface embi_gen_iface_ReadableStreamDefaultReader;
+extern const embi_bind_iface embi_gen_iface_RemoteWindow;
 extern const embi_bind_iface embi_gen_iface_Request;
 extern const embi_bind_iface embi_gen_iface_ResizeObserver;
 extern const embi_bind_iface embi_gen_iface_ResizeObserverEntry;
@@ -512,6 +514,23 @@ extern const embi_js_class embi_gen_class_Window;
 extern const embi_bind_iface embi_gen_iface_Window;
 extern const embi_bind_iface embi_gen_iface_XMLDocument;
 extern const embi_bind_iface embi_gen_nsdesc_console;
+
+#define EMBI_ENUM_COUNT_ScrollBehavior 3
+enum {
+    EMBI_ENUM_ScrollBehavior_auto = 0,
+    EMBI_ENUM_ScrollBehavior_instant = 1,
+    EMBI_ENUM_ScrollBehavior_smooth = 2,
+};
+extern const char *const embi_enum_names_ScrollBehavior[];
+
+#define EMBI_ENUM_COUNT_ScrollLogicalPosition 4
+enum {
+    EMBI_ENUM_ScrollLogicalPosition_start = 0,
+    EMBI_ENUM_ScrollLogicalPosition_center = 1,
+    EMBI_ENUM_ScrollLogicalPosition_end = 2,
+    EMBI_ENUM_ScrollLogicalPosition_nearest = 3,
+};
+extern const char *const embi_enum_names_ScrollLogicalPosition[];
 
 #define EMBI_ENUM_COUNT_DOMParserSupportedType 5
 enum {
@@ -655,6 +674,11 @@ typedef struct embi_dict_SVGBoundingBoxOptions {
     bool stroke;
 } embi_dict_SVGBoundingBoxOptions;
 bool embi_gen_dict_conv_SVGBoundingBoxOptions(embi_bind_ctx *c, embi_js_value v, embi_dict_SVGBoundingBoxOptions *out, const char *ctx);
+
+typedef struct embi_dict_ScrollOptions {
+    int32_t behavior;
+} embi_dict_ScrollOptions;
+bool embi_gen_dict_conv_ScrollOptions(embi_bind_ctx *c, embi_js_value v, embi_dict_ScrollOptions *out, const char *ctx);
 
 typedef struct embi_dict_ScrollToOptions {
     embi_dstr behavior;
@@ -835,6 +859,13 @@ typedef struct embi_dict_PointerEventInit {
     double width;
 } embi_dict_PointerEventInit;
 bool embi_gen_dict_conv_PointerEventInit(embi_bind_ctx *c, embi_js_value v, embi_dict_PointerEventInit *out, const char *ctx);
+
+typedef struct embi_dict_ScrollIntoViewOptions {
+    embi_dict_ScrollOptions base;
+    int32_t block;
+    int32_t inline_;
+} embi_dict_ScrollIntoViewOptions;
+bool embi_gen_dict_conv_ScrollIntoViewOptions(embi_bind_ctx *c, embi_js_value v, embi_dict_ScrollIntoViewOptions *out, const char *ctx);
 
 typedef struct embi_dict_TestDerivedOptions {
     embi_dict_TestOptions base;

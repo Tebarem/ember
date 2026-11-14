@@ -90,6 +90,7 @@ struct embi_slug {
     uint32_t cap; /* physical size of buf in bytes */
     SDL_GPUTransferBuffer *tb;
     uint32_t tb_cap;
+    uint32_t tb_off; /* where the next upload's words go in tb: a ring, see embi_slug_upload */
 
     EMBI_VEC(uint32_t) stage;     /* words of blobs built since the last upload */
     EMBI_VEC(embi_slug_copy) copies;
@@ -483,6 +484,12 @@ void embi_slug_begin_frame(embi_slug *s)
     }
 }
 
+bool embi_slug_has(const embi_slug *s, uint64_t key)
+{
+    uint64_t found = 0;
+    return s != nullptr && embi_hashmap_get(&s->index, key, &found);
+}
+
 void embi_slug_drop(embi_slug *s, uint64_t key)
 {
     if (s == nullptr) {
@@ -668,6 +675,7 @@ bool embi_slug_upload(embi_slug *s, SDL_GPUCommandBuffer *cmd)
     SDL_GPUBuffer *nb = nullptr; /* the grown buffer, until it is swapped in */
     SDL_GPUBuffer *old = nullptr;
     uint32_t copied = 0;
+    uint32_t tb_base = 0; /* where this upload's words are in tb */
     bool ok = false;
 
     do {
@@ -725,14 +733,23 @@ bool embi_slug_upload(embi_slug *s, SDL_GPUCommandBuffer *cmd)
                 }
                 s->tb = nt;
                 s->tb_cap = (uint32_t)w;
+                s->tb_off = 0;
             }
-            void *mapped = SDL_MapGPUTransferBuffer(dev, s->tb, true);
+            /* The transfer buffer is a ring: the words go after the last upload's, without cycling, since the copies
+             * recorded before (and possibly still running) read only what lies before. When the rest is too small the map
+             * cycles and the words go at 0: SDL hands out an instance no work uses. Cycling at every upload made SDL create
+             * a new transfer buffer for each upload while frames were in flight. */
+            const bool cycle = (uint64_t)s->tb_off + stage_bytes > s->tb_cap;
+            tb_base = cycle ? 0u : s->tb_off;
+            uint8_t *mapped = SDL_MapGPUTransferBuffer(dev, s->tb, cycle);
             if (mapped == nullptr) {
                 embi_log_error("slug: SDL_MapGPUTransferBuffer failed: %s", SDL_GetError());
                 break;
             }
-            SDL_memcpy(mapped, s->stage.data, stage_bytes);
+            SDL_memcpy(mapped + tb_base, s->stage.data, stage_bytes);
             SDL_UnmapGPUTransferBuffer(dev, s->tb);
+            const uint64_t next = ((uint64_t)tb_base + stage_bytes + 15u) & ~(uint64_t)15u;
+            s->tb_off = next < s->tb_cap ? (uint32_t)next : s->tb_cap;
         }
 
         SDL_GPUCopyPass *cp = nullptr;
@@ -754,7 +771,7 @@ bool embi_slug_upload(embi_slug *s, SDL_GPUCommandBuffer *cmd)
         }
         for (uint32_t i = 0; i < s->copies.len; i++) {
             const embi_slug_copy *c = &embi_vec_at(&s->copies, i);
-            const SDL_GPUTransferBufferLocation src = {.transfer_buffer = s->tb, .offset = c->src};
+            const SDL_GPUTransferBufferLocation src = {.transfer_buffer = s->tb, .offset = tb_base + c->src};
             const SDL_GPUBufferRegion region = {.buffer = dst, .offset = c->dst, .size = c->bytes};
             SDL_UploadToGPUBuffer(cp, &src, &region, false);
             copied += c->bytes;

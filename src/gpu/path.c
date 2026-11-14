@@ -35,6 +35,7 @@ struct embi_path {
     bool fill_dirty;
     uint32_t id;
     uint32_t version;
+    uint64_t fill_hash; /* of fill, made with it */
 };
 
 static SDL_AtomicInt embi_path_ids;
@@ -218,6 +219,7 @@ static void embi_path_build_fill(embi_path *p)
             embi_vec_push(&p->fill, close);
         }
     }
+    p->fill_hash = embi_hash_bytes(p->fill.data, (size_t)p->fill.len * sizeof(embi_qcurve), 0x9e3779b97f4a7c15ull);
     p->fill_dirty = false;
 }
 
@@ -397,14 +399,25 @@ bool embi_path_arc_to(embi_path *p, float rx, float ry, float rotation, bool lar
 
 /* Fill --------------------------------------------------------------------- */
 
-/* Keys are unique per path state: the path id, and the version, which every change bumps. */
-static uint64_t embi_path_key(const embi_path *p)
+uint64_t embi_path_hash(const embi_path *p)
 {
-    return EMBI_PATH_KEY_BIT | ((uint64_t)p->id << 32) | (uint64_t)p->version;
+    if (p == nullptr) {
+        return 0;
+    }
+    uint64_t h = embi_hash_bytes(p->curves.data, (size_t)p->curves.len * sizeof(embi_qcurve), 0x51ed2701a1b2c3d4ull);
+    for (uint32_t k = 0; k < p->contours.len; k++) {
+        const embi_path_contour *c = &embi_vec_at(&p->contours, k);
+        uint32_t sx, sy;
+        SDL_memcpy(&sx, &c->sx, sizeof sx);
+        SDL_memcpy(&sy, &c->sy, sizeof sy);
+        h = embi_hash64(h ^ (((uint64_t)c->first << 1) | (c->closed ? 1u : 0u)));
+        h = embi_hash64(h ^ (((uint64_t)sx << 32) | sy));
+    }
+    return h;
 }
 
-void embi_frame_fill_path(embi_frame *f, embi_path *p, embi_fill_rule rule,
-                          const embi_paint *paint, uint32_t xform, uint32_t clip)
+void embi_frame_fill_path_keyed(embi_frame *f, embi_path *p, uint64_t key, embi_fill_rule rule,
+                                const embi_paint *paint, uint32_t xform, uint32_t clip)
 {
     if (f == nullptr || p == nullptr || paint == nullptr) {
         return;
@@ -416,6 +429,18 @@ void embi_frame_fill_path(embi_frame *f, embi_path *p, embi_fill_rule rule,
         return;
     }
     const float identity[6] = {1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f};
-    embi_frame_fill_quads(f, embi_path_key(p), p->fill.data, p->fill.len, identity, paint, rule,
-                          xform, clip);
+    embi_frame_fill_quads(f, key | EMBI_PATH_KEY_BIT, p->fill.data, p->fill.len, identity, paint, rule, xform, clip);
+}
+
+void embi_frame_fill_path(embi_frame *f, embi_path *p, embi_fill_rule rule,
+                          const embi_paint *paint, uint32_t xform, uint32_t clip)
+{
+    if (f == nullptr || p == nullptr || paint == nullptr) {
+        return;
+    }
+    if (p->fill_dirty) {
+        embi_path_build_fill(p);
+    }
+    /* Keys with bit 63 set are paths' (glyph keys leave it clear). */
+    embi_frame_fill_path_keyed(f, p, p->fill_hash, rule, paint, xform, clip);
 }

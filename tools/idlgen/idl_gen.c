@@ -2120,6 +2120,27 @@ static void emit_enum_names(sink *o, const idl_enum *e)
     sp(o, "};\n\n");
 }
 
+/* The C name of a dictionary member's struct field: its IDL name, with an underscore appended when that is a C keyword
+ * (ScrollIntoViewOptions has a member named inline). */
+static const char *field_name(const char *name, char *buf, size_t cap)
+{
+    static const char *const k_keywords[] = {
+        "alignas", "alignof", "auto",     "bool",     "break",    "case",     "char",          "const",
+        "constexpr", "continue", "default", "do",     "double",   "else",     "enum",          "extern",
+        "false",   "float",   "for",      "goto",     "if",       "inline",   "int",           "long",
+        "nullptr", "register", "restrict", "return",  "short",    "signed",   "sizeof",        "static",
+        "static_assert", "struct", "switch", "thread_local", "true", "typedef", "typeof",     "union",
+        "unsigned", "void",   "volatile", "while",
+    };
+    for (size_t i = 0; i < sizeof k_keywords / sizeof k_keywords[0]; i++) {
+        if (strcmp(name, k_keywords[i]) == 0) {
+            snprintf(buf, cap, "%s_", name);
+            return buf;
+        }
+    }
+    return name;
+}
+
 static idl_dmember *sorted_members(const idl_dict *d)
 {
     int n = d->members.n;
@@ -2161,11 +2182,12 @@ static void emit_dict_conv(gen *g, sink *o, const idl_dict *d)
         } else {
             char def[256];
             default_expr(m->type, m->def, def, sizeof def);
-            sp(o, "            out->%s = %s;\n", m->name, def);
+            char fbuf[160];
+            sp(o, "            out->%s = %s;\n", field_name(m->name, fbuf, sizeof fbuf), def);
         }
         sp(o, "        } else {\n");
-        char dst[160];
-        snprintf(dst, sizeof dst, "out->%s", m->name);
+        char dst[170], fbuf[160];
+        snprintf(dst, sizeof dst, "out->%s", field_name(m->name, fbuf, sizeof fbuf));
         emit_conv(g, o, m->type, 0, dst, "mv", "ctx", "return false;", d->file, m->line);
         sp(o, "        }\n    }\n");
     }
@@ -2186,8 +2208,8 @@ static void emit_dict_to_value(gen *g, sink *o, const idl_dict *d)
     }
     for (int k = 0; k < n; k++) {
         const idl_dmember *m = &sorted[k];
-        char ret[200], v[768];
-        snprintf(ret, sizeof ret, "in->%s", m->name);
+        char ret[200], v[768], fbuf[160];
+        snprintf(ret, sizeof ret, "in->%s", field_name(m->name, fbuf, sizeof fbuf));
         if (m->type->kind == IDL_T_UNION) {
             gen_error(g, d->file, m->line, "union members of result dictionaries are not supported");
             continue;
@@ -2216,7 +2238,8 @@ static void emit_dict_struct(gen *g, FILE *h, const idl_dict *d)
         }
         char cty[160];
         ctype_of(m->type, cty, sizeof cty);
-        fprintf(h, "    %s %s;\n", cty, m->name);
+        char fbuf[160];
+        fprintf(h, "    %s %s;\n", cty, field_name(m->name, fbuf, sizeof fbuf));
     }
     free(sorted);
     if (d->members.n == 0 && !d->parent_decl) {

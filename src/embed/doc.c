@@ -6,6 +6,7 @@
 #include "embed/doc.h"
 #include "embed/script_int.h"
 #include "embed/frame.h"
+#include "embed/frames.h"
 #include "embed/input_int.h"
 #include "embed/netload.h"
 
@@ -60,6 +61,12 @@ struct embi_doc {
     bool env_dirty, layout_dirty;
     uint64_t font_epoch; /* W4i: the system font index epoch the layout saw */
     bool font_fallback;  /* W4i: a layout since the last index change used a fallback font */
+    const void *sb_hover_key; /* the scroller whose styled scrollbar thumb the pointer is over, and which bar (1 vertical, 2 horizontal) */
+    int sb_hover_axis;
+    struct scrollers *sc_cache; /* the scrollers of the last layout (scrollers_new refreshes it when the layout or an offset changed) */
+    uint64_t sc_calls;
+    const embi_frag *sc_root;
+    float sc_root_off[2];
     embi_paint_cache *pcache; /* W6b: the last display list, for the incremental paint (embi_doc_paint_ex) */
     bool paint_pending;  /* W6b: the last update changed only paint (the fragments are the old ones) */
     embi_arena arena;     /* resolved URLs */
@@ -277,11 +284,19 @@ void embi_doc_set_scripting(embi_doc *d, bool on)
     }
 }
 
+bool embi_doc_scripting(const embi_doc *d)
+{
+    return !d->no_script;
+}
+
 /* Drops the document (not the engines): the layout and style records of it, then the DOM. */
+static void scrollers_cache_free(embi_doc *d);
+
 static void drop_document(embi_doc *d)
 {
     embi_paint_cache_free(d->pcache);
     d->pcache = nullptr;
+    scrollers_cache_free(d);
     d->paint_pending = false;
     if (d->dom != nullptr) {
         embi_layout_forget_document(d->eng, d->dom);
@@ -1074,6 +1089,7 @@ static int load_drive(embi_doc *d)
             return load_suspend(d);
         }
         embi_input_doc_ready(embi_doc_owner(d)); /* autofocus: the elements the parse made, and those inserted later */
+        embi_frames_doc_ready(embi_doc_owner(d)); /* IF1: the iframes the parse made, and those inserted later */
         if (d->load_epoch != epoch) { /* a focus handler replaced the document */
             return LD_GONE;
         }
@@ -1390,6 +1406,26 @@ bool embi_doc_take_paint_pending(embi_doc *d)
     return v;
 }
 
+uint64_t embi_doc_layout_serial(embi_doc *d)
+{
+    if (d == nullptr || d->dom == nullptr || d->eng == nullptr) {
+        return 0;
+    }
+    uint64_t serial = 0;
+    embi_element *const *els = nullptr;
+    uint32_t n = 0;
+    (void)embi_layout_paint_dirty(d->eng, d->dom, &serial, &els, &n);
+    return serial;
+}
+
+uint64_t embi_doc_run_epoch(embi_doc *d)
+{
+    if (d == nullptr || d->dom == nullptr || d->eng == nullptr) {
+        return 0;
+    }
+    return embi_layout_run_epoch(d->eng, d->dom);
+}
+
 /* ------------------------------------------------------------------ canvas */
 
 static bool kw_is(const embi_value *v, uint16_t kw)
@@ -1519,12 +1555,14 @@ static embi_frag *root_frag(const embi_doc *d)
 
 /* The origin of a child fragment: the paint origin of its parent, plus its own position, less the parent's scroll
  * offset (paint.c enter() shifts the content of a scroller that way). The root's offset shifts the whole page the same
- * way, so the origins are paint coordinates, which are viewport coordinates for the root. */
+ * way, except a fixed box of the viewport, which paint keeps still, so the origins are paint coordinates, which are
+ * viewport coordinates for the root. */
 static void child_origin(const embi_frag *k, float ox, float oy, float *kx, float *ky)
 {
     const embi_frag *p = k->parent;
-    float sx = p != nullptr ? embi_frag_sx(p) : 0.0f;
-    float sy = p != nullptr ? embi_frag_sy(p) : 0.0f;
+    bool still = embi_lay_frag_vp_fixed(k);
+    float sx = p != nullptr && !still ? embi_frag_sx(p) : 0.0f;
+    float sy = p != nullptr && !still ? embi_frag_sy(p) : 0.0f;
     *kx = ox + k->x - sx;
     *ky = oy + k->y - sy;
 }
@@ -1536,6 +1574,7 @@ typedef struct scroller {
     const void *key;
     float x, y;
     float hit[4]; /* x0, y0, x1, y1 */
+    float off[2]; /* the scroll offset the position was computed with */
 } scroller;
 
 typedef struct scrollers {
@@ -1558,8 +1597,7 @@ static void scrollers_push(scrollers *out, scroller s)
 /* Collects every scroll container below f (pre-order: a container comes before the ones nested in it). clip is the
  * rectangle the content of f is visible in (the box of the nearest scroll container above, cut by its own ancestors),
  * so a container scrolled out of view of its parent cannot take a wheel over the parent's other content. Transforms
- * are not applied, and neither is position:fixed (a fixed box is hit-tested as if it scrolled with its containing
- * block), so a scroller inside either is found where it would be without them. */
+ * are not applied, so a scroller inside one is found where it would be without it. */
 static void collect_scrollers(scrollers *out, embi_frag *f, float ox, float oy, const float clip[4])
 {
     for (embi_frag *k = embi_frag_first(f); k != nullptr; k = k->next) {
@@ -1567,7 +1605,7 @@ static void collect_scrollers(scrollers *out, embi_frag *f, float ox, float oy, 
         child_origin(k, ox, oy, &kx, &ky);
         float inner[4] = {clip[0], clip[1], clip[2], clip[3]};
         if (k->kind == EMBI_FK_BOX && (k->flags & EMBI_FF_SCROLL) && k->box != nullptr && k->box->el != nullptr) {
-            scroller s = {k, k->box->el, kx, ky, {kx, ky, kx + k->w, ky + k->h}};
+            scroller s = {k, k->box->el, kx, ky, {kx, ky, kx + k->w, ky + k->h}, {embi_frag_sx(k), embi_frag_sy(k)}};
             for (int i = 0; i < 2; i++) {
                 s.hit[i] = s.hit[i] > clip[i] ? s.hit[i] : clip[i];
                 s.hit[i + 2] = s.hit[i + 2] < clip[i + 2] ? s.hit[i + 2] : clip[i + 2];
@@ -1616,23 +1654,59 @@ static const embi_style *root_style(const embi_doc *d)
     return el != nullptr ? embi_style_get(d->style, el, EMBI_PE_NONE) : nullptr;
 }
 
-static scrollers *scrollers_new(const embi_doc *d)
+/* The scrollers of the document, from the cache the document keeps: the tree is walked again only when a layout ran since,
+ * or the scroll offset of the root or of a cached scroller changed (a scroll moves the ones nested in it). The list belongs
+ * to the document: it stays valid until the next call of this function, and is not freed by the caller. */
+static scrollers *scrollers_new(const embi_doc *dc)
 {
-    scrollers *list = SDL_calloc(1, sizeof *list);
-    EMBI_ASSERT(list != nullptr);
+    embi_doc *d = (embi_doc *)(uintptr_t)dc;
+    embi_frag *root = root_frag(d);
+    uint64_t calls = embi_layout_calls(d->eng);
+    float rx = root != nullptr ? embi_frag_sx(root) : 0.0f, ry = root != nullptr ? embi_frag_sy(root) : 0.0f;
+    scrollers *list = d->sc_cache;
+    bool ok = list != nullptr && d->sc_calls == calls && d->sc_root == root && d->sc_root_off[0] == rx && d->sc_root_off[1] == ry;
+    for (uint32_t i = 0; ok && i < list->n; i++) {
+        ok = embi_frag_sx(list->v[i].f) == list->v[i].off[0] && embi_frag_sy(list->v[i].f) == list->v[i].off[1];
+    }
+    if (ok) {
+        return list;
+    }
+    if (list == nullptr) {
+        list = SDL_calloc(1, sizeof *list);
+        EMBI_ASSERT(list != nullptr);
+        d->sc_cache = list;
+    }
     scrollers_of(d, list);
+    d->sc_calls = calls;
+    d->sc_root = root;
+    d->sc_root_off[0] = rx;
+    d->sc_root_off[1] = ry;
     return list;
+}
+
+static void scrollers_cache_free(embi_doc *d)
+{
+    if (d->sc_cache != nullptr) {
+        SDL_free(d->sc_cache->v);
+        SDL_free(d->sc_cache);
+        d->sc_cache = nullptr;
+    }
 }
 
 static void scrollers_delete(scrollers *list)
 {
-    SDL_free(list->v);
-    SDL_free(list);
+    (void)list; /* the document's cache */
 }
 
 uint32_t embi_doc_emit_scrollbars(embi_doc *d, embi_dl *out, const embi_doc_sb *sbs, uint32_t n)
 {
-    if (d->dom == nullptr || n == 0) {
+    if (d->dom == nullptr) {
+        return 0;
+    }
+    /* Scrollers with a ::-webkit-scrollbar style have classic bars that show whenever they overflow (below); the others
+     * have the overlay bars of the tracks (which fade). */
+    bool styled = embi_style_uses_pseudo(d->style, d->dom, EMBI_PE_SCROLLBAR);
+    if (n == 0 && !styled) {
         return 0;
     }
     uint32_t total = 0;
@@ -1654,12 +1728,154 @@ uint32_t embi_doc_emit_scrollbars(embi_doc *d, embi_dl *out, const embi_doc_sb *
         if (s == nullptr) {
             continue;
         }
+        if (styled) {
+            if (embi_style_generated(d->style, (embi_element *)(uintptr_t)s->key, EMBI_PE_SCROLLBAR) != nullptr) {
+                continue; /* a styled or hidden bar: not an overlay one */
+            }
+        }
         const embi_style *es = embi_style_get(d->style, (embi_element *)s->key, EMBI_PE_NONE);
         embi_sb_style st = embi_sb_style_from(es);
         total += embi_sb_emit(out, s->f, s->x, s->y, &st, sbs[i].alpha);
     }
+    if (styled) {
+        for (uint32_t i = 0; i < list->n; i++) {
+            const scroller *s = &list->v[i];
+            int axis = d->sb_hover_key == s->key ? d->sb_hover_axis : 0;
+            embi_sb_pe pe;
+            if (embi_sb_pe_from(d->style, (embi_element *)(uintptr_t)s->key, axis, &pe) == EMBI_SBPE_STYLED) {
+                total += embi_sb_emit_styled(out, s->f, s->x, s->y, &pe, s->hit);
+            }
+            embi_sb_pe_free(d->style, &pe);
+        }
+    }
     scrollers_delete(list);
     return total;
+}
+
+bool embi_doc_sbar_styled(embi_doc *d, const void *key)
+{
+    if (d->dom == nullptr || key == nullptr || key == embi_doc_root_key(d) ||
+        !embi_style_uses_pseudo(d->style, d->dom, EMBI_PE_SCROLLBAR)) {
+        return false;
+    }
+    embi_sb_pe pe;
+    embi_sb_pe_kind kind = embi_sb_pe_from(d->style, (embi_element *)(uintptr_t)key, 0, &pe);
+    embi_sb_pe_free(d->style, &pe);
+    return kind != EMBI_SBPE_NONE;
+}
+
+/* Whether el is the element with key or inside it. */
+static bool within_key(const embi_element *el, const void *key)
+{
+    for (const embi_node *n = el != nullptr ? &el->base : nullptr; n != nullptr; n = n->parent) {
+        if ((const void *)n == key) {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool embi_doc_sbar_at(embi_doc *d, float x, float y, const embi_element *hit, embi_doc_sbar *out)
+{
+    if (hit == nullptr) {
+        return false;
+    }
+    if (d->dom == nullptr || !embi_style_uses_pseudo(d->style, d->dom, EMBI_PE_SCROLLBAR)) {
+        return false;
+    }
+    scrollers *list = scrollers_new(d);
+    bool found = false;
+    for (uint32_t i = list->n; i-- > 0 && !found;) {
+        const scroller *s = &list->v[i];
+        if (!point_in(s, x, y) || !within_key(hit, s->key)) {
+            continue; /* not there, or something else (a popup, a fixed box) is on top of the scroller at the point */
+        }
+        embi_sb_pe pe;
+        embi_sb_geo g;
+        if (embi_sb_pe_from(d->style, (embi_element *)(uintptr_t)s->key, 0, &pe) == EMBI_SBPE_STYLED &&
+            embi_sb_geometry(s->f, s->x, s->y, &pe, &g)) {
+            for (int axis = 0; axis < 2 && !found; axis++) {
+                bool vertical = axis == 0;
+                const float *bar = vertical ? g.v : g.h;
+                if (!(vertical ? g.vert : g.horz) || x < bar[0] || x >= bar[0] + bar[2] || y < bar[1] || y >= bar[1] + bar[3]) {
+                    continue;
+                }
+                float pos = vertical ? y : x;
+                float t0 = vertical ? bar[1] : bar[0];
+                float start = vertical ? g.vstart : g.hstart, len = vertical ? g.vlen : g.hlen;
+                memset(out, 0, sizeof *out);
+                out->key = s->key;
+                out->vertical = vertical;
+                out->track_start = t0;
+                out->track_len = vertical ? g.vtrack : g.htrack;
+                out->thumb_start = t0 + start;
+                out->thumb_len = len;
+                out->part = pos < t0 + start ? 2 : (pos >= t0 + start + len ? 3 : 1);
+                found = true;
+            }
+        }
+        embi_sb_pe_free(d->style, &pe);
+    }
+    scrollers_delete(list);
+    return found;
+}
+
+bool embi_doc_sbar_drag(embi_doc *d, const void *key, bool vertical, float thumb_start, float vw, float vh)
+{
+    if (d->dom == nullptr) {
+        return false;
+    }
+    scrollers *list = scrollers_new(d);
+    const scroller *s = find_scroller(list, key);
+    bool moved = false;
+    if (s != nullptr) {
+        embi_sb_pe pe;
+        embi_sb_geo g;
+        if (embi_sb_pe_from(d->style, (embi_element *)(uintptr_t)key, 0, &pe) == EMBI_SBPE_STYLED &&
+            embi_sb_geometry(s->f, s->x, s->y, &pe, &g) && (vertical ? g.vert : g.horz)) {
+            float travel = (vertical ? g.vtrack - g.vlen : g.htrack - g.hlen);
+            float pos = thumb_start - (vertical ? g.v[1] : g.h[0]);
+            float frac = travel > 0.0f ? pos / travel : 0.0f;
+            frac = frac < 0.0f ? 0.0f : (frac > 1.0f ? 1.0f : frac);
+            float target = frac * (vertical ? g.vmax : g.hmax);
+            float cur = vertical ? embi_frag_sy(s->f) : embi_frag_sx(s->f);
+            moved = embi_paint_scroll_by(d->eng, d->dom, s->f, vertical ? 0.0f : target - cur, vertical ? target - cur : 0.0f,
+                                         false, vw, vh);
+        }
+        embi_sb_pe_free(d->style, &pe);
+    }
+    scrollers_delete(list);
+    return moved;
+}
+
+bool embi_doc_sbar_page(embi_doc *d, const void *key, bool vertical, int dir, float vw, float vh)
+{
+    if (d->dom == nullptr) {
+        return false;
+    }
+    scrollers *list = scrollers_new(d);
+    const scroller *s = find_scroller(list, key);
+    bool moved = false;
+    if (s != nullptr) {
+        /* a page is most of the visible part of the content (Chromium scrolls 7/8 of it) */
+        float client = vertical ? s->f->h - embi_frag_bdr(s->f, 1) - embi_frag_bdr(s->f, 3) - embi_frag_scr(s->f, 1)
+                                : s->f->w - embi_frag_bdr(s->f, 0) - embi_frag_bdr(s->f, 2) - embi_frag_scr(s->f, 0);
+        float step = (float)dir * client * 0.875f;
+        moved = embi_paint_scroll_by(d->eng, d->dom, s->f, vertical ? 0.0f : step, vertical ? step : 0.0f, false, vw, vh);
+    }
+    scrollers_delete(list);
+    return moved;
+}
+
+bool embi_doc_sbar_set_hover(embi_doc *d, const void *key, int axis)
+{
+    if (axis == 0) {
+        key = nullptr;
+    }
+    bool changed = d->sb_hover_key != key || d->sb_hover_axis != axis;
+    d->sb_hover_key = key;
+    d->sb_hover_axis = axis;
+    return changed;
 }
 
 bool embi_doc_scroller_overflows(embi_doc *d, const void *key, float vw, float vh)

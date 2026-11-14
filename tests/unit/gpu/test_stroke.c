@@ -526,6 +526,56 @@ EMB_TEST(stroke_cusp_and_tight_curves)
     }
 }
 
+/* A cubic whose control points lie on its chord, past the ends (a node editor's wire between two sockets at one
+ * height): the curve goes forward, back and forward along one line. The stroke is the union of the swept width, so
+ * every point of the line the curve covers is inside, wherever the doubling back falls. */
+EMB_TEST(stroke_collinear_cubic_is_solid)
+{
+    const float lens[] = {3, 8, 12, 16, 19, 24, 27, 33, 40, 46, 55, 66, 80, 100, 160, 300};
+    for (uint32_t li = 0; li < sizeof lens / sizeof *lens; li++) {
+        for (int ov = 0; ov < 3; ov++) {
+            for (int join = 0; join < 3; join++) {
+                const float len = lens[li];
+                const float dx = ov == 0 ? fmaxf(40.0f, len * 0.5f) : ov == 1 ? len * 0.25f : len * 0.5f;
+                embi_path *p = embi_path_create(TOL);
+                embi_path_move_to(p, 100.0f, 31.5f);
+                embi_path_cubic_to(p, 100.0f + dx, 31.5f, 100.0f + len - dx, 31.5f, 100.0f + len, 31.5f);
+                embi_stroke_style st = {.width = 2, .join = (embi_stroke_join)join, .miter_limit = 10};
+                embi_path *s = embi_path_stroke(p, &st, 0.25f);
+                /* the extent of the curve along x */
+                float lo = 1e9f, hi = -1e9f;
+                for (int k = 0; k <= 2000; k++) {
+                    const float t = (float)k / 2000.0f, mt = 1.0f - t;
+                    const float x = 3 * mt * mt * t * dx + 3 * mt * t * t * (len - dx) + t * t * t * len;
+                    lo = fminf(lo, x);
+                    hi = fmaxf(hi, x);
+                }
+                int holes = 0, stacked = 0;
+                for (float x = 100.0f + lo + 0.05f; x < 100.0f + hi - 0.05f; x += 0.1f) {
+                    for (float y = 30.7f; y <= 32.3f; y += 0.2f) {
+                        const int w = winding_at(s, x, y);
+                        if (w == 0) {
+                            holes++;
+                        }
+                        if (w < -1) {
+                            stacked++; /* pieces drawn over each other: their antialiased edges would add up */
+                        }
+                    }
+                }
+                if (join != 1) {
+                    EMB_CHECK_EQ_INT(stacked, 0); /* one bar (round joins add discs at the turns) */
+                }
+                if (holes != 0) {
+                    SDL_Log("collinear cubic len %g dx %g join %d: %d holes", (double)len, (double)dx, join, holes);
+                }
+                EMB_CHECK_EQ_INT(holes, 0);
+                embi_path_destroy(s);
+                embi_path_destroy(p);
+            }
+        }
+    }
+}
+
 EMB_TEST(stroke_huge_widths)
 {
     embi_path *p = embi_path_create(TOL);

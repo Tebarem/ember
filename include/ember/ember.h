@@ -38,6 +38,9 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #define EMB_VERSION_MAJOR 0
 #define EMB_VERSION_MINOR 0
@@ -226,6 +229,9 @@ typedef struct emb_view_desc {
     emb_color_scheme scheme;
     emb_text_aa text_aa;    /* 0 is EMB_TEXT_AA_AUTO. Read only when size covers it */
     bool no_script;         /* true: scripts do not run and <noscript> content is built. Read only when size covers it */
+    bool transparent;       /* offscreen, true: the canvas is transparent where the page paints nothing (no root or body
+                             * background), for a host that composites the texture over its own picture; false: the
+                             * Canvas color of the root's color scheme, as a browser tab. Read only when size covers it */
 } emb_view_desc;
 
 /* The stages of the most recent run of each, in milliseconds. The first_paint fields hold the
@@ -336,6 +342,10 @@ EMB_API bool emb_view_pump(emb_view *view);
 
 /* Fills the stats (see emb_view_stats). out->size must be set. */
 EMB_API void emb_view_stats_get(const emb_view *view, emb_view_stats *out);
+
+#ifdef __cplusplus
+}
+#endif
 
 /* The script, input and resource APIs (each header also stands alone). */
 #include <ember/ember_script.h>

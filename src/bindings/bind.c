@@ -3,6 +3,7 @@
  * Conversions and value helpers are in bind_conv.c. See bind.h for the contracts.
  */
 #include "bindings/bind.h"
+#include "bindings/impl_input.h"
 #include "bindings/observers.h"
 #include "bindings/gen/types.h"
 #include "js/heap.h"
@@ -787,6 +788,12 @@ void embi_bind_finalize(embi_js_object *o)
 
 /* ------------------------------------------------------------------ DOM mutation epoch */
 
+static void pre_remove(void *ctx, embi_node *node)
+{
+    embi_impl_input_pre_remove(ctx, node); /* first: its listeners may still change the tree */
+    embi_impl_trav_pre_remove(ctx, node);
+}
+
 static void obs_children(void *ctx, embi_node *parent, embi_node *fa, embi_node *la,
                          embi_node *fr, embi_node *lr)
 {
@@ -917,7 +924,7 @@ void embi_bind_observe_doc(embi_bind_ctx *c, embi_document *doc)
                          .children_changed = obs_children,
                          .attribute_changed = obs_attr,
                          .character_data_changed = obs_chardata,
-                         .pre_remove = embi_impl_trav_pre_remove};
+                         .pre_remove = pre_remove};
     embi_document_observe(doc, &obs);
 }
 
@@ -955,6 +962,7 @@ void embi_bind_free(embi_bind_ctx *c)
 {
     /* The loader state of this context goes first: it is keyed by the context's address, which a later context can reuse. */
     embi_loader_detach(c);
+    embi_impl_frames_release(c); /* IF1: the remote window proxies */
     if (c->doc != nullptr) { /* the canvas and observer records hang off the document; a context never attached has none */
         embi_impl_canvas_release(c);
         embi_observers_release(c);

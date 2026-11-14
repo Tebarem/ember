@@ -37,11 +37,14 @@ static bool setup(embi_doc *d, const embi_node *node, embi_svg_env *env, embi_sv
     *ox = *oy = 0.0f;
     const embi_element *o = outer_svg(*el);
     embi_rectf r;
-    if (o != nullptr && embi_layout_border_box(embi_doc_layout_engine(d), o, &r)) {
+    if (o != nullptr && embi_layout_painted_box(embi_doc_layout_engine(d), o, &r)) {
+        /* the screen CTM ends in the viewport: the svg where it is painted, less the viewport's scroll offset */
+        float sx = 0.0f, sy = 0.0f;
+        embi_doc_root_offset(d, &sx, &sy);
         g->vw = r.w;
         g->vh = r.h;
-        *ox = r.x;
-        *oy = r.y;
+        *ox = r.x - sx;
+        *oy = r.y - sy;
     }
     env->vw = g->vw;
     env->vh = g->vh;

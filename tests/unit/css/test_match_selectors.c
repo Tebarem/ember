@@ -248,6 +248,24 @@ EMB_TEST(match_pseudo_elements)
     mf_free(&t);
 }
 
+EMB_TEST(match_webkit_range_and_scrollbar_parts)
+{
+    mf_tree t = mf_build();
+    EMB_CHECK(mf_matches_pe(t.input, "input::-webkit-slider-runnable-track", EMBI_PE_SLIDER_TRACK));
+    EMB_CHECK(mf_matches_pe(t.input, "input::-webkit-slider-thumb", EMBI_PE_SLIDER_THUMB));
+    EMB_CHECK(!mf_matches_pe(t.input, "input::-webkit-slider-thumb", EMBI_PE_SLIDER_TRACK));
+    EMB_CHECK(!mf_matches_pe(t.input, "input::-webkit-slider-thumb", EMBI_PE_NONE));
+    EMB_CHECK(!mf_matches_pe(t.p, "input::-webkit-slider-thumb", EMBI_PE_SLIDER_THUMB));
+    /* the universal scrollbar rule matches every element */
+    EMB_CHECK(mf_matches_pe(t.p, "::-webkit-scrollbar", EMBI_PE_SCROLLBAR));
+    EMB_CHECK(mf_matches_pe(t.div, "*::-webkit-scrollbar", EMBI_PE_SCROLLBAR));
+    EMB_CHECK(mf_matches_pe(t.div, "div::-webkit-scrollbar-thumb", EMBI_PE_SCROLLBAR_THUMB));
+    EMB_CHECK(!mf_matches_pe(t.div, "span::-webkit-scrollbar-thumb", EMBI_PE_SCROLLBAR_THUMB));
+    EMB_CHECK(mf_matches_pe(t.div, "::-webkit-scrollbar-track, ::-webkit-scrollbar-corner", EMBI_PE_SCROLLBAR_CORNER));
+    EMB_CHECK(!mf_matches_pe(t.div, "::-webkit-scrollbar-track", EMBI_PE_SCROLLBAR_CORNER));
+    mf_free(&t);
+}
+
 EMB_TEST(match_namespaces)
 {
     mf_tree t = mf_build();

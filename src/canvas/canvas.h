@@ -68,6 +68,11 @@ static inline void embi_canvas_gpu_flush(embi_canvas_gpu *g, void *cmd)
     (void)g;
     (void)cmd;
 }
+static inline void embi_canvas_gpu_trim(embi_canvas_gpu *g, uint64_t now_ms)
+{
+    (void)g;
+    (void)now_ms;
+}
 static inline void *embi_canvas_gpu_texture(embi_canvas_gpu *g, const void *key, uint32_t *w, uint32_t *h)
 {
     (void)g;
@@ -326,6 +331,10 @@ void embi_canvas_gpu_destroy(embi_canvas_gpu *g);
 void embi_canvas_gpu_flush(embi_canvas_gpu *g, void *cmd);
 /* The backing texture of the canvas (SDL_GPUTexture *) and its size, for drawing it as an image; nullptr when none. */
 void *embi_canvas_gpu_texture(embi_canvas_gpu *g, const void *key, uint32_t *w, uint32_t *h);
-/* Bytes of the canvases' textures. */
+/* Bytes of the canvases' textures (the spare ones included). */
 size_t embi_canvas_gpu_bytes(const embi_canvas_gpu *g);
+/* The texture of a canvas that goes away (or changes size) is kept as a spare for a new canvas of the same size: a page
+ * that makes its canvases again on each update (a panel rendered again) would otherwise create a texture each time, about
+ * 0.7 ms on Direct3D 12. This frees the spares unused since CG_SPARE_KEEP_MS before now_ms (SDL_GetTicks time). */
+void embi_canvas_gpu_trim(embi_canvas_gpu *g, uint64_t now_ms);
 #endif /* EMBER_CANVAS */

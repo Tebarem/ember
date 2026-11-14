@@ -2,9 +2,11 @@
 // checkedness of a control are kept by impl_forms.c (dirty flags, the edit model of platform/edit.c); the reflected
 // attributes are generated. Interfaces here replace the placeholders that used to be in html.webidl.
 //
-// Deviations: selectionStart and selectionEnd are unsigned long (not nullable) and read 0 for types without a selection;
-// options and elements are NodeLists (not HTMLOptionsCollection or HTMLFormControlsCollection); setRangeText, the list and
-// labels attributes, and the named getters of options and elements are not implemented. valueAsNumber, stepUp and stepDown
+// Deviations: on textarea, selectionStart and selectionEnd are unsigned long (never null there) and selectionDirection a
+// DOMString; on input, selectionStart and selectionEnd are any (unsigned long? converted by impl_forms.c: null on the types
+// without the selection API, such as email and number, whose setters throw InvalidStateError); options and elements are
+// NodeLists (not HTMLOptionsCollection or HTMLFormControlsCollection); setRangeText, the list and labels attributes, and the
+// named getters of options and elements are not implemented. valueAsNumber, stepUp and stepDown
 // cover the number and range types only (the date types are not implemented).
 
 [Exposed=Window] interface ValidityState {
@@ -79,9 +81,10 @@
     [CEReactions] attribute boolean checked;
     [CEReactions] attribute boolean indeterminate;
     [CEReactions] attribute unrestricted double valueAsNumber;
-    [CEReactions] attribute unsigned long selectionStart;
-    [CEReactions] attribute unsigned long selectionEnd;
-    [CEReactions] attribute DOMString selectionDirection;
+    // unsigned long? in HTML: idlgen takes no nullable number as a value, so impl_forms.c converts it.
+    [CEReactions, Throws] attribute any selectionStart;
+    [CEReactions, Throws] attribute any selectionEnd;
+    [CEReactions, Throws] attribute DOMString? selectionDirection;
     readonly attribute HTMLFormElement? form;
     readonly attribute FileList? files;
     readonly attribute boolean willValidate;

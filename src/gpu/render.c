@@ -34,7 +34,7 @@
  *   tags. The atlas texture is resolved when the frame ends, after the atlas's pending growth
  *   copies are recorded into the frame's command buffer, so an atlas that grew during the
  *   frame is bound at its current size.
- * - Each frame is uploaded at once. The CPU arrays go through one cycled transfer buffer, in a
+ * - Each frame is uploaded at once. The CPU arrays go through one ring transfer buffer (embi_upload_map), in a
  *   single copy pass before the render pass.
  * - Outlines take their blob from the Slug buffer (slug.c), uploaded before the frame's copy pass.
  *   Every batch binds that buffer, so a batch may mix outline and box prims freely. If the upload
@@ -177,6 +177,7 @@ struct embi_renderer {
 
     SDL_GPUTransferBuffer *upload;
     uint32_t upload_cap;
+    uint32_t upload_off; /* where the next frame's arrays go in upload (see embi_upload_map) */
 
     embi_gbuf xform_buf;
     embi_gbuf clip_buf;
@@ -339,6 +340,11 @@ static void embi_gbuf_release(SDL_GPUDevice *dev, embi_gbuf *b)
     b->cap = 0;
 }
 
+static size_t embi_align16(size_t n)
+{
+    return (n + 15u) & ~(size_t)15u;
+}
+
 static bool embi_upload_ensure(embi_renderer *r, size_t bytes)
 {
     if (!embi_size_ok(bytes, "upload")) {
@@ -370,7 +376,31 @@ static bool embi_upload_ensure(embi_renderer *r, size_t bytes)
     }
     r->upload = nb;
     r->upload_cap = (uint32_t)want;
+    r->upload_off = 0;
     return true;
+}
+
+/* Maps room for bytes in the upload buffer (embi_upload_ensure made it at least that big) and gives its offset. The buffer is
+ * a ring: a frame writes after the frames before it, without cycling, since the copies already recorded (in this command
+ * buffer or in ones the GPU still runs) read only what lies before. When the rest of the buffer is too small, the map cycles
+ * and the frame starts at 0: SDL then hands out an instance no work uses (made once, reused afterwards). Before, every frame
+ * cycled: a page drawn with many layers records a frame per layer, and with frames in flight SDL created a new upload buffer
+ * per layer and frame until there were enough (a few ms each time a buffer grew). */
+static uint8_t *embi_upload_map(embi_renderer *r, size_t bytes, size_t *off)
+{
+    size_t start = r->upload_off;
+    const bool cycle = start + bytes > r->upload_cap;
+    if (cycle) {
+        start = 0;
+    }
+    uint8_t *m = SDL_MapGPUTransferBuffer(r->dev, r->upload, cycle);
+    if (m == nullptr) {
+        return nullptr;
+    }
+    const size_t next = embi_align16(start + bytes);
+    r->upload_off = next < r->upload_cap ? (uint32_t)next : r->upload_cap;
+    *off = start;
+    return m + start;
 }
 
 /* Pipeline ----------------------------------------------------------------- */
@@ -515,11 +545,6 @@ embi_renderer *embi_renderer_create(embi_gpu *g, SDL_GPUTextureFormat target_for
         return nullptr;
     }
     return r;
-}
-
-static size_t embi_align16(size_t n)
-{
-    return (n + 15u) & ~(size_t)15u;
 }
 
 /* What the warm-up creates: room for a small page (the numbers are of records, not bytes). A first frame
@@ -685,6 +710,11 @@ void embi_renderer_fault_clear_pipeline(embi_renderer *r)
 uint32_t embi_renderer_buffer_creates(const embi_renderer *r)
 {
     return (uint32_t)SDL_GetAtomicInt((SDL_AtomicInt *)(uintptr_t)&r->buffer_creates);
+}
+
+uint32_t embi_renderer_outline_blobs(const embi_renderer *r)
+{
+    return r != nullptr ? embi_slug_get_stats(r->slug).blobs : 0;
 }
 
 void embi_renderer_destroy(embi_renderer *r)
@@ -1765,12 +1795,12 @@ void embi_frame_image_proj(embi_frame *f, const float rect[4], embi_atlas_region
 
 /* Outlines (glyphs and paths) ---------------------------------------------- */
 
-void embi_frame_fill_quads(embi_frame *f, uint64_t key, const embi_qcurve *curves, uint32_t n,
-                           const float to_local[6], const embi_paint *paint, embi_fill_rule rule,
-                           uint32_t xform, uint32_t clip)
+/* embi_frame_fill_quads; curves may be nullptr when the blob of key is cached. */
+static void embi_frame_outline(embi_frame *f, uint64_t key, const embi_qcurve *curves, uint32_t n,
+                               const float to_local[6], const embi_paint *paint, embi_fill_rule rule,
+                               uint32_t xform, uint32_t clip)
 {
-    if (f == nullptr || curves == nullptr || n == 0 || to_local == nullptr || paint == nullptr ||
-        !embi_xform_usable(f, xform) || clip >= f->clips.len) {
+    if (to_local == nullptr || paint == nullptr || !embi_xform_usable(f, xform) || clip >= f->clips.len) {
         return;
     }
     for (int i = 0; i < 6; i++) {
@@ -1801,7 +1831,7 @@ void embi_frame_fill_quads(embi_frame *f, uint64_t key, const embi_qcurve *curve
     }
 
     embi_slug_entry ent;
-    if (!embi_slug_get(f->r->slug, key, curves, n, &ent)) {
+    if (!embi_slug_get(f->r->slug, key, curves, curves != nullptr ? n : 0, &ent)) {
         return;
     }
     if (f->region) {
@@ -1869,6 +1899,26 @@ void embi_frame_fill_quads(embi_frame *f, uint64_t key, const embi_qcurve *curve
         pr.kind = paint->kind | EMBI_PRIM_OUTLINE | (gi << 8);
     }
     embi_frame_push_prim(f, &pr, EMBI_NO_TEX);
+}
+
+void embi_frame_fill_quads(embi_frame *f, uint64_t key, const embi_qcurve *curves, uint32_t n,
+                           const float to_local[6], const embi_paint *paint, embi_fill_rule rule,
+                           uint32_t xform, uint32_t clip)
+{
+    if (f == nullptr || curves == nullptr || n == 0) {
+        return;
+    }
+    embi_frame_outline(f, key, curves, n, to_local, paint, rule, xform, clip);
+}
+
+bool embi_frame_fill_cached(embi_frame *f, uint64_t key, const float to_local[6], const embi_paint *paint,
+                            embi_fill_rule rule, uint32_t xform, uint32_t clip)
+{
+    if (f == nullptr || !embi_slug_has(f->r->slug, key)) {
+        return false;
+    }
+    embi_frame_outline(f, key, nullptr, 0, to_local, paint, rule, xform, clip);
+    return true;
 }
 
 /* Text (W4h) --------------------------------------------------------------- */
@@ -2118,7 +2168,8 @@ void embi_frame_end(embi_frame *f, SDL_GPUCommandBuffer *cmd, SDL_GPUTexture *ta
         return;
     }
 
-    uint8_t *mapped = SDL_MapGPUTransferBuffer(dev, r->upload, true);
+    size_t base = 0;
+    uint8_t *mapped = embi_upload_map(r, total, &base);
     if (mapped == nullptr) {
         embi_log_error("render: SDL_MapGPUTransferBuffer failed: %s", SDL_GetError());
         r->last_draws = 0;
@@ -2175,14 +2226,17 @@ void embi_frame_end(embi_frame *f, SDL_GPUCommandBuffer *cmd, SDL_GPUTexture *ta
         const embi_batch *b = &embi_vec_at(&r->batches, i);
         const SDL_GPUTransferBufferLocation src = {
             .transfer_buffer = r->upload,
-            .offset = (Uint32)(off_prims + (size_t)b->first * sizeof(embi_prim)),
+            .offset = (Uint32)(base + off_prims + (size_t)b->first * sizeof(embi_prim)),
         };
         const SDL_GPUBufferRegion dst = {
             .buffer = r->prim_bufs.data[i].buf,
             .offset = 0,
             .size = (Uint32)((size_t)b->count * sizeof(embi_prim)),
         };
-        SDL_UploadToGPUBuffer(cp, &src, &dst, true);
+        /* Not cycled: a page drawn with layers records a frame per layer into one command buffer, and cycling made SDL
+         * create a buffer per layer (and per frame in flight). The GPU runs the copy after the work recorded before it
+         * that reads the buffer (SDL puts the barrier in). */
+        SDL_UploadToGPUBuffer(cp, &src, &dst, false);
     }
     const struct {
         SDL_GPUBuffer *buf;
@@ -2205,14 +2259,14 @@ void embi_frame_end(embi_frame *f, SDL_GPUCommandBuffer *cmd, SDL_GPUTexture *ta
         }
         const SDL_GPUTransferBufferLocation src = {
             .transfer_buffer = r->upload,
-            .offset = (Uint32)segs[i].off,
+            .offset = (Uint32)(base + segs[i].off),
         };
         const SDL_GPUBufferRegion dst = {
             .buffer = segs[i].buf,
             .offset = 0,
             .size = (Uint32)segs[i].bytes,
         };
-        SDL_UploadToGPUBuffer(cp, &src, &dst, true);
+        SDL_UploadToGPUBuffer(cp, &src, &dst, false);
     }
     SDL_EndGPUCopyPass(cp);
 

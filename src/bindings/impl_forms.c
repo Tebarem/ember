@@ -349,10 +349,24 @@ static bool text_like(int t)
     return t == IT_TEXT || t == IT_SEARCH || t == IT_URL || t == IT_TEL || t == IT_EMAIL || t == IT_PASSWORD;
 }
 
-/* Types with a selection (selectionStart and friends). */
+/* Types with a selection of the API (selectionStart and friends, setSelectionRange): HTML leaves out email and number. */
 static bool has_selection(int t)
 {
     return t == IT_TEXT || t == IT_SEARCH || t == IT_URL || t == IT_TEL || t == IT_PASSWORD;
+}
+
+/* Types edited as a single-line text field (typing, the caret and the selection, the clipboard, undo and select()): the
+ * text-like types and number, as in Chromium. The number field keeps the text the user typed; its value is that text when
+ * it is a valid floating-point number and the empty string otherwise (value_sb). */
+static bool text_field(int t)
+{
+    return text_like(t) || t == IT_NUMBER;
+}
+
+/* The characters Chromium lets into a number field (typed, pasted or composed): the others are dropped. */
+static bool number_char(char ch)
+{
+    return (ch >= '0' && ch <= '9') || ch == '.' || ch == ',' || ch == '-' || ch == '+' || ch == 'e' || ch == 'E';
 }
 
 /* Types whose value is kept in the value mode (the value attribute is the default, the IDL value is the dirty one). */
@@ -873,12 +887,50 @@ static void value_sb(embi_node *n, embi_sb *out)
     const embi_ctl *s = ctl_peek(n);
     if (s != nullptr && s->value_dirty) {
         embi_str v = embi_edit_value(&s->ed);
-        if (v.len > 0) {
+        /* A number field may hold text the user is still typing ("1e", "-"): its value is then the empty string. */
+        if (t == IT_EMAIL || t == IT_URL) {
+            /* typed text is sanitized as a set value is: no white space around it */
+            while (v.len > 0 && ascii_space((uint8_t)v.ptr[0])) {
+                v.ptr++;
+                v.len--;
+            }
+            while (v.len > 0 && ascii_space((uint8_t)v.ptr[v.len - 1])) {
+                v.len--;
+            }
+        }
+        if (v.len > 0 && !(t == IT_NUMBER && !float_ok(v.ptr, v.len))) {
             embi_sb_append(out, v);
         }
         return;
     }
     default_value_sb(n, t, out);
+}
+
+/* The text a text field shows (appended to out): its value, except that number, email and url fields show the text the user
+ * typed (not trimmed, even when it is not a valid number), which the caret offsets refer to. */
+static void shown_sb(embi_node *n, embi_sb *out)
+{
+    const embi_ctl *s = ctl_peek(n);
+    int st = is_input(n) ? input_type_of(n) : IT_TEXT;
+    if ((st == IT_NUMBER || st == IT_EMAIL || st == IT_URL) && s != nullptr && s->value_dirty) {
+        embi_str v = embi_edit_value(&s->ed);
+        if (v.len > 0) {
+            embi_sb_append(out, v);
+        }
+        return;
+    }
+    value_sb(n, out);
+}
+
+/* Whether a number field holds text that is not a valid number (badInput). */
+static bool number_bad_input(const embi_node *n)
+{
+    const embi_ctl *s = ctl_peek(n);
+    if (!is_input(n) || input_type_of(n) != IT_NUMBER || s == nullptr || !s->value_dirty) {
+        return false;
+    }
+    embi_str v = embi_edit_value(&s->ed);
+    return v.len > 0 && !float_ok(v.ptr, v.len);
 }
 
 /* Keeps the edit model in step with the value when the value is not dirty (the attribute supplies it), so the selection
@@ -1613,6 +1665,7 @@ typedef struct vflags {
     bool custom;
     bool pattern;
     bool step;
+    bool bad; /* badInput: a number field holds text that is not a valid number */
 } vflags;
 
 static bool email_ok(const char *s, uint32_t n)
@@ -1718,6 +1771,9 @@ static void validity_of(embi_node *n, vflags *f)
             }
             embi_sb_free(&pat);
         }
+        if (t == IT_NUMBER) {
+            f->bad = number_bad_input(n);
+        }
         if (number_like(t) && v.len > 0 && float_ok(v.data, v.len)) {
             double x = SDL_strtod(embi_sb_cstr(&v), nullptr);
             f->step = step_mismatch(n, x);
@@ -1769,7 +1825,8 @@ static bool valid_of(embi_node *n)
 {
     vflags f;
     validity_of(n, &f);
-    return !(f.missing || f.type || f.too_long || f.too_short || f.under || f.over || f.custom || f.pattern || f.step);
+    return !(f.missing || f.type || f.too_long || f.too_short || f.under || f.over || f.custom || f.pattern || f.step ||
+             f.bad);
 }
 
 /* The validation message of a control (the custom message when there is one). */
@@ -1785,7 +1842,9 @@ static void message_of(embi_node *n, embi_sb *out)
     }
     vflags f;
     validity_of(n, &f);
-    if (f.missing) {
+    if (f.bad) { /* Chromium reports badInput before any other flag */
+        embi_sb_append(out, EMBI_STR("Please enter a number."));
+    } else if (f.missing) {
         embi_sb_append(out, EMBI_STR("Please fill out this field."));
     } else if (f.too_long) {
         embi_sb_append(out, EMBI_STR("The value is too long."));
@@ -1860,7 +1919,8 @@ static void fire_bubbling(embi_bind_ctx *c, embi_node *target, const char *type)
 
 /* ------------------------------------------------------------------ text editing */
 
-/* Whether n takes typed text now: a text input or a textarea that is neither disabled nor read-only. */
+/* Whether n takes typed text now: a text field (text-like or number input) or a textarea that is neither disabled nor
+ * read-only. */
 static bool editable_now(const embi_node *n)
 {
     if (is_textarea(n)) {
@@ -1870,11 +1930,21 @@ static bool editable_now(const embi_node *n)
         return false;
     }
     int t = input_type_of(n);
-    return text_like(t) && !embi_pf_disabled(el_of(n)) && !has_attr(n, "readonly");
+    return text_field(t) && !embi_pf_disabled(el_of(n)) && !has_attr(n, "readonly");
 }
 
-/* Whether n has a text selection (input text types and textarea). */
+/* Whether n has a text selection the user and select() work with (the text fields and textarea). */
 static bool selectable(const embi_node *n)
+{
+    if (is_textarea(n)) {
+        return true;
+    }
+    return is_input(n) && text_field(input_type_of(n));
+}
+
+/* Whether the selection API applies to n (selectionStart, selectionEnd, selectionDirection, setSelectionRange): textarea and
+ * the input types of has_selection. Email and number fields have a selection, but the API reads null and throws there. */
+static bool selection_api(const embi_node *n)
 {
     if (is_textarea(n)) {
         return true;
@@ -1882,9 +1952,12 @@ static bool selectable(const embi_node *n)
     return is_input(n) && has_selection(input_type_of(n));
 }
 
-/* The maxlength of a control in UTF-16 units, 0 for none. */
+/* The maxlength of a control in UTF-16 units, 0 for none (maxlength does not apply to number). */
 static uint32_t max16_of(const embi_node *n)
 {
+    if (is_input(n) && input_type_of(n) == IT_NUMBER) {
+        return 0;
+    }
     uint32_t m = 0;
     if (attr_len(n, "maxlength", &m)) {
         return m;
@@ -1892,7 +1965,27 @@ static uint32_t max16_of(const embi_node *n)
     return 0;
 }
 
+static bool edit_run(embi_bind_ctx *c, embi_node *target, const char *input_type, embi_str data, bool composing);
+
 bool embi_forms_edit(embi_bind_ctx *c, embi_node *target, const char *input_type, embi_str data, bool composing)
+{
+    if (data.len == 0 || !is_input(target) || input_type_of(target) != IT_NUMBER) {
+        return edit_run(c, target, input_type, data, composing);
+    }
+    /* A number field takes digits, '.', ',', '-', '+', 'e' and 'E' only, as Chromium filters them: the other characters of
+     * typed, pasted or composed text are dropped, and text with none of them is no edit (no beforeinput, no input). */
+    embi_sb kept = {0};
+    for (uint32_t i = 0; i < data.len; i++) {
+        if (number_char(data.ptr[i])) {
+            embi_sb_append_char(&kept, data.ptr[i]);
+        }
+    }
+    bool changed = kept.len > 0 && edit_run(c, target, input_type, (embi_str){kept.data, kept.len}, composing);
+    embi_sb_free(&kept);
+    return changed;
+}
+
+static bool edit_run(embi_bind_ctx *c, embi_node *target, const char *input_type, embi_str data, bool composing)
 {
     embi_bind_scope sc = embi_bind_enter(c);
     bool changed = false;
@@ -2017,7 +2110,7 @@ void embi_forms_composition_end(embi_bind_ctx *c, embi_node *target)
 
 bool embi_forms_selected_text(embi_node *target, embi_sb *out)
 {
-    if (!is_textarea(target) && !(is_input(target) && has_selection(input_type_of(target)))) {
+    if (!selectable(target)) {
         return false;
     }
     /* The selection needs the edit state, which the context creates on first use; the copy reads the synced text. */
@@ -2036,6 +2129,7 @@ bool embi_forms_selected_text(embi_node *target, embi_sb *out)
 
 static bool select_key(embi_bind_ctx *c, embi_node *sel, const char *key, bool alt);
 static bool range_key(embi_bind_ctx *c, embi_node *n, const char *key);
+static void number_arrow(embi_bind_ctx *c, embi_node *n, int dir);
 
 /* Moves or deletes by a key. */
 bool embi_forms_key(embi_bind_ctx *c, embi_node *target, const char *key, bool ctrl, bool shift, bool alt)
@@ -2053,7 +2147,7 @@ bool embi_forms_key(embi_bind_ctx *c, embi_node *target, const char *key, bool c
         (void)embi_bind_leave(sc, EMBI_JS_UNDEFINED);
         return taken;
     }
-    if (!(multiline || (is_input(target) && has_selection(input_type_of(target))))) {
+    if (!(multiline || selectable(target))) {
         (void)embi_bind_leave(sc, EMBI_JS_UNDEFINED);
         return false;
     }
@@ -2082,6 +2176,12 @@ bool embi_forms_key(embi_bind_ctx *c, embi_node *target, const char *key, bool c
         embi_ctl *s = text_state(c, target);
         if (s != nullptr) {
             embi_edit_move(&s->ed, SDL_strcmp(key, "ArrowUp") == 0 ? EMBI_EDIT_LINE_UP : EMBI_EDIT_LINE_DOWN, shift);
+        }
+        taken = true;
+    } else if ((SDL_strcmp(key, "ArrowUp") == 0 || SDL_strcmp(key, "ArrowDown") == 0) && is_input(target) &&
+               input_type_of(target) == IT_NUMBER) {
+        if (!locked) {
+            number_arrow(c, target, SDL_strcmp(key, "ArrowUp") == 0 ? 1 : -1); /* the spin button's step */
         }
         taken = true;
     } else if ((SDL_strcmp(key, "ArrowUp") == 0 || SDL_strcmp(key, "ArrowDown") == 0) && !multiline) {
@@ -2464,6 +2564,125 @@ static bool range_key(embi_bind_ctx *c, embi_node *n, const char *key)
     return true;
 }
 
+/* The digits after the point of a number string, less its exponent (0 for an integer, at most 17). */
+static int frac_digits(const char *p, uint32_t n)
+{
+    int d = 0;
+    uint32_t i = 0;
+    while (i < n && p[i] != '.' && p[i] != 'e' && p[i] != 'E') {
+        i++;
+    }
+    if (i < n && p[i] == '.') {
+        for (i++; i < n && p[i] >= '0' && p[i] <= '9'; i++) {
+            d++;
+        }
+    }
+    if (i < n && (p[i] == 'e' || p[i] == 'E')) {
+        i++;
+        bool neg = i < n && p[i] == '-';
+        if (i < n && (p[i] == '-' || p[i] == '+')) {
+            i++;
+        }
+        int e = 0;
+        for (; i < n && p[i] >= '0' && p[i] <= '9' && e < 1000; i++) {
+            e = e * 10 + (p[i] - '0');
+        }
+        d += neg ? e : -e;
+    }
+    return d < 0 ? 0 : (d > 17 ? 17 : d);
+}
+
+/* ArrowUp (dir 1) and ArrowDown (dir -1) in a number field step its value as Chromium's spin button does
+ * (InputType::StepUpFromLayoutObject): step "any" steps by 1; a value that is not a number starts from 0, kept so that the
+ * step lands within min and max; a value below min (up) or above max (down) goes to that limit and one at the far limit does
+ * not move; a value off the step snaps to the step in the key's direction; the result stays within min and max (on the step).
+ * The result is rounded to the decimals of the step, the step base and the value, as Chromium's decimal arithmetic gives
+ * (0.1 + 0.2 is 0.3). When the value changed, input and then change fire, as in Chromium. */
+static void number_arrow(embi_bind_ctx *c, embi_node *n, int dir)
+{
+    double st = 1.0;
+    double base = 0.0;
+    bool aligned = step_of(n, &st, &base);
+    if (!aligned) {
+        st = 1.0;
+    }
+    bool has_min = false;
+    bool has_max = false;
+    double mn = attr_num(n, "min", 0.0, &has_min);
+    double mx = attr_num(n, "max", 0.0, &has_max);
+    if (has_min && has_max && mx < mn) {
+        return;
+    }
+    embi_sb cur = {0};
+    value_sb(n, &cur);
+    bool finite = cur.len > 0 && float_ok(cur.data, cur.len);
+    double v = finite ? SDL_strtod(embi_sb_cstr(&cur), nullptr) : 0.0;
+    if (!finite) {
+        double next = st * (double)dir;
+        if (has_min && v < mn - next) {
+            v = mn - next;
+        }
+        if (has_max && v > mx - next) {
+            v = mx - next;
+        }
+    }
+    double to = v;
+    if (dir > 0 && has_min && v < mn) {
+        to = mn;
+    } else if (dir < 0 && has_max && v > mx) {
+        to = mx;
+    } else if ((dir > 0 && has_max && v >= mx) || (dir < 0 && has_min && v <= mn)) {
+        embi_sb_free(&cur);
+        return;
+    } else {
+        if (aligned && step_mismatch(n, v)) {
+            double q = (v - base) / st;
+            to = base + (dir > 0 ? SDL_ceil(q) : SDL_floor(q)) * st;
+        } else {
+            to = v + st * (double)dir;
+        }
+        if (has_max) {
+            double top = aligned ? base + SDL_floor((mx - base) / st + 1e-9) * st : mx;
+            to = to > top ? top : to;
+        }
+        if (has_min) {
+            double bot = aligned ? base + SDL_ceil((mn - base) / st - 1e-9) * st : mn;
+            to = to < bot ? bot : to;
+        }
+    }
+    int digits = finite ? frac_digits(cur.data, cur.len) : 0;
+    static const char *const k_num_attrs[] = {"step", "min", "max", "value"};
+    for (uint32_t i = 0; i < sizeof k_num_attrs / sizeof k_num_attrs[0]; i++) {
+        embi_sb a = {0};
+        if (attr_utf8(n, k_num_attrs[i], &a) && a.len > 0 && float_ok(a.data, a.len)) {
+            int d = frac_digits(a.data, a.len);
+            digits = d > digits ? d : digits;
+        }
+        embi_sb_free(&a);
+    }
+    digits = digits > 15 ? 15 : digits;
+    if (digits > 0) {
+        double p = SDL_pow(10.0, (double)digits);
+        if (SDL_fabs(to * p) < 9007199254740992.0) {
+            to = SDL_round(to * p) / p;
+        }
+    } else if (SDL_fabs(to) < 9007199254740992.0) {
+        to = SDL_round(to);
+    }
+    embi_sb nv = {0};
+    fmt_number(to, &nv);
+    bool same = nv.len == cur.len && memcmp(nv.data, cur.data, nv.len) == 0;
+    embi_sb_free(&cur);
+    if (!same) {
+        (void)set_value(c, n, (embi_str){nv.data, nv.len});
+        embi_bind_scope sc = embi_bind_enter(c);
+        fire_bubbling(c, n, "input");
+        fire_bubbling(c, n, "change");
+        (void)embi_bind_leave(sc, EMBI_JS_UNDEFINED);
+    }
+    embi_sb_free(&nv);
+}
+
 /* ------------------------------------------------------------------ pointer */
 
 /* The geometry of a select popup (and the hit row): the popup lies below the control, or above it when it does not fit. */
@@ -2536,7 +2755,7 @@ bool embi_forms_pointer(embi_bind_ctx *c, embi_node *target, int phase, const fl
     }
     embi_bind_scope sc = embi_bind_enter(c);
     bool taken = false;
-    if (is_textarea(target) || (is_input(target) && has_selection(input_type_of(target)))) {
+    if (selectable(target)) {
         embi_ctl *s = text_state(c, target);
         if (s != nullptr) {
             taken = true;
@@ -2579,8 +2798,14 @@ bool embi_forms_pointer(embi_bind_ctx *c, embi_node *target, int phase, const fl
                 double mn, mx;
                 range_bounds(target, &mn, &mx);
                 float d = bb[3] < 16.0f ? bb[3] : 16.0f;
-                float span = bb[2] - d;
-                double frac = span > 0 ? (double)(x - bb[0] - d * 0.5f) / (double)span : 0.0;
+                float left = bb[0] + d * 0.5f, span = bb[2] - d;
+                float tl = 0.0f, tw = 0.0f, thw = 0.0f;
+                if (embi_paint_range_track(embi_bind_layout(c), embi_bind_style(c), el_of(target), bb, &tl, &tw, &thw)) {
+                    /* styled parts: the thumb's centre goes under the pointer, within what the styled thumb can travel */
+                    left = tl + thw * 0.5f;
+                    span = tw - thw;
+                }
+                double frac = span > 0 ? (double)(x - left) / (double)span : 0.0;
                 frac = frac < 0 ? 0 : (frac > 1 ? 1 : frac);
                 (void)range_set(c, target, mn + frac * (mx - mn), true);
             } else if (phase == 2 && s->dragging) {
@@ -2655,7 +2880,7 @@ bool embi_forms_paint_state(const embi_node *n, embi_paint_ctl *out)
         out->password = t == IT_PASSWORD;
         out->nowrap = is_textarea(n) && has_attr(n, "wrap") && attr_of(n, "wrap")->value.len == 3 &&
                       dstr_ieq(attr_of(n, "wrap")->value, "off");
-        value_sb(nn, store);
+        shown_sb(nn, store);
         out->text = store->data != nullptr ? store->data : "";
         out->text_len = store->len;
         if (s != nullptr && selectable(n)) {
@@ -3416,9 +3641,10 @@ VS_GET(tooShort, f.too_short)
 VS_GET(rangeUnderflow, f.under)
 VS_GET(rangeOverflow, f.over)
 VS_GET(stepMismatch, f.step)
-VS_GET(badInput, false)
+VS_GET(badInput, f.bad)
 VS_GET(customError, f.custom)
-VS_GET(valid, !(f.missing || f.type || f.too_long || f.too_short || f.under || f.over || f.custom || f.pattern || f.step))
+VS_GET(valid, !(f.missing || f.type || f.too_long || f.too_short || f.under || f.over || f.custom || f.pattern || f.step ||
+                 f.bad))
 
 /* ------------------------------------------------------------------ shared member implementations */
 
@@ -3453,7 +3679,7 @@ static void sel_read(embi_bind_ctx *c, embi_node *n, uint32_t *a, uint32_t *b, i
     *a = 0;
     *b = 0;
     *dir = EMBI_EDIT_DIR_NONE;
-    if (!selectable(n)) {
+    if (!selection_api(n)) {
         return;
     }
     embi_ctl *s = text_state(c, n);
@@ -3464,7 +3690,7 @@ static void sel_read(embi_bind_ctx *c, embi_node *n, uint32_t *a, uint32_t *b, i
 
 static void sel_write(embi_bind_ctx *c, embi_node *n, uint32_t a, uint32_t b, int dir)
 {
-    if (!selectable(n)) {
+    if (!selection_api(n)) {
         return;
     }
     embi_ctl *s = text_state(c, n);
@@ -3492,7 +3718,7 @@ static int dir_of(embi_dstr d)
 
 static embi_dom_err set_selection_range(embi_bind_ctx *c, embi_node *n, uint32_t a, uint32_t b, embi_dstr d)
 {
-    if (!selectable(n)) {
+    if (!selection_api(n)) {
         return embi_impl_throw(c, "InvalidStateError", "The input element does not support selection.");
     }
     sel_write(c, n, a, b, d.len > 0 ? dir_of(d) : EMBI_EDIT_DIR_NONE);
@@ -3604,52 +3830,100 @@ void embi_impl_HTMLInputElement_set_checked(embi_bind_ctx *c, embi_node *self, b
     set_checked(c, self, a0);
 }
 
-uint32_t embi_impl_HTMLInputElement_get_selectionStart(embi_bind_ctx *c, embi_node *self)
+/* The input's selectionStart, selectionEnd and selectionDirection are nullable (HTML): null on the types without the
+ * selection API (selection_api), where setting them throws InvalidStateError. The numbers are unsigned long? values, which
+ * idlgen does not convert, so the attributes are any and the conversion is here (null and undefined are 0). */
+static embi_dom_err sel_api_check(embi_bind_ctx *c, embi_node *n)
 {
-    uint32_t a, b;
-    int d;
-    sel_read(c, self, &a, &b, &d);
-    return a;
+    if (!selection_api(n)) {
+        return embi_impl_throw(c, "InvalidStateError", "The input element's type does not support selection.");
+    }
+    return EMBI_DOM_OK;
 }
 
-void embi_impl_HTMLInputElement_set_selectionStart(embi_bind_ctx *c, embi_node *self, uint32_t a0)
+static bool sel_offset(embi_bind_ctx *c, embi_js_value v, uint32_t *out)
 {
-    uint32_t a, b;
-    int d;
-    sel_read(c, self, &a, &b, &d);
-    sel_write(c, self, a0, a0 > b ? a0 : b, d);
+    *out = 0;
+    if (embi_js_is_nullish(v)) {
+        return true;
+    }
+    int64_t x = 0;
+    if (!embi_bind_conv_int(c, v, 6, EMBI_CTX_SET, &x)) {
+        return false;
+    }
+    *out = (uint32_t)x;
+    return true;
 }
 
-uint32_t embi_impl_HTMLInputElement_get_selectionEnd(embi_bind_ctx *c, embi_node *self)
+embi_dom_err embi_impl_HTMLInputElement_get_selectionStart(embi_bind_ctx *c, embi_node *self, embi_js_value *out)
 {
     uint32_t a, b;
     int d;
     sel_read(c, self, &a, &b, &d);
-    return b;
+    *out = selection_api(self) ? embi_js_from_double((double)a) : EMBI_JS_NULL;
+    return EMBI_DOM_OK;
 }
 
-void embi_impl_HTMLInputElement_set_selectionEnd(embi_bind_ctx *c, embi_node *self, uint32_t a0)
+embi_dom_err embi_impl_HTMLInputElement_set_selectionStart(embi_bind_ctx *c, embi_node *self, embi_js_value a0)
 {
+    uint32_t v = 0;
+    if (!sel_offset(c, a0, &v)) {
+        return EMBI_BIND_THREW;
+    }
+    if (sel_api_check(c, self) != EMBI_DOM_OK) {
+        return EMBI_BIND_THREW;
+    }
     uint32_t a, b;
     int d;
     sel_read(c, self, &a, &b, &d);
-    sel_write(c, self, a < a0 ? a : a0, a0, d);
+    sel_write(c, self, v, v > b ? v : b, d);
+    return EMBI_DOM_OK;
 }
 
-embi_dstr embi_impl_HTMLInputElement_get_selectionDirection(embi_bind_ctx *c, embi_node *self)
+embi_dom_err embi_impl_HTMLInputElement_get_selectionEnd(embi_bind_ctx *c, embi_node *self, embi_js_value *out)
 {
     uint32_t a, b;
     int d;
     sel_read(c, self, &a, &b, &d);
-    return dir_str(c, d);
+    *out = selection_api(self) ? embi_js_from_double((double)b) : EMBI_JS_NULL;
+    return EMBI_DOM_OK;
 }
 
-void embi_impl_HTMLInputElement_set_selectionDirection(embi_bind_ctx *c, embi_node *self, embi_dstr a0)
+embi_dom_err embi_impl_HTMLInputElement_set_selectionEnd(embi_bind_ctx *c, embi_node *self, embi_js_value a0)
+{
+    uint32_t v = 0;
+    if (!sel_offset(c, a0, &v)) {
+        return EMBI_BIND_THREW;
+    }
+    if (sel_api_check(c, self) != EMBI_DOM_OK) {
+        return EMBI_BIND_THREW;
+    }
+    uint32_t a, b;
+    int d;
+    sel_read(c, self, &a, &b, &d);
+    sel_write(c, self, a < v ? a : v, v, d);
+    return EMBI_DOM_OK;
+}
+
+embi_dom_err embi_impl_HTMLInputElement_get_selectionDirection(embi_bind_ctx *c, embi_node *self, embi_js_value *out)
 {
     uint32_t a, b;
     int d;
     sel_read(c, self, &a, &b, &d);
-    sel_write(c, self, a, b, dir_of(a0));
+    *out = selection_api(self) ? embi_bind_dstr_value(c, dir_str(c, d)) : EMBI_JS_NULL;
+    return EMBI_DOM_OK;
+}
+
+embi_dom_err embi_impl_HTMLInputElement_set_selectionDirection(embi_bind_ctx *c, embi_node *self, embi_bind_nstr a0)
+{
+    if (sel_api_check(c, self) != EMBI_DOM_OK) {
+        return EMBI_BIND_THREW;
+    }
+    uint32_t a, b;
+    int d;
+    sel_read(c, self, &a, &b, &d);
+    sel_write(c, self, a, b, a0.is_null ? EMBI_EDIT_DIR_NONE : dir_of(a0.s));
+    return EMBI_DOM_OK;
 }
 
 embi_node *embi_impl_HTMLInputElement_get_form(embi_bind_ctx *c, embi_node *self)
@@ -3881,32 +4155,50 @@ uint32_t embi_impl_HTMLTextAreaElement_get_textLength(embi_bind_ctx *c, embi_nod
 
 uint32_t embi_impl_HTMLTextAreaElement_get_selectionStart(embi_bind_ctx *c, embi_node *self)
 {
-    return embi_impl_HTMLInputElement_get_selectionStart(c, self);
+    uint32_t a, b;
+    int d;
+    sel_read(c, self, &a, &b, &d);
+    return a;
 }
 
 void embi_impl_HTMLTextAreaElement_set_selectionStart(embi_bind_ctx *c, embi_node *self, uint32_t a0)
 {
-    embi_impl_HTMLInputElement_set_selectionStart(c, self, a0);
+    uint32_t a, b;
+    int d;
+    sel_read(c, self, &a, &b, &d);
+    sel_write(c, self, a0, a0 > b ? a0 : b, d);
 }
 
 uint32_t embi_impl_HTMLTextAreaElement_get_selectionEnd(embi_bind_ctx *c, embi_node *self)
 {
-    return embi_impl_HTMLInputElement_get_selectionEnd(c, self);
+    uint32_t a, b;
+    int d;
+    sel_read(c, self, &a, &b, &d);
+    return b;
 }
 
 void embi_impl_HTMLTextAreaElement_set_selectionEnd(embi_bind_ctx *c, embi_node *self, uint32_t a0)
 {
-    embi_impl_HTMLInputElement_set_selectionEnd(c, self, a0);
+    uint32_t a, b;
+    int d;
+    sel_read(c, self, &a, &b, &d);
+    sel_write(c, self, a < a0 ? a : a0, a0, d);
 }
 
 embi_dstr embi_impl_HTMLTextAreaElement_get_selectionDirection(embi_bind_ctx *c, embi_node *self)
 {
-    return embi_impl_HTMLInputElement_get_selectionDirection(c, self);
+    uint32_t a, b;
+    int d;
+    sel_read(c, self, &a, &b, &d);
+    return dir_str(c, d);
 }
 
 void embi_impl_HTMLTextAreaElement_set_selectionDirection(embi_bind_ctx *c, embi_node *self, embi_dstr a0)
 {
-    embi_impl_HTMLInputElement_set_selectionDirection(c, self, a0);
+    uint32_t a, b;
+    int d;
+    sel_read(c, self, &a, &b, &d);
+    sel_write(c, self, a, b, dir_of(a0));
 }
 
 embi_node *embi_impl_HTMLTextAreaElement_get_form(embi_bind_ctx *c, embi_node *self)

@@ -300,7 +300,12 @@ static void adopt_subtree(embi_document *doc, embi_node *root)
 
 /* ------------------------------------------------------------------ insert, remove */
 
-static void detach_impl(embi_node *node, bool record);
+static bool detach_ex(embi_node *node, bool record, bool notify);
+
+static bool detach_impl(embi_node *node, bool record)
+{
+    return detach_ex(node, record, true);
+}
 
 /* Inserts node (a single node, or the children of a fragment) before child, without validity
  * checks. The caller has already validated the insertion. record: queue the childList record of the insertion.
@@ -337,6 +342,15 @@ static void insert_node(embi_node *parent, embi_node *node, embi_node *child, bo
         if (node->parent) {
             /* Adopting the node removes it from its old parent: that removal is recorded (DOM Standard, adopt). */
             detach_impl(node, true);
+            if (node->parent) {
+                detach_ex(node, true, false); /* a listener of the focus fixup moved it again: take it out, quietly */
+            }
+            if (child && child->parent != parent) {
+                child = nullptr; /* the same listener took the reference child out of parent */
+            }
+            if (embi_contains(node, parent)) {
+                return; /* ... or moved parent into node */
+            }
         }
         first = node;
         last = node;
@@ -372,16 +386,21 @@ static void insert_node(embi_node *parent, embi_node *node, embi_node *child, bo
 
 /* Detaches node from its parent: the tree update and the observers, the transient registrations of its subtree and,
  * when record is set, the childList record of the removal. */
-static void detach_impl(embi_node *node, bool record)
+static bool detach_ex(embi_node *node, bool record, bool notify)
 {
     embi_node *parent = node->parent;
     if (!parent) {
-        return;
+        return false;
+    }
+    if (notify) {
+        embi_notify_pre_remove(node);
+        if (node->parent != parent) {
+            return false; /* a listener (the focus fixup's blur) already removed or moved it */
+        }
     }
     embi_node *prev = node->prev;
     embi_node *next = node->next;
     bool was_connected = node->flags & EMBI_NF_CONNECTED;
-    embi_notify_pre_remove(node);
     embi_tree_unlink(node);
     if (was_connected) {
         embi_set_connected_subtree(node, false);
@@ -393,6 +412,7 @@ static void detach_impl(embi_node *node, bool record)
     if (record) {
         embi_mut_childlist(parent, nullptr, nullptr, &node, 1, prev, next);
     }
+    return true;
 }
 
 void embi_detach(embi_node *node)
@@ -460,7 +480,7 @@ embi_dom_err embi_replace_all(embi_node *parent, embi_node *node)
     if (!embi_mut_watched(parent)) {
         while (parent->first_child) {
             embi_node *child = parent->first_child;
-            detach_impl(child, false);
+            (void)detach_impl(child, false);
             /* The removed children have no other handle, so free them unless JS wraps them. */
             embi_destroy_if_unowned(child);
         }
@@ -490,8 +510,13 @@ embi_dom_err embi_replace_all(embi_node *parent, embi_node *node)
     uint32_t k = 0;
     while (parent->first_child) {
         embi_node *child = parent->first_child;
-        detach_impl(child, false);
-        removed[k++] = child;
+        if (detach_impl(child, false)) {
+            if (k < n) {
+                removed[k++] = child; /* not one a listener of the focus fixup took elsewhere first */
+            } else {
+                embi_destroy_if_unowned(child); /* one a listener added meanwhile: not in the record */
+            }
+        }
     }
     if (node) {
         insert_node(parent, node, nullptr, false, nullptr, nullptr, nullptr);

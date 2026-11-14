@@ -22,8 +22,15 @@
  *   - Anything else (the first layout, a lost change set, a viewport change, ::first-letter in the tree, a change the surgery
  *     cannot place): the tree is built again (EMBI_LU_FULL).
  *
- * The result is exactly what a full build gives: with EMBER_VERIFY_INCREMENTAL=1 every incremental update is followed by a
- * full build in a throwaway layout state of the same document and the fragment trees are compared (layout.c).
+ * Within one run over a tree (a full build, or a surgery that lays out the whole kept tree) the layout cache (lcache.c)
+ * gives a box laid out again with the same constraint space its earlier result back. Flex and grid containers lay their
+ * items out several times (measures, then the final pass) and nested ones multiply that, so it is what keeps those runs
+ * linear; the partial relayout above does not use it (it moves fragments in place). The cache lives for one run only: a
+ * kept box's fragment from the last run is never given back by it. EMBER_NO_LAYOUT_CACHE=1 turns it off.
+ *
+ * The result is exactly what a full build gives: with EMBER_VERIFY_INCREMENTAL=1 every incremental update, and every full
+ * build the layout cache gave something to, is followed by a full build without the cache in a throwaway layout state of
+ * the same document and the fragment trees are compared (layout.c).
  */
 #include "layout_int.h"
 
@@ -984,6 +991,7 @@ bool embi_lay_partial(embi_layout_engine *e, embi_lay_doc *ld, embi_document *do
         arena_used_bytes(&ld->fa) > 2u * ld->fa_base + (1u << 20)) {
         return false;
     }
+    ld->lc_on = false; /* the layout cache (lcache.c) is for whole runs */
     pst s;
     memset(&s, 0, sizeof s);
     s.e = e;
@@ -1047,6 +1055,15 @@ bool embi_lay_partial(embi_layout_engine *e, embi_lay_doc *ld, embi_document *do
 }
 
 /* ------------------------------------------------------------------ public queries */
+
+uint64_t embi_layout_run_epoch(embi_layout_engine *e, const embi_document *doc)
+{
+    uint64_t v = 0;
+    if (!embi_hashmap_get(e->docs, (uint64_t)(uintptr_t)doc, &v)) {
+        return 0;
+    }
+    return ((const embi_lay_doc *)(uintptr_t)v)->run_epoch;
+}
 
 bool embi_layout_paint_dirty(embi_layout_engine *e, const embi_document *doc, uint64_t *serial, embi_element *const **els,
                              uint32_t *n)
@@ -1162,8 +1179,10 @@ static void snap_walk(embi_lay_snap *s, const embi_frag *f, uint8_t depth)
     snap_rec r;
     memset(&r, 0, sizeof r);
     r.kind = f->kind;
-    /* the side record of the initial containing block holds the viewport's scroll offset, which a layout does not decide */
-    r.flags = depth == 0 ? (uint8_t)(f->flags & ~EMBI_FF_EXT) : f->flags;
+    /* whether a fragment has a side record is not layout: the record of the initial containing block holds the viewport's
+     * scroll offset, and that of a scroll container the offset a relayout kept (layout.c, keeps_apply), which the full
+     * build in a throwaway state does not have */
+    r.flags = (uint8_t)(f->flags & ~EMBI_FF_EXT);
     r.depth = depth;
     r.x = f->x;
     r.y = f->y;

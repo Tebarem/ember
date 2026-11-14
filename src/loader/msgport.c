@@ -14,6 +14,7 @@ struct embi_mport {
     bool closed;
     bool started;
     uint32_t slot;
+    void *owner; /* the binding context whose wrapper the port has (nullptr: none, or in transit) */
     uint32_t nqueued;
     embi_mp_msg *head, *tail;
 };
@@ -21,6 +22,7 @@ struct embi_mport {
 struct embi_mports {
     embi_hashmap map; /* id -> embi_mport * */
     uint32_t next_id;
+    uint32_t refs;
 };
 
 embi_mports *embi_mports_new(void)
@@ -29,7 +31,30 @@ embi_mports *embi_mports_new(void)
     *r = (embi_mports){0};
     embi_hashmap_init(&r->map);
     r->next_id = 1;
+    r->refs = 1;
     return r;
+}
+
+void embi_mports_retain(embi_mports *r)
+{
+    r->refs++;
+}
+
+void embi_mports_unref(embi_mports *r)
+{
+    if (r != nullptr && --r->refs == 0) {
+        embi_mports_free(r);
+    }
+}
+
+void *embi_mp_owner(const embi_mport *p)
+{
+    return p->owner;
+}
+
+void embi_mp_set_owner(embi_mport *p, void *owner)
+{
+    p->owner = owner;
 }
 
 static void queue_clear(embi_mport *p)

@@ -2,6 +2,8 @@
 
 #include "base/base.h"
 
+#include <SDL3/SDL_timer.h>
+
 /* Texture pool: size classes, reuse, the byte budget, and the in-use rule. A texture is 4 bytes
  * per texel, and a class is a power of two per side, at least 64 px. */
 
@@ -102,6 +104,46 @@ EMB_TEST(layer_pool_never_frees_a_texture_in_use)
     embi_layer_release(p, &b);
     EMB_CHECK_EQ_INT((int)embi_layer_pool_bytes(p), 0);
     embi_layer_pool_destroy(p);
+    layer_rig_close(&k);
+}
+
+/* Idle textures stay from frame to frame (creating one costs about a millisecond for a view-sized layer), and
+ * embi_layer_pool_trim_unused frees the ones released keep_ms or more ago, oldest first. */
+EMB_TEST(layer_pool_keeps_idle_textures_until_unused_for_a_while)
+{
+    layer_rig k;
+    if (!layer_rig_open(&k)) {
+        EMB_SKIP("no GPU device");
+        return;
+    }
+    embi_layer a = {0};
+    EMB_REQUIRE(embi_layer_acquire(k.pool, 100, 100, &a));
+    SDL_GPUTexture *first = a.tex;
+    embi_layer_release(k.pool, &a);
+    embi_layer b = {0};
+    EMB_REQUIRE(embi_layer_acquire(k.pool, 200, 200, &b));
+    embi_layer_release(k.pool, &b);
+    const uint64_t t_b = SDL_GetTicks();
+    EMB_CHECK_EQ_INT((int)embi_layer_pool_idle(k.pool), 2);
+
+    /* Recently released: both are kept, and the next frame's layer reuses the texture. */
+    embi_layer_pool_trim_unused(k.pool, t_b, 1000);
+    EMB_CHECK_EQ_INT((int)embi_layer_pool_idle(k.pool), 2);
+    embi_layer c = {0};
+    EMB_REQUIRE(embi_layer_acquire(k.pool, 100, 100, &c));
+    EMB_CHECK(c.tex == first);
+    embi_layer_release(k.pool, &c); /* released again: unused from now on */
+    const uint64_t t_c = SDL_GetTicks();
+
+    /* Once the 256 texture has been unused for the keep time it goes; the 128 one, used later, stays. */
+    embi_layer_pool_trim_unused(k.pool, t_b + 1000, 1000);
+    if (t_c > t_b) {
+        EMB_CHECK_EQ_INT((int)embi_layer_pool_idle(k.pool), 1);
+        EMB_CHECK_EQ_INT((int)embi_layer_pool_bytes(k.pool), 128 * 128 * 4);
+    }
+    embi_layer_pool_trim_unused(k.pool, t_c + 1000, 1000);
+    EMB_CHECK_EQ_INT((int)embi_layer_pool_idle(k.pool), 0);
+    EMB_CHECK_EQ_INT((int)embi_layer_pool_bytes(k.pool), 0);
     layer_rig_close(&k);
 }
 

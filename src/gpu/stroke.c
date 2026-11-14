@@ -588,6 +588,151 @@ static void embi_stroke_merge_tiny(embi_stroker *S)
     S->segs.len = w;
 }
 
+/* Collinear runs ------------------------------------------------------------ */
+
+/* The direction of a step of v along the line; a step below eps is rounding noise, not a direction. */
+static float embi_stroke_sgn(float v, float eps)
+{
+    return v > eps ? 1.0f : (v < -eps ? -1.0f : 0.0f);
+}
+
+/* A half disc at a turn at s (moving cur along the line before it) only adds to the bar where it reaches past it. */
+static bool embi_stroke_pokes(const embi_stroker *S, float s, float cur, float lo, float hi)
+{
+    return cur > 0.0f ? s + S->hw > hi : s - S->hw < lo;
+}
+
+/* Walks segments [i, j) that lie on the line through (ax, ay) along u, in 1-D (s = position along u).
+ * Counts the turns (the curve reverses along the line), finds the extent [lo, hi] and the directions the run
+ * starts and ends going. With emit, a round join's half disc is drawn at each turn that can reach past the bar. */
+static uint32_t embi_stroke_walk_run(embi_stroker *S, const embi_seg *sg, uint32_t i, uint32_t j, float ax, float ay,
+                                     float ux, float uy, bool emit, float *lo, float *hi, float *first,
+                                     float *last)
+{
+    float cur = 0.0f, mn = 0.0f, mx = 0.0f;
+    uint32_t turns = 0;
+    const float eps = S->tol * 0.05f;
+    bool prj = false; /* the segment before this one ended in a forced round join (a curve's cusp) */
+    *first = 0.0f;
+    for (uint32_t k = i; k < j; k++) {
+        const embi_seg *s = &sg[k];
+        if (embi_stroke_seg_tiny(S, s)) {
+            continue; /* the chain skips these too */
+        }
+        const float p0 = (s->x0 - ax) * ux + (s->y0 - ay) * uy;
+        const float pc = (s->cx - ax) * ux + (s->cy - ay) * uy;
+        const float p1 = (s->x1 - ax) * ux + (s->y1 - ay) * uy;
+        float d0 = pc - p0, d1 = p1 - pc;
+        float s0 = embi_stroke_sgn(d0, eps), s1 = embi_stroke_sgn(d1, eps);
+        if (s0 == 0.0f) {
+            s0 = embi_stroke_sgn(p1 - p0, eps);
+        }
+        if (s1 == 0.0f) {
+            s1 = s0;
+        }
+        mn = SDL_min(mn, SDL_min(p0, p1));
+        mx = SDL_max(mx, SDL_max(p0, p1));
+        if (s0 != 0.0f && cur != 0.0f && s0 != cur) {
+            turns++;
+            if (emit && (S->join == EMBI_JOIN_ROUND || prj) && embi_stroke_pokes(S, p0, cur, *lo, *hi)) {
+                embi_stroke_do_join(S, ax + p0 * ux, ay + p0 * uy, cur * ux, cur * uy, -cur * ux, -cur * uy,
+                                    EMBI_JOIN_ROUND);
+            }
+        }
+        if (s0 != 0.0f) {
+            if (*first == 0.0f) {
+                *first = s0;
+            }
+            cur = s0;
+        }
+        if (d0 > eps ? d1 < -eps : (d0 < -eps && d1 > eps)) {
+            const float t = d0 / (d0 - d1);
+            const float e = (1.0f - t) * (1.0f - t) * p0 + 2.0f * t * (1.0f - t) * pc + t * t * p1;
+            mn = SDL_min(mn, e);
+            mx = SDL_max(mx, e);
+            turns++;
+            if (emit && embi_stroke_pokes(S, e, cur, *lo, *hi)) { /* a curve that doubles back has a round cusp */
+                embi_stroke_do_join(S, ax + e * ux, ay + e * uy, cur * ux, cur * uy, -cur * ux, -cur * uy,
+                                    EMBI_JOIN_ROUND);
+            }
+            cur = -cur;
+        }
+        if (s1 != 0.0f) {
+            cur = s1;
+        }
+        prj = s->rjoin;
+    }
+    *lo = mn;
+    *hi = mx;
+    *last = cur;
+    return turns;
+}
+
+/* A run of segments from sg[i] on one straight line, usually one that reverses along it (a cubic whose control points are
+ * collinear with its ends, a line out and back): its stroke is one bar from the lowest to the highest point the
+ * run reaches, plus round join discs at the turns. Drawn as overlapping pieces the doubled antialiased edges would
+ * add up to a full row. A run of several segments that does not reverse (a straight curve in pieces) is one bar as
+ * well: the seams of abutting pieces would show in the edge rows. Returns the end of the run (i when it is not one); the run's ends and the directions it
+ * starts and ends going are in out. */
+typedef struct embi_fold {
+    float x0, y0, x1, y1;
+    float sd[2], ed[2];
+    uint32_t scanned; /* end of the collinear stretch examined, whether or not it reversed */
+} embi_fold;
+
+static uint32_t embi_stroke_fold_run(embi_stroker *S, const embi_seg *sg, uint32_t i, uint32_t n, embi_fold *out)
+{
+    const embi_seg *a = &sg[i];
+    out->scanned = i + 1;
+    const float eps = S->tol * 0.25f;
+    float ux = a->x1 - a->x0, uy = a->y1 - a->y0;
+    if (!embi_stroke_norm(&ux, &uy)) {
+        ux = a->cx - a->x0;
+        uy = a->cy - a->y0;
+        if (!embi_stroke_norm(&ux, &uy)) {
+            return i;
+        }
+    }
+    uint32_t j = i;
+    while (j < n) {
+        const embi_seg *s = &sg[j];
+        const float px[3] = {s->x0, s->cx, s->x1}, py[3] = {s->y0, s->cy, s->y1};
+        bool on = true;
+        for (int q = 0; q < 3; q++) {
+            if (SDL_fabsf((px[q] - a->x0) * -uy + (py[q] - a->y0) * ux) > eps) {
+                on = false;
+            }
+        }
+        if (!on) {
+            break;
+        }
+        j++;
+    }
+    if (j - i < 1) {
+        return i;
+    }
+    out->scanned = j;
+    float lo, hi, first, last;
+    const uint32_t turns = embi_stroke_walk_run(S, sg, i, j, a->x0, a->y0, ux, uy, false, &lo, &hi, &first, &last);
+    /* A single straight segment is drawn as it is; so is any other that neither reverses nor has company. */
+    if ((turns == 0 && j - i < 2) || first == 0.0f || last == 0.0f) {
+        return i;
+    }
+    embi_stroke_walk_run(S, sg, i, j, a->x0, a->y0, ux, uy, true, &lo, &hi, &first, &last);
+    if (hi - lo > 0.0f) {
+        embi_stroke_body_line(S, a->x0 + lo * ux, a->y0 + lo * uy, a->x0 + hi * ux, a->y0 + hi * uy, ux, uy);
+    }
+    out->x0 = a->x0;
+    out->y0 = a->y0;
+    out->x1 = sg[j - 1].x1;
+    out->y1 = sg[j - 1].y1;
+    out->sd[0] = first * ux;
+    out->sd[1] = first * uy;
+    out->ed[0] = last * ux;
+    out->ed[1] = last * uy;
+    return j;
+}
+
 /* Strokes a chain of segments as one subpath: bodies, joins, caps. */
 static void embi_stroke_chain(embi_stroker *S, const embi_seg *sg, uint32_t n, bool closed)
 {
@@ -595,38 +740,60 @@ static void embi_stroke_chain(embi_stroker *S, const embi_seg *sg, uint32_t n, b
     float fx = 0.0f, fy = 0.0f, fd[2] = {1.0f, 0.0f};
     float lx = 0.0f, ly = 0.0f, ld[2] = {1.0f, 0.0f};
     bool lr = false;
+    uint32_t nofold = 0; /* segments before this index are known not to start a reversing run */
     for (uint32_t i = 0; i < n; i++) {
         const embi_seg *s = &sg[i];
         if (embi_stroke_seg_tiny(S, s)) {
             continue;
         }
         float sd[2], ed[2];
-        if (s->line) {
-            float dx = s->x1 - s->x0, dy = s->y1 - s->y0;
-            if (!embi_stroke_norm(&dx, &dy)) {
+        float x0 = s->x0, y0 = s->y0, x1 = s->x1, y1 = s->y1;
+        bool rj = s->rjoin;
+        embi_fold fo = {0};
+        /* A collinear run is not merged across a closed subpath's closing point: the run starts and ends there. */
+        uint32_t j = i >= nofold ? embi_stroke_fold_run(S, sg, i, n, &fo) : i;
+        if (j > i) {
+            x0 = fo.x0;
+            y0 = fo.y0;
+            x1 = fo.x1;
+            y1 = fo.y1;
+            sd[0] = fo.sd[0];
+            sd[1] = fo.sd[1];
+            ed[0] = fo.ed[0];
+            ed[1] = fo.ed[1];
+            rj = sg[j - 1].rjoin;
+            i = j - 1;
+        } else {
+            if (i >= nofold) {
+                /* a straight stretch without a reversal is not tried again from each of its segments */
+                nofold = fo.scanned > i ? fo.scanned : i + 1;
+            }
+            if (s->line) {
+                float dx = s->x1 - s->x0, dy = s->y1 - s->y0;
+                if (!embi_stroke_norm(&dx, &dy)) {
+                    continue;
+                }
+                embi_stroke_body_line(S, s->x0, s->y0, s->x1, s->y1, dx, dy);
+                sd[0] = ed[0] = dx;
+                sd[1] = ed[1] = dy;
+            } else if (!embi_stroke_body_quad(S, s, sd, ed)) {
                 continue;
             }
-            embi_stroke_body_line(S, s->x0, s->y0, s->x1, s->y1, dx, dy);
-            sd[0] = ed[0] = dx;
-            sd[1] = ed[1] = dy;
-        } else if (!embi_stroke_body_quad(S, s, sd, ed)) {
-            continue;
         }
         if (have) {
-            embi_stroke_do_join(S, s->x0, s->y0, ld[0], ld[1], sd[0], sd[1],
-                                lr ? EMBI_JOIN_ROUND : S->join);
+            embi_stroke_do_join(S, x0, y0, ld[0], ld[1], sd[0], sd[1], lr ? EMBI_JOIN_ROUND : S->join);
         } else {
-            fx = s->x0;
-            fy = s->y0;
+            fx = x0;
+            fy = y0;
             fd[0] = sd[0];
             fd[1] = sd[1];
             have = true;
         }
         ld[0] = ed[0];
         ld[1] = ed[1];
-        lx = s->x1;
-        ly = s->y1;
-        lr = s->rjoin;
+        lx = x1;
+        ly = y1;
+        lr = rj;
     }
     if (!have) {
         if (n > 0) {
@@ -998,6 +1165,56 @@ static bool embi_dash_starts_on_zero(const embi_stroker *S, float offset)
 
 /* Entry points ------------------------------------------------------------- */
 
+/* The width the stroke is made with (0 when it draws nothing): the style's, raised to the hairline floor. *coverage gets the
+ * alpha that makes up for the raise (1 without one). */
+static float embi_stroke_width(const embi_stroke_style *st, float *coverage)
+{
+    if (coverage != nullptr) {
+        *coverage = 1.0f;
+    }
+    float w = st->width;
+    if (!embi_stroke_finite(w) || !(w > 0.0f)) {
+        return 0.0f;
+    }
+    const float scale = (embi_stroke_finite(st->scale) && st->scale > 0.0f) ? st->scale : 1.0f;
+    const float minw = (embi_stroke_finite(st->min_device_width) && st->min_device_width > 0.0f)
+                           ? st->min_device_width
+                           : 0.0f;
+    if (minw > 0.0f && w * scale < minw) {
+        if (coverage != nullptr) {
+            *coverage = w * scale / minw;
+        }
+        w = minw / scale;
+    }
+    return w;
+}
+
+static uint64_t embi_stroke_mix_f(uint64_t h, float v)
+{
+    uint32_t b;
+    SDL_memcpy(&b, &v, sizeof b);
+    return embi_hash64(h ^ b);
+}
+
+/* The key of the outline embi_path_stroke_ex makes of in with st, w (embi_stroke_width) and tolerance: everything the
+ * outline depends on. */
+static uint64_t embi_stroke_key(const embi_path *in, const embi_stroke_style *st, float w, float tolerance)
+{
+    uint64_t h = embi_hash64(embi_path_hash(in) ^ 0x2545f4914f6cdd1dull);
+    h = embi_stroke_mix_f(h, w);
+    h = embi_stroke_mix_f(h, tolerance);
+    h = embi_stroke_mix_f(h, st->miter_limit);
+    h = embi_hash64(h ^ (((uint64_t)st->cap << 8) | (uint64_t)st->join));
+    if (st->dash != nullptr && st->dash_count > 0) {
+        h = embi_hash64(h ^ st->dash_count);
+        for (uint32_t i = 0; i < st->dash_count; i++) {
+            h = embi_stroke_mix_f(h, st->dash[i]);
+        }
+        h = embi_stroke_mix_f(h, st->dash_offset);
+    }
+    return h;
+}
+
 embi_path *embi_path_stroke_ex(const embi_path *in, const embi_stroke_style *st, float tolerance,
                                float *coverage)
 {
@@ -1013,19 +1230,9 @@ embi_path *embi_path_stroke_ex(const embi_path *in, const embi_stroke_style *st,
     if (out == nullptr) {
         return nullptr;
     }
-    float w = st->width;
-    if (!embi_stroke_finite(w) || !(w > 0.0f)) {
+    const float w = embi_stroke_width(st, coverage);
+    if (!(w > 0.0f)) {
         return out;
-    }
-    const float scale = (embi_stroke_finite(st->scale) && st->scale > 0.0f) ? st->scale : 1.0f;
-    const float minw = (embi_stroke_finite(st->min_device_width) && st->min_device_width > 0.0f)
-                           ? st->min_device_width
-                           : 0.0f;
-    if (minw > 0.0f && w * scale < minw) {
-        if (coverage != nullptr) {
-            *coverage = w * scale / minw;
-        }
-        w = minw / scale;
     }
     embi_stroker S = {0};
     S.out = out;
@@ -1120,8 +1327,8 @@ void embi_frame_stroke_path(embi_frame *f, const embi_path *p, const embi_stroke
         return;
     }
     float cov = 1.0f;
-    embi_path *s = embi_path_stroke_ex(p, st, tolerance, &cov);
-    if (s == nullptr) {
+    const float w = embi_stroke_width(st, &cov);
+    if (!(w > 0.0f)) {
         return;
     }
     embi_paint pt = *paint;
@@ -1130,6 +1337,17 @@ void embi_frame_stroke_path(embi_frame *f, const embi_path *p, const embi_stroke
         const uint32_t na = (uint32_t)((float)a * cov + 0.5f);
         pt.color = (pt.color & 0x00ffffffu) | (na << 24);
     }
-    embi_frame_fill_path(f, s, EMBI_FILL_NONZERO, &pt, xform, clip);
+    /* The outline is cached under a key of the path and the style, so a stroke drawn again (a list painted again makes new
+     * paths of the same shapes) is not made again: stroking every SVG icon in each frame cost about 10 us an icon. */
+    const uint64_t key = embi_stroke_key(p, st, w, tolerance);
+    const float identity[6] = {1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f};
+    if (embi_frame_fill_cached(f, key | (1ull << 63), identity, &pt, EMBI_FILL_NONZERO, xform, clip)) {
+        return;
+    }
+    embi_path *s = embi_path_stroke_ex(p, st, tolerance, nullptr);
+    if (s == nullptr) {
+        return;
+    }
+    embi_frame_fill_path_keyed(f, s, key, EMBI_FILL_NONZERO, &pt, xform, clip);
     embi_path_destroy(s);
 }

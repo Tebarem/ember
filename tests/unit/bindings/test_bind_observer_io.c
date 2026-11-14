@@ -309,6 +309,34 @@ EMB_TEST(io_element_root_scroll_offset_changes_the_result)
     EMB_CHECK_EQ_INT(ob_env_done(&e), 0);
 }
 
+static const char io_fixed_html[] =
+    "<!doctype html><html><head></head><body>"
+    "<div id=f></div><div id=spacer></div><div id=t></div>"
+    "</body></html>";
+
+static const char io_fixed_css[] = "body{margin:0} #f{position:fixed;top:20px;left:0;width:100px;height:50px}"
+                                   "#spacer{height:3000px} #t{height:50px;width:100px}";
+
+EMB_TEST(io_fixed_target_stays_in_the_scrolled_viewport)
+{
+    ob_env e;
+    ob_env_init(&e, io_fixed_html, io_fixed_css);
+    /* the viewport scrolled to 1000 (its offset is the root fragment's, as the view keeps it) */
+    embi_frag *root = (embi_frag *)(uintptr_t)embi_layout_root(e.layout, e.doc);
+    EMB_REQUIRE(root != nullptr);
+    embi_layout_frag_set_scroll(e.layout, e.doc, root, 0.0f, 1000.0f);
+    e.c->scroll_y = 1000.0;
+    EMB_CHECK(ob_js_true(&e, "var log = []; var io = new IntersectionObserver(function (es) {"
+                             "  for (var i = 0; i < es.length; i++) log.push(es[i].target.id + ':' + es[i].isIntersecting +"
+                             "  ':' + es[i].boundingClientRect.y + ':' + es[i].intersectionRect.height); });"
+                             "io.observe(document.getElementById('f')); io.observe(document.getElementById('t')); true"));
+    embi_observers_after_layout(e.c);
+    /* the fixed box is where it is painted, at 20 in the viewport; the target below the spacer is far below it */
+    EMB_CHECK(ob_js_true(&e, "log.join(' ') === 'f:true:20:50 t:false:2000:0'"));
+    EMB_CHECK(ob_js_true(&e, "io.disconnect(); true"));
+    EMB_CHECK_EQ_INT(ob_env_done(&e), 0);
+}
+
 EMB_TEST(io_disconnect_drops_the_queued_entries)
 {
     ob_env e;

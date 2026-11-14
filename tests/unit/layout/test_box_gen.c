@@ -225,9 +225,9 @@ EMB_TEST(box_form_controls_and_svg_have_their_sizes)
     EMB_CHECK(border_size(&h, "c", &w, &hh));
     EMB_CHECK(near(w, 13) && near(hh, 13));
     /* The constants are border boxes (box-sizing: border-box from the UA sheet): the select's
-     * padding and border are inside its 153 x 21; the UA min-inline-size and min-block-size (24px, html.css) lift an empty one to 24 x 24. */
+     * padding and border are inside its 153 x 21; an empty one is 22 x 19 (the 24px UA minimums of html.css belong to appearance: base-select). */
     EMB_CHECK(border_size(&h, "s", &w, &hh));
-    EMB_CHECK(near(w, 24) && near(hh, 24));
+    EMB_CHECK(near(w, 22) && near(hh, 19));
     EMB_CHECK(border_size(&h, "t", &w, &hh));
     /* W5e: a textarea is cols (20) times the advance of "0" in its own font, plus 8, wide (168 for a 0.6 em monospace
      * face at 13.333 px; the test font is narrower), and rows (2) lines of 15 px plus 6 high. */
@@ -460,7 +460,7 @@ EMB_TEST(box_form_control_with_a_specified_size_and_content_box_sizing)
                    "");
     float w = 0, hh = 0;
     EMB_CHECK(border_size(&h, "a", &w, &hh));
-    EMB_CHECK(near(w, 100) && near(hh, 24));
+    EMB_CHECK(near(w, 100) && near(hh, 19));
     EMB_CHECK(border_size(&h, "b", &w, &hh));
     EMB_CHECK(w >= 120.0f + 14 && w <= 176.0f + 14 && near(hh, 36 + 14)); /* the width as above, plus padding and border */
     lh_free(&h);

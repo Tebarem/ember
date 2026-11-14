@@ -1570,7 +1570,9 @@ void embi_flex_content(embi_lctx *c, embi_box *b, embi_frag *f, const embi_flex_
         x.ai.pos = EMBI_KW_normal;
     }
     align_v jc = align_of(embi_lay_prop(c, b, EMBI_PROP_justify_content));
-    align_v ac = align_of(embi_lay_prop(c, b, EMBI_PROP_align_content));
+    /* The UA's align-content: center of a button centres the content of a block button only (as in Chromium, which does
+     * it in the button's layout): a flex button lays its lines out with the normal distribution. */
+    align_v ac = align_of((b->flags & EMBI_BF_CENTER) != 0 ? nullptr : embi_lay_prop(c, b, EMBI_PROP_align_content));
 
     /* The items: the in-flow children, sorted by order (a stable insertion sort). */
     uint32_t n = 0;

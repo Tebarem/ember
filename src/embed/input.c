@@ -25,6 +25,7 @@
 #include "embed/input_int.h"
 
 #include "embed_int.h"
+#include "embed/frames.h"
 #include "embed/script_int.h"
 
 #include "base/base.h"
@@ -110,6 +111,11 @@ struct embi_input {
     uint32_t space_pin;
     emb_navigate_fn nav;
     void *nav_user;
+    /* A drag of the thumb of a styled scrollbar (the press went to the bar, not to the page). */
+    bool sb_drag;
+    bool sb_vertical;
+    const void *sb_key;          /* the scroller whose thumb is dragged */
+    float sb_grab;               /* the pointer's distance along the bar from the start of the thumb */
     uint32_t forms_gen;          /* W5e: the generation of the form state the display list was last built for */
     uint32_t caret_phase;        /* W5e: the blink phase of the caret at that time */
     emb_navigate_ex_fn nav_ex;   /* W5e: the form-aware hook */
@@ -253,10 +259,41 @@ static void drop_pins(embi_input *in)
     in->pin_ctx = nullptr;
 }
 
+static embi_text_area_call g_text_area; /* the last call, for the tests */
+
+/* Text input on v's window: a frame has none, so its root's window takes it, with the caret rectangle in the root's
+ * viewport (IF1). */
+static void text_area(emb_view *v, bool on, float x, float y, float w, float h)
+{
+    emb_view *root = embi_frames_root(v);
+    if (root != v) {
+        /* Only the frame that has the keyboard (every parent up to the root focuses the frame below it) starts it. */
+        for (emb_view *k = v, *p = embi_frames_parent(v); on && p != nullptr; k = p, p = embi_frames_parent(p)) {
+            embi_frame_route *r = p->frames != nullptr ? embi_frames_route(p) : nullptr;
+            if (r == nullptr || r->focus != k) {
+                return;
+            }
+        }
+        float rx = 0.0f, ry = 0.0f;
+        if (on && !embi_frames_to_root(v, x, y, &rx, &ry)) {
+            return;
+        }
+        x = rx;
+        y = ry;
+    }
+    g_text_area = (embi_text_area_call){root, on, {x, y, w, h}};
+    embi_window_text_input(root, on, x, y, w, h);
+}
+
+embi_text_area_call embi_input_last_text_area(void)
+{
+    return g_text_area;
+}
+
 static void drop_text(emb_view *v, embi_input *in)
 {
     if (in->text_on) {
-        embi_window_text_input(v, false, 0, 0, 0, 0);
+        text_area(v, false, 0, 0, 0, 0);
         in->text_on = false;
     }
     if (in->comp != nullptr) {
@@ -525,13 +562,13 @@ static embi_input_ptr payload(emb_view *v, const embi_input *in, float x, float 
     return p;
 }
 
-/* Sets the offsets of the payload for target el: the position in the target's border box (the layout's box; the padding
+/* Sets the offsets of the payload for target el: the position in the target's border box (where it is painted; the padding
  * box is not separated yet). */
 static void offsets(embi_bind_ctx *c, embi_element *el, embi_input_ptr *p)
 {
     embi_layout_engine *e = embi_bind_layout(c);
     embi_rectf r;
-    if (e != nullptr && embi_layout_border_box(e, el, &r)) {
+    if (e != nullptr && embi_layout_painted_box(e, el, &r)) {
         p->offsetX = p->pageX - (double)r.x;
         p->offsetY = p->pageY - (double)r.y;
     } else {
@@ -613,12 +650,13 @@ static embi_element *touch_active(const embi_input *in)
 /* ------------------------------------------------------------------ scrolling a focused element into view */
 
 /* Scrolls the root so that el's border box is visible, with the least movement (an element taller or wider than the view
- * aligns its start). Nested scroll containers are not scrolled. */
+ * aligns its start). Nested scroll containers are not scrolled. A fixed box of the viewport is where it is painted
+ * whatever the offset, so it never moves the root. */
 static void scroll_into_view(emb_view *v, embi_bind_ctx *c, embi_element *el)
 {
     embi_layout_engine *e = c != nullptr ? embi_bind_layout(c) : nullptr;
     embi_rectf r;
-    if (e == nullptr || el == nullptr || !embi_layout_border_box(e, el, &r)) {
+    if (e == nullptr || el == nullptr || !embi_layout_painted_box(e, el, &r)) {
         return;
     }
     float ox = 0, oy = 0;
@@ -652,7 +690,7 @@ static void text_sync(emb_view *v, embi_input *in, embi_bind_ctx *c, embi_node *
         float ox = 0, oy = 0;
         embi_rectf box;
         embi_doc_root_offset(v->doc, &ox, &oy);
-        if (e != nullptr && embi_layout_border_box(e, (embi_element *)f, &box)) {
+        if (e != nullptr && embi_layout_painted_box(e, (embi_element *)f, &box)) {
             r[0] = box.x - ox;
             r[1] = box.y - oy;
             r[2] = box.w;
@@ -670,7 +708,7 @@ static void text_sync(emb_view *v, embi_input *in, embi_bind_ctx *c, embi_node *
     }
     bool moved = on && (r[0] != in->caret[0] || r[1] != in->caret[1] || r[2] != in->caret[2] || r[3] != in->caret[3]);
     if (on != in->text_on || moved) {
-        embi_window_text_input(v, on, r[0], r[1], r[2], r[3]);
+        text_area(v, on, r[0], r[1], r[2], r[3]);
         in->text_on = on;
         SDL_memcpy(in->caret, r, sizeof r);
     }
@@ -691,7 +729,7 @@ static bool control_box(emb_view *v, embi_bind_ctx *c, const embi_element *el, f
     float ox = 0, oy = 0;
     embi_rectf box;
     embi_doc_root_offset(v->doc, &ox, &oy);
-    if (e == nullptr || !embi_layout_border_box(e, el, &box)) {
+    if (e == nullptr || !embi_layout_painted_box(e, el, &box)) {
         return false;
     }
     bb[0] = box.x - ox;
@@ -1026,6 +1064,8 @@ static int32_t cursor_kind(emb_view *v, const embi_element *el)
  * have just changed the style); the frame passes false, since it has laid out already. Compared by kind, not by element, so
  * a style change under a still pointer (a :hover rule, a script) also updates the cursor. The window is set only for
  * windowed views; cur_kind is kept for both, which the tests read. */
+static void frame_cursor(emb_view *v, int32_t kind);
+
 static void cursor_track(emb_view *v, embi_input *in, bool lay)
 {
     if (lay) {
@@ -1037,6 +1077,8 @@ static void cursor_track(emb_view *v, embi_input *in, bool lay)
         in->cur_kind = k;
         if (v->mode == EMB_VIEW_WINDOWED) {
             embi_window_set_cursor(v, k);
+        } else {
+            frame_cursor(v, k); /* a frame under the root's pointer shows its cursor in the root's window */
         }
     }
 }
@@ -1230,7 +1272,11 @@ static embi_element *mouse_target(emb_view *v, embi_bind_ctx *c, embi_input *in,
     if (k != nullptr && live(&k->el->base)) {
         return k->el;
     }
-    return hit(v, c, x, y);
+    embi_element *el = hit(v, c, x, y);
+    if (el == nullptr && in->down != 0 && in->press != nullptr && live(&in->press->base) && embi_frames_parent(v) != nullptr) {
+        el = in->press; /* IF1: a drag that left a frame's viewport goes on at the element it pressed (implicit capture) */
+    }
+    return el;
 }
 
 /* The out, leave, over and enter events of the change (pointer ones when pointer is true, else the mouse ones). base is the
@@ -1287,7 +1333,67 @@ void emb_view_set_navigate_ex_handler(emb_view *view, emb_navigate_ex_fn fn, voi
     }
 }
 
-void emb_view_mouse_move(emb_view *view, float x, float y, uint32_t mods)
+/* ------------------------------------------------------------------ styled scrollbars */
+
+/* The pointer over the thumb of a styled scrollbar: the thumb takes its :hover style. */
+static void sbar_hover(emb_view *v, float x, float y, const embi_element *target)
+{
+    if (v->doc == nullptr) {
+        return;
+    }
+    embi_doc_sbar sb;
+    const void *key = nullptr;
+    int axis = 0;
+    if (embi_doc_sbar_at(v->doc, x, y, target, &sb) && sb.part == 1) {
+        key = sb.key;
+        axis = sb.vertical ? 1 : 2;
+    }
+    if (embi_doc_sbar_set_hover(v->doc, key, axis)) {
+        v->sbar_dirty = true;
+    }
+}
+
+static void sbar_scrolled(emb_view *v, const void *key)
+{
+    embi_view_note_scroll(v, key);
+    v->scroll_dirty = true;
+}
+
+/* A press on a styled scrollbar: the thumb starts a drag, the track scrolls a page toward the point. True when the bar took it. */
+static bool sbar_press(emb_view *v, embi_input *in, float x, float y, const embi_element *target)
+{
+    embi_doc_sbar sb;
+    if (v->doc == nullptr || !embi_doc_sbar_at(v->doc, x, y, target, &sb)) {
+        return false;
+    }
+    if (sb.part == 1) {
+        in->sb_drag = true;
+        in->sb_vertical = sb.vertical;
+        in->sb_key = sb.key;
+        in->sb_grab = (sb.vertical ? y : x) - sb.thumb_start;
+        if (embi_doc_sbar_set_hover(v->doc, sb.key, sb.vertical ? 1 : 2)) {
+            v->sbar_dirty = true;
+        }
+    } else if (embi_doc_sbar_page(v->doc, sb.key, sb.vertical, sb.part == 2 ? -1 : 1, (float)v->css_w, (float)v->css_h)) {
+        sbar_scrolled(v, sb.key);
+    }
+    return true;
+}
+
+/* The pointer moves while the thumb is dragged: the thumb follows it. True while a drag is on. */
+static bool sbar_drag(emb_view *v, embi_input *in, float x, float y)
+{
+    if (!in->sb_drag || v->doc == nullptr) {
+        return false;
+    }
+    float pos = (in->sb_vertical ? y : x) - in->sb_grab;
+    if (embi_doc_sbar_drag(v->doc, in->sb_key, in->sb_vertical, pos, (float)v->css_w, (float)v->css_h)) {
+        sbar_scrolled(v, in->sb_key);
+    }
+    return true;
+}
+
+static void mouse_move_here(emb_view *view, float x, float y, uint32_t mods)
 {
     if (view == nullptr || embi_view_load_suspended(view)) {
         return;
@@ -1303,6 +1409,9 @@ void emb_view_mouse_move(emb_view *view, float x, float y, uint32_t mods)
     base.movementY = (double)y - (double)in->py;
     in->px = x;
     in->py = y;
+    if (sbar_drag(view, in, x, y)) {
+        return; /* the thumb of a scrollbar is held: the page sees no move */
+    }
     if (c != nullptr && (in->down & button_bit(EMB_BUTTON_PRIMARY)) != 0 && in->press != nullptr) {
         control_pointer(view, c, in->press, 1, x, y, 1, false); /* a drag in a text field or on a range */
     }
@@ -1314,6 +1423,7 @@ void emb_view_mouse_move(emb_view *view, float x, float y, uint32_t mods)
         }
     }
     hover_set(c, in, mouse_target(view, c, in, x, y));
+    sbar_hover(view, x, y, in->hover);
     hover_events(c, in, &base, true);
     (void)ptr_event(c, in->hover, &base, true, "pointermove", true, true);
     hover_events(c, in, &base, false);
@@ -1322,7 +1432,7 @@ void emb_view_mouse_move(emb_view *view, float x, float y, uint32_t mods)
     sync(view, in, c);
 }
 
-void emb_view_mouse_leave(emb_view *view)
+static void mouse_leave_here(emb_view *view)
 {
     if (view == nullptr || view->input == nullptr || embi_view_load_suspended(view)) {
         return;
@@ -1334,6 +1444,9 @@ void emb_view_mouse_leave(emb_view *view)
     embi_bind_ctx *c = ctx_of(view);
     if (capture_find(in, 1) != nullptr) {
         return; /* a captured pointer stays on its element when it leaves the window */
+    }
+    if (view->doc != nullptr && !in->sb_drag && embi_doc_sbar_set_hover(view->doc, nullptr, 0)) {
+        view->sbar_dirty = true;
     }
     embi_input_ptr base = payload(view, in, in->px, in->py, -1, in->down, 0, false, 1, true);
     hover_set(c, in, nullptr);
@@ -1350,7 +1463,17 @@ void embi_input_set_clock(double (*fn)(void))
     g_clock = fn;
 }
 
-void emb_view_mouse_button(emb_view *view, float x, float y, emb_button button, bool down, uint32_t mods)
+static _Thread_local uint32_t g_host_clicks; /* the host's click count for the press being dispatched (0: none); per thread, as views are */
+
+void emb_view_mouse_button_clicks(emb_view *view, float x, float y, emb_button button, bool down, uint32_t mods,
+                                  uint32_t clicks)
+{
+    g_host_clicks = clicks;
+    emb_view_mouse_button(view, x, y, button, down, mods);
+    g_host_clicks = 0;
+}
+
+static void mouse_button_here(emb_view *view, float x, float y, emb_button button, bool down, uint32_t mods)
 {
     if (view == nullptr || embi_view_load_suspended(view) || (unsigned)button > (unsigned)EMB_BUTTON_FORWARD) {
         return;
@@ -1375,11 +1498,22 @@ void emb_view_mouse_button(emb_view *view, float x, float y, emb_button button, 
         sync(view, in, c); /* a row of the open select's list, or the close of the list */
         return;
     }
+    if (down && button == EMB_BUTTON_PRIMARY && sbar_press(view, in, x, y, leaf)) {
+        return; /* a styled scrollbar: the press is the bar's */
+    }
+    if (!down && button == EMB_BUTTON_PRIMARY && in->sb_drag) {
+        in->sb_drag = false;
+        sbar_hover(view, x, y, leaf);
+        return;
+    }
     if (down) {
         in->down |= bit;
         base.buttons = (uint16_t)in->down;
         embi_element *prev_click = (embi_element *)(uintptr_t)in->clicks.target;
         uint32_t count = embi_pf_click_press(&in->clicks, now, x, y, (uint32_t)button, leaf);
+        if (g_host_clicks != 0) {
+            count = in->clicks.count = g_host_clicks; /* the host's count (the OS's) wins; the counter follows it */
+        }
         if (prev_click != leaf) {
             unpin(in, &in->click_pin);
             in->click_pin = (leaf != nullptr && c != nullptr) ? pin_node(in, c, &leaf->base) : 0;
@@ -1434,10 +1568,11 @@ void emb_view_mouse_button(emb_view *view, float x, float y, emb_button button, 
 
 /* ------------------------------------------------------------------ wheel */
 
-void embi_input_wheel_at(emb_view *v, float x, float y, float dx, float dy)
+/* The wheel in v alone: true when a listener canceled it or something scrolled. */
+static bool wheel_here(emb_view *v, float x, float y, float dx, float dy)
 {
     if (embi_view_load_suspended(v)) {
-        return; /* the document is half built and shows nothing yet */
+        return false; /* the document is half built and shows nothing yet */
     }
     embi_input *in = state_of(v);
     embi_bind_ctx *c = in != nullptr ? ctx_of(v) : nullptr;
@@ -1455,15 +1590,17 @@ void embi_input_wheel_at(emb_view *v, float x, float y, float dx, float dy)
             scroll = embi_impl_input_wheel(c, &leaf->base, &w);
         }
         if (v->doc == nullptr) {
-            return; /* a listener loaded another document */
+            return true; /* a listener loaded another document */
         }
     }
+    bool moved = !scroll;
     if (scroll) {
-        embi_view_wheel(v, x, y, dx, dy);
+        moved = embi_view_wheel(v, x, y, dx, dy);
     }
     if (in != nullptr) {
         sync(v, in, c);
     }
+    return moved;
 }
 
 /* ------------------------------------------------------------------ touch */
@@ -1496,7 +1633,7 @@ static void touch_boundary(embi_bind_ctx *c, embi_input *in, embi_element *el, c
     }
 }
 
-void emb_view_touch(emb_view *view, uint64_t id, float x, float y, int phase)
+static void touch_here(emb_view *view, uint64_t id, float x, float y, int phase)
 {
     if (view == nullptr || embi_view_load_suspended(view) || phase < 0 || phase > 3) {
         return;
@@ -1759,7 +1896,7 @@ static void clipboard_run(emb_view *v, embi_input *in, embi_bind_ctx *c, emb_cli
     (void)v;
 }
 
-void emb_view_clipboard(emb_view *view, emb_clipboard_command command)
+static void clipboard_here(emb_view *view, emb_clipboard_command command)
 {
     if (view == nullptr || embi_view_load_suspended(view) || (unsigned)command > (unsigned)EMB_CLIPBOARD_PASTE) {
         return;
@@ -1894,7 +2031,7 @@ static bool produces_char(const emb_key_event *ev)
     return n == 1;
 }
 
-void emb_view_key(emb_view *view, const emb_key_event *ev)
+static void key_here(emb_view *view, const emb_key_event *ev)
 {
     if (view == nullptr || embi_view_load_suspended(view) || ev == nullptr || ev->size < sizeof(emb_key_event)) {
         return;
@@ -1997,7 +2134,7 @@ static void comp_check(embi_input *in, embi_bind_ctx *c)
     }
 }
 
-void emb_view_text_input(emb_view *view, const char *text, size_t len)
+static void text_input_here(emb_view *view, const char *text, size_t len)
 {
     if (view == nullptr || embi_view_load_suspended(view) || text == nullptr) {
         return;
@@ -2042,7 +2179,7 @@ void emb_view_text_input(emb_view *view, const char *text, size_t len)
     sync(view, in, c);
 }
 
-void emb_view_text_editing(emb_view *view, const emb_text_editing *ev)
+static void text_editing_here(emb_view *view, const emb_text_editing *ev)
 {
     if (view == nullptr || embi_view_load_suspended(view) || ev == nullptr || ev->size < sizeof(emb_text_editing)) {
         return;
@@ -2092,7 +2229,7 @@ void emb_view_text_editing(emb_view *view, const emb_text_editing *ev)
 
 /* ------------------------------------------------------------------ host focus */
 
-void emb_view_focus(emb_view *view, bool focused)
+static void focus_here(emb_view *view, bool focused)
 {
     if (view == nullptr || embi_view_load_suspended(view)) {
         return;
@@ -2233,6 +2370,8 @@ void embi_input_apply_cursor(emb_view *v, embi_str css_cursor)
     }
     if (v->mode == EMB_VIEW_WINDOWED) {
         embi_window_set_cursor(v, k);
+    } else {
+        frame_cursor(v, k);
     }
 }
 
@@ -2273,4 +2412,340 @@ int32_t embi_input_cursor_at(emb_view *v, float x, float y)
     }
     embi_bind_ctx *c = ctx_of(v);
     return cursor_kind(v, hit(v, c, x, y));
+}
+
+/* ------------------------------------------------------------------ routing to the frames */
+
+/* The public calls route the event to the document it belongs to. A pointer event goes to the
+ * frame whose iframe is the topmost hit at the point, in the frame's viewport coordinates, and on to that frame's own frames.
+ * A button pressed in a frame keeps the pointer there until the last button is up (implicit capture, even outside the box);
+ * a drag that started in the parent stays in the parent. The parent's elements get their out and leave events when the
+ * pointer goes into a frame, and the frame's when it comes out. Keys, text, composition and the clipboard go to the focused
+ * frame: a press in a frame focuses its iframe in the parent and the frame's document; a press in the parent, or the
+ * parent's focus moving off the iframe, takes the keyboard back. */
+
+/* Whether v (or a frame below it that holds the pointer) has a button down or a pointer capture: the pointer stays there. */
+static bool pointer_held(emb_view *v)
+{
+    if (v->input != nullptr && (v->input->down != 0 || capture_find(v->input, 1) != nullptr)) {
+        return true;
+    }
+    embi_frame_route *r = v->frames != nullptr ? embi_frames_route(v) : nullptr;
+    return r != nullptr && r->press != nullptr && pointer_held(r->press);
+}
+
+/* The pointer moved from frame r->hover (nullptr: v itself) to kid (nullptr: v itself): the one it left gets its leave
+ * events, and the window's cursor is set again by the next track. */
+static void hover_frame(emb_view *v, embi_frame_route *r, emb_view *kid)
+{
+    if (r->hover == kid) {
+        return;
+    }
+    emb_view *old = r->hover;
+    r->hover = kid;
+    if (old != nullptr) {
+        emb_view_mouse_leave(old);
+    } else {
+        mouse_leave_here(v); /* the parent's elements: out and leave */
+    }
+    if (v->input != nullptr) {
+        v->input->cur_known = false;
+    }
+    if (kid != nullptr && kid->input != nullptr) {
+        kid->input->cur_known = false;
+    }
+}
+
+/* The frame that takes a pointer event at (x, y) of v (the point mapped into it), or nullptr for v itself. */
+static emb_view *pointer_frame(emb_view *v, embi_frame_route *r, float x, float y, float *lx, float *ly)
+{
+    if (r == nullptr) {
+        return nullptr;
+    }
+    if (r->press != nullptr) {
+        if (embi_frames_live(r->press) && pointer_held(r->press)) {
+            if (embi_frames_at(v, x, y, lx, ly) == r->press) {
+                return r->press; /* over the frame: the exact mapping */
+            }
+            if (!embi_frames_map(r->press, x, y, lx, ly)) {
+                *lx = x;
+                *ly = y;
+            }
+            return r->press;
+        }
+        r->press = nullptr;
+    }
+    if (v->input != nullptr && (v->input->down != 0 || capture_find(v->input, 1) != nullptr)) {
+        return nullptr; /* a drag or a capture of the parent's own */
+    }
+    return embi_frames_any(v) ? embi_frames_at(v, x, y, lx, ly) : nullptr;
+}
+
+/* Frame kid (and the frames focused below it) loses the keyboard. */
+static void frame_blur(emb_view *kid)
+{
+    embi_frame_route *r = kid->frames != nullptr ? embi_frames_route(kid) : nullptr;
+    if (r != nullptr && r->focus != nullptr) {
+        emb_view *k = r->focus;
+        r->focus = nullptr;
+        frame_blur(k);
+    }
+    focus_here(kid, false);
+    if (kid->input != nullptr && kid->input->text_on) {
+        text_area(kid, false, 0, 0, 0, 0); /* the frame's text field keeps its focus, but not the window's text input */
+        kid->input->text_on = false;
+    }
+}
+
+/* A press in frame kid of v: the iframe takes the focus in v, and kid has the keyboard. */
+static void frame_focus(emb_view *v, embi_frame_route *r, emb_view *kid)
+{
+    if (r->focus != kid) {
+        if (r->focus != nullptr) {
+            frame_blur(r->focus);
+        }
+        r->focus = kid;
+        if (kid->input != nullptr) {
+            kid->input->text_on = false; /* asked again for the window: a field focused in the frame starts text input */
+        }
+        focus_here(kid, true);
+    }
+    embi_element *el = embi_frames_element(kid);
+    embi_input *in = state_of(v);
+    embi_bind_ctx *c = in != nullptr ? ctx_of(v) : nullptr;
+    if (c != nullptr && el != nullptr && embi_impl_input_focused(c) != &el->base) {
+        embi_impl_input_focus(c, &el->base);
+        in->st.focus_visible = false;
+        in->autofocus_done = true;
+        sync(v, in, c);
+    }
+}
+
+/* The document that has the keyboard below v: v, or its focused frame while v's focus is still on that frame's iframe. */
+static emb_view *key_view(emb_view *v)
+{
+    for (;;) {
+        embi_frame_route *r = v->frames != nullptr ? embi_frames_route(v) : nullptr;
+        emb_view *kid = r != nullptr ? r->focus : nullptr;
+        if (kid == nullptr) {
+            return v;
+        }
+        embi_element *el = embi_frames_element(kid);
+        embi_bind_ctx *c = v->input != nullptr ? ctx_of(v) : nullptr;
+        if (el == nullptr || c == nullptr || embi_impl_input_focused(c) != &el->base) {
+            r->focus = nullptr; /* v's focus moved off the iframe (a script, Tab) */
+            frame_blur(kid);
+            return v;
+        }
+        v = kid;
+    }
+}
+
+/* Whether frame v is where the root's pointer is (every parent up to the root hovers the frame below it). */
+static bool hover_chain(emb_view *v)
+{
+    for (emb_view *p = embi_frames_parent(v); p != nullptr; v = p, p = embi_frames_parent(p)) {
+        embi_frame_route *r = p->frames != nullptr ? embi_frames_route(p) : nullptr;
+        if (r == nullptr || (r->hover != v && r->press != v)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+static void frame_cursor(emb_view *v, int32_t kind)
+{
+    if (embi_frames_parent(v) != nullptr && hover_chain(v)) {
+        emb_view *root = embi_frames_root(v);
+        if (root->mode == EMB_VIEW_WINDOWED) {
+            embi_window_set_cursor(root, kind);
+        }
+    }
+}
+
+void emb_view_mouse_move(emb_view *view, float x, float y, uint32_t mods)
+{
+    if (view == nullptr) {
+        return;
+    }
+    embi_frame_route *r = view->frames != nullptr ? embi_frames_route(view) : nullptr;
+    float lx = 0, ly = 0;
+    emb_view *kid = pointer_frame(view, r, x, y, &lx, &ly);
+    if (r != nullptr && (kid == nullptr || kid != r->press)) {
+        hover_frame(view, r, kid);
+    }
+    if (kid != nullptr) {
+        emb_view_mouse_move(kid, lx, ly, mods);
+        return;
+    }
+    mouse_move_here(view, x, y, mods);
+}
+
+void emb_view_mouse_leave(emb_view *view)
+{
+    if (view == nullptr) {
+        return;
+    }
+    embi_frame_route *r = view->frames != nullptr ? embi_frames_route(view) : nullptr;
+    if (r != nullptr && r->press != nullptr && pointer_held(r->press)) {
+        return; /* a drag in a frame keeps its target when the pointer leaves the window */
+    }
+    if (r != nullptr && r->hover != nullptr) {
+        emb_view *old = r->hover;
+        r->hover = nullptr;
+        emb_view_mouse_leave(old);
+        return;
+    }
+    mouse_leave_here(view);
+}
+
+void emb_view_mouse_button(emb_view *view, float x, float y, emb_button button, bool down, uint32_t mods)
+{
+    if (view == nullptr) {
+        return;
+    }
+    embi_frame_route *r = view->frames != nullptr ? embi_frames_route(view) : nullptr;
+    float lx = 0, ly = 0;
+    emb_view *kid = pointer_frame(view, r, x, y, &lx, &ly);
+    if (kid != nullptr) {
+        if (r->press != kid) {
+            hover_frame(view, r, kid);
+        }
+        if (down) {
+            r->press = kid;
+            frame_focus(view, r, kid);
+        }
+        emb_view_mouse_button(kid, lx, ly, button, down, mods);
+        if (!down && r->press == kid && !pointer_held(kid)) {
+            r->press = nullptr;
+        }
+        return;
+    }
+    if (down && r != nullptr && r->focus != nullptr) {
+        emb_view *k = r->focus;
+        r->focus = nullptr; /* a press in the parent takes the keyboard back (its own focus moves as usual) */
+        frame_blur(k);
+    }
+    mouse_button_here(view, x, y, button, down, mods);
+}
+
+/* The wheel at (x, y) of v: the frame under the point first; what it does not take scrolls v's scrollers there. */
+static bool wheel_route(emb_view *v, float x, float y, float dx, float dy)
+{
+    float lx = 0, ly = 0;
+    emb_view *kid = embi_frames_any(v) ? embi_frames_at(v, x, y, &lx, &ly) : nullptr;
+    if (kid != nullptr) {
+        if (wheel_route(kid, lx, ly, dx, dy)) {
+            return true;
+        }
+        return !embi_view_load_suspended(v) && embi_view_wheel(v, x, y, dx, dy);
+    }
+    return wheel_here(v, x, y, dx, dy);
+}
+
+void embi_input_wheel_at(emb_view *v, float x, float y, float dx, float dy)
+{
+    if (v != nullptr) {
+        (void)wheel_route(v, x, y, dx, dy);
+    }
+}
+
+void emb_view_touch(emb_view *view, uint64_t id, float x, float y, int phase)
+{
+    if (view == nullptr || phase < 0 || phase > 3) {
+        return;
+    }
+    embi_frame_route *r = view->frames != nullptr ? embi_frames_route(view) : nullptr;
+    int slot = -1;
+    for (uint32_t i = 0; r != nullptr && i < EMBI_FRAMES_TOUCHES; i++) {
+        if (r->touch[i].kid != nullptr && r->touch[i].id == id) {
+            slot = (int)i;
+        }
+    }
+    float lx = 0, ly = 0;
+    emb_view *kid = nullptr;
+    if (slot >= 0) {
+        kid = r->touch[slot].kid;
+        if (!embi_frames_map(kid, x, y, &lx, &ly)) {
+            lx = x;
+            ly = y;
+        }
+    } else if (phase == 0 && r != nullptr && embi_frames_any(view)) {
+        kid = embi_frames_at(view, x, y, &lx, &ly);
+        for (uint32_t i = 0; kid != nullptr && i < EMBI_FRAMES_TOUCHES; i++) {
+            if (r->touch[i].kid == nullptr) {
+                r->touch[i].id = id;
+                r->touch[i].kid = kid;
+                slot = (int)i;
+                break;
+            }
+        }
+        if (slot < 0) {
+            kid = nullptr; /* no room: the parent takes it */
+        }
+        if (kid != nullptr) {
+            frame_focus(view, r, kid);
+        }
+    }
+    if (kid != nullptr) {
+        emb_view_touch(kid, id, lx, ly, phase);
+        if (phase >= 2) {
+            r->touch[slot].kid = nullptr;
+        }
+        return;
+    }
+    touch_here(view, id, x, y, phase);
+}
+
+void emb_view_key(emb_view *view, const emb_key_event *ev)
+{
+    if (view != nullptr) {
+        key_here(key_view(view), ev);
+    }
+}
+
+void emb_view_text_input(emb_view *view, const char *text, size_t len)
+{
+    if (view != nullptr) {
+        text_input_here(key_view(view), text, len);
+    }
+}
+
+void emb_view_text_editing(emb_view *view, const emb_text_editing *ev)
+{
+    if (view != nullptr) {
+        text_editing_here(key_view(view), ev);
+    }
+}
+
+void emb_view_clipboard(emb_view *view, emb_clipboard_command command)
+{
+    if (view != nullptr) {
+        clipboard_here(key_view(view), command);
+    }
+}
+
+void emb_view_focus(emb_view *view, bool focused)
+{
+    if (view == nullptr) {
+        return;
+    }
+    /* The view, then down the chain of focused frames. A focus or blur handler may move the focus: the chain is read
+     * again at each step, and ends where it ends. */
+    for (emb_view *v = view; v != nullptr;) {
+        focus_here(v, focused);
+        emb_view *leaf = key_view(v);
+        if (leaf == v) {
+            break;
+        }
+        embi_frame_route *r = embi_frames_route(v);
+        v = r != nullptr ? r->focus : nullptr;
+    }
+}
+
+void embi_input_frame_focus_sync(emb_view *v)
+{
+    if (v != nullptr && v->frames != nullptr) {
+        (void)key_view(v);
+    }
 }

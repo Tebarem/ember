@@ -758,6 +758,14 @@ static void tent_free(embi_lay_doc *ld, embi_lay_tent *e)
     embi_lay_pool_free(&ld->pool, e, sizeof *e + e->lang_len + e->len);
 }
 
+/* Process-wide, so that a layout state made again for the same document never repeats the epoch of one that was destroyed. */
+static _Atomic uint64_t g_run_epoch;
+
+uint64_t embi_lay_next_run_epoch(void)
+{
+    return atomic_fetch_add_explicit(&g_run_epoch, 1, memory_order_relaxed) + 1;
+}
+
 void embi_lay_tcache_sweep(embi_lay_doc *ld, bool all)
 {
     /* The analyses point at shaped runs: they go first, so a survivor's runs (kept alive by its generation) are never freed. */
@@ -770,6 +778,10 @@ void embi_lay_tcache_sweep(embi_lay_doc *ld, bool all)
         } else {
             tent_free(ld, e);
         }
+    }
+    if (keep != ld->tents.len) {
+        /* Display lists name these runs (paint/text_paint.c): one built before this sweep must not be read again. */
+        ld->run_epoch = embi_lay_next_run_epoch();
     }
     if (keep == ld->tents.len && !all) {
         return;

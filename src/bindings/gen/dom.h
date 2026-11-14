@@ -79,6 +79,7 @@ embi_dstr embi_impl_Document_get_inputEncoding(embi_bind_ctx *c, embi_node * sel
 embi_dstr embi_impl_Document_get_contentType(embi_bind_ctx *c, embi_node * self);
 embi_node * embi_impl_Document_get_doctype(embi_bind_ctx *c, embi_node * self);
 embi_node * embi_impl_Document_get_documentElement(embi_bind_ctx *c, embi_node * self);
+embi_node * embi_impl_Document_get_scrollingElement(embi_bind_ctx *c, embi_node * self);
 embi_js_value embi_impl_Document_getElementsByTagName(embi_bind_ctx *c, embi_node * self, embi_dstr a0);
 embi_js_value embi_impl_Document_getElementsByTagNameNS(embi_bind_ctx *c, embi_node * self, embi_bind_nstr a0, embi_dstr a1);
 embi_js_value embi_impl_Document_getElementsByClassName(embi_bind_ctx *c, embi_node * self, embi_dstr a0);

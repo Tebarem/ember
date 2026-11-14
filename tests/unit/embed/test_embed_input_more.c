@@ -520,4 +520,128 @@ EMB_TEST(space_activates_on_keyup_only_if_it_went_down_on_the_same_control)
     rig_close(v, g, rt);
 }
 
+static void sdl_button(emb_view *v, float x, float y, bool down, uint8_t clicks)
+{
+    SDL_Event e;
+    SDL_zero(e);
+    e.type = down ? SDL_EVENT_MOUSE_BUTTON_DOWN : SDL_EVENT_MOUSE_BUTTON_UP;
+    e.button.button = SDL_BUTTON_LEFT;
+    e.button.down = down;
+    e.button.clicks = clicks;
+    e.button.x = x;
+    e.button.y = y;
+    EMB_CHECK(emb_view_sdl_event(v, &e, 0.0f, 0.0f, 1.0f));
+}
+
+EMB_TEST(removing_the_focused_element_blurs_it_while_still_in_the_document)
+{
+    SETUP("<!doctype html><body style=\"margin:0\"><div id=box><input id=i><span id=s tabindex=0>s</span></div>"
+          "<input id=other>");
+    (void)run(v, "var log = []; var ev = function (e) { log.push(e.type + ':' + e.target.id + ':' + e.target.isConnected"
+                 " + ':' + document.activeElement.tagName); };"
+                 "document.addEventListener('focusout', ev); document.addEventListener('blur', ev, true);"
+                 "document.addEventListener('input', function (e) { log.push('input:' + e.target.id); }, true);"
+                 "document.getElementById('i').focus(); true");
+    EMB_CHECK_EQ_STR(run(v, "document.activeElement.id"), "i");
+    /* Removed directly: blur and focusout reach the document while the input is connected, and nothing has the focus. */
+    (void)run(v, "document.getElementById('i').remove(); true");
+    EMB_CHECK_EQ_STR(run(v, "log.join(',')"), "blur:i:true:BODY,focusout:i:true:BODY");
+    EMB_CHECK_EQ_STR(run(v, "document.activeElement.tagName"), "BODY");
+    EMB_CHECK_EQ_STR(run(v, "document.querySelector(':focus') === null"), "true");
+    /* Typing afterwards goes nowhere. */
+    emb_view_text_input(v, "x", 1);
+    EMB_CHECK_EQ_STR(run(v, "log.join(',')"), "blur:i:true:BODY,focusout:i:true:BODY");
+    /* Removed through an ancestor. */
+    (void)run(v, "log = []; var b = document.getElementById('s'); b.focus(); document.getElementById('box').remove(); true");
+    EMB_CHECK_EQ_STR(run(v, "log.join(',') + '|' + document.activeElement.tagName"),
+                     "blur:s:true:BODY,focusout:s:true:BODY|BODY");
+    /* A blur listener that removes the node itself does not break the removal. */
+    (void)run(v, "log = []; var o = document.getElementById('other'); o.addEventListener('blur', function () { o.remove(); });"
+                 "o.focus(); o.remove(); log.length + ',' + document.contains(o)");
+    EMB_CHECK_EQ_STR(run(v, "document.contains(o) + ',' + document.activeElement.tagName"), "false,BODY");
+    /* Moving a focused element (appendChild of a connected node) removes it first: it blurs, as in Blink. */
+    (void)run(v, "log = []; document.body.insertAdjacentHTML('beforeend', '<input id=m>'); var m = document.getElementById('m');"
+                 "m.focus(); document.body.appendChild(m); true");
+    EMB_CHECK_EQ_STR(run(v, "log.length + ',' + document.activeElement.tagName"), "2,BODY");
+    /* A blur listener that moves the node elsewhere, or removes the reference child, leaves a sound tree. */
+    (void)run(v, "document.body.insertAdjacentHTML('beforeend', '<div id=d1></div><div id=d2></div><input id=q><b id=r></b>');"
+                 "var q = document.getElementById('q'), d1 = document.getElementById('d1'), d2 = document.getElementById('d2'),"
+                 " r = document.getElementById('r');"
+                 "q.addEventListener('blur', function () { d1.appendChild(q); r.remove(); });"
+                 "q.focus(); document.body.insertBefore(q, r); true");
+    EMB_CHECK_EQ_STR(run(v, "q.parentNode.tagName + ',' + r.isConnected + ',' + document.body.contains(q)"), "BODY,false,true");
+    (void)run(v, "q.focus(); d2.appendChild(q); true");
+    EMB_CHECK_EQ_STR(run(v, "q.parentNode.id + ',' + d1.childNodes.length + ',' + d2.childNodes.length"), "d2,0,1");
+    rig_close(v, g, rt);
+}
+
+EMB_TEST(host_click_count_wins_over_the_counter)
+{
+    SETUP(k_page);
+    (void)run(v, "var a = document.getElementById('a'); a.value = '12345'; log = [];"
+                 "['click', 'dblclick'].forEach(function (t) { document.addEventListener(t, function (e) {"
+                 " log.push(t + ':' + e.detail); }, true); }); true");
+    float x, y;
+    center(v, "a", &x, &y);
+    emb_view_mouse_move(v, x, y, 0);
+    /* One press and release with clicks = 3 selects the whole value. */
+    sdl_button(v, x, y, true, 3);
+    sdl_button(v, x, y, false, 3);
+    EMB_CHECK_EQ_STR(run(v, "a.selectionStart + ',' + a.selectionEnd"), "0,5");
+    EMB_CHECK_EQ_STR(run(v, "log.join(',')"), "click:3");
+    /* clicks = 2 fires dblclick with detail 2. */
+    (void)run(v, "log = []; a.setSelectionRange(5, 5); true");
+    sdl_button(v, x, y, true, 2);
+    sdl_button(v, x, y, false, 2);
+    EMB_CHECK_EQ_STR(run(v, "log.join(',')"), "click:2,dblclick:2");
+    /* Without a host count (0) the counter still counts: a fresh press is 1 (the target moved on). */
+    (void)run(v, "log = []; true");
+    float bx, by;
+    center(v, "btn", &bx, &by);
+    emb_view_mouse_move(v, bx, by, 0);
+    sdl_button(v, bx, by, true, 0);
+    sdl_button(v, bx, by, false, 0);
+    EMB_CHECK_EQ_STR(run(v, "log.join(',')"), "click:1");
+    /* The public call takes the count and the modifiers as the host routed them (a host feeding the view from another
+     * thread, where SDL's modifier state has moved on). */
+    (void)run(v, "log = []; document.addEventListener('mousedown', function (e) { log.push('shift:' + e.shiftKey); }, true);"
+                 " a.setSelectionRange(5, 5); true");
+    emb_view_mouse_move(v, x, y, 0);
+    emb_view_mouse_button_clicks(v, x, y, EMB_BUTTON_PRIMARY, true, EMB_MOD_SHIFT, 2);
+    emb_view_mouse_button_clicks(v, x, y, EMB_BUTTON_PRIMARY, false, EMB_MOD_SHIFT, 2);
+    EMB_CHECK_EQ_STR(run(v, "log.join(',')"), "shift:true,click:2,dblclick:2");
+    rig_close(v, g, rt);
+}
+
+EMB_TEST(real_keys_carry_the_legacy_key_codes)
+{
+    SETUP(k_page);
+    (void)run(v, "log = []; var f = function (e) { log.push(e.type + ':' + e.key + ':' + e.keyCode + ':' + e.which + ':' + e.charCode); };"
+                 "document.addEventListener('keydown', f); document.addEventListener('keyup', f);"
+                 "document.addEventListener('keypress', f); true");
+    /* Shift+3 on the digit row: the key follows the layout, the keyCode does not. */
+    rig_tap_key(v, "#", "Digit3", EMB_MOD_SHIFT);
+    EMB_CHECK_EQ_STR(run(v, "log.join(',')"), "keydown:#:51:51:0,keypress:#:35:35:35,keyup:#:51:51:0");
+    static const struct {
+        const char *key, *code;
+        int vk;
+    } cases[] = {
+        {"a", "KeyA", 65}, {"Z", "KeyZ", 90}, {"Enter", "Enter", 13}, {"Escape", "Escape", 27},
+        {"ArrowUp", "ArrowUp", 38}, {"F5", "F5", 116}, {"F12", "F12", 123}, {"7", "Numpad7", 103},
+        {"+", "NumpadAdd", 107}, {";", "Semicolon", 186}, {"Shift", "ShiftLeft", 16}, {"Dead", "Unknown", 0},
+    };
+    for (size_t i = 0; i < sizeof cases / sizeof cases[0]; i++) {
+        (void)run(v, "log = []; true");
+        rig_tap_key(v, cases[i].key, cases[i].code, 0);
+        char want[32];
+        snprintf(want, sizeof want, "%d/%d,%d/%d", cases[i].vk, cases[i].vk, cases[i].vk, cases[i].vk);
+        EMB_CHECK_EQ_STR(run(v, "log.filter(function (s) { return s.indexOf('keypress') != 0; }).map(function (s) { "
+                                "return s.split(':')[2] + '/' + s.split(':')[3]; }).join(',')"),
+                         want);
+    }
+    /* A synthetic event keeps the init dictionary's keyCode. */
+    EMB_CHECK_EQ_STR(run(v, "var e = new KeyboardEvent('keydown', {keyCode: 70}); e.keyCode + ',' + e.which"), "70,70");
+    rig_close(v, g, rt);
+}
+
 RIG_MAIN()

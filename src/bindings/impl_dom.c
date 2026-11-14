@@ -630,7 +630,9 @@ static embi_dom_err parent_move_before(embi_bind_ctx *c, embi_node *self, embi_n
     }
     embi_node *ref = child == node ? node->next : child;
     embi_node *active = c->active;
+    c->moving = true;
     embi_detach(node);
+    c->moving = false;
     embi_dom_err e = embi_pre_insert(self, node, ref);
     if (active && embi_contains(node, active) && (node->flags & EMBI_NF_CONNECTED)) {
         c->active = active;
@@ -998,6 +1000,13 @@ embi_node *embi_impl_Document_get_documentElement(embi_bind_ctx *c, embi_node *s
     (void)c;
     embi_element *e = embi_document_element(doc_of(self));
     return e ? &e->base : nullptr;
+}
+
+/* CSSOM View: the element whose scrollTop and scrollLeft are the viewport's. Ember maps the viewport to the document
+ * element in quirks mode too (Element.scrollTop), so that is the answer in both modes. */
+embi_node *embi_impl_Document_get_scrollingElement(embi_bind_ctx *c, embi_node *self)
+{
+    return embi_impl_Document_get_documentElement(c, self);
 }
 
 embi_js_value embi_impl_Document_getElementsByTagName(embi_bind_ctx *c, embi_node *self, embi_dstr a0)

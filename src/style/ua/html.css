@@ -670,8 +670,9 @@ select {
   border-radius: 0.5em;
   padding-block: 0.25em;
   padding-inline: 0.5em;
-  min-block-size: calc-size(auto, max(size, 24px, 1lh));
-  min-inline-size: calc-size(auto, max(size, 24px));
+  /* No min-block-size or min-inline-size: the 24px minimums belong to appearance: base-select (put them back if it is ever
+   * implemented) and do not apply to the default appearance: a select with height: 20px is 20px high, as in Chromium,
+   * and an auto minimum keeps a select in a flex column at its natural height. */
   display: inline-flex;
   gap: 0.5em;
   border-radius: 0.5em;

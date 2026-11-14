@@ -45,6 +45,16 @@ static inline bool embi_impl_svg_client_bbox(embi_bind_ctx *c, embi_node *n, dou
 }
 #endif
 
+/* ------------------------------------------------------------------ scrolling (impl_scroll.c) */
+
+/* The viewport's scroll offset now (window.scrollX/scrollY, the root's scrollTop/scrollLeft, the origin of the client
+ * rectangles). Also stores it in c->scroll_x and scroll_y. */
+void embi_impl_root_offset(embi_bind_ctx *c, double *x, double *y);
+/* Scrolls the viewport to (x, y), clamped to its scroll range (NaN and negative offsets are 0). */
+void embi_impl_scroll_root_to(embi_bind_ctx *c, double x, double y);
+/* Element.scrollIntoView: block and inl are EMBI_ENUM_ScrollLogicalPosition values (vertical and horizontal). */
+void embi_impl_scroll_into_view(embi_bind_ctx *c, embi_element *el, int block, int inl);
+
 /* ------------------------------------------------------------------ collections (impl_coll.c) */
 
 enum {

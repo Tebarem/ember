@@ -39,12 +39,12 @@ bool embi_impl_HTMLInputElement_get_indeterminate(embi_bind_ctx *c, embi_node * 
 void embi_impl_HTMLInputElement_set_indeterminate(embi_bind_ctx *c, embi_node * self, bool a0);
 double embi_impl_HTMLInputElement_get_valueAsNumber(embi_bind_ctx *c, embi_node * self);
 void embi_impl_HTMLInputElement_set_valueAsNumber(embi_bind_ctx *c, embi_node * self, double a0);
-uint32_t embi_impl_HTMLInputElement_get_selectionStart(embi_bind_ctx *c, embi_node * self);
-void embi_impl_HTMLInputElement_set_selectionStart(embi_bind_ctx *c, embi_node * self, uint32_t a0);
-uint32_t embi_impl_HTMLInputElement_get_selectionEnd(embi_bind_ctx *c, embi_node * self);
-void embi_impl_HTMLInputElement_set_selectionEnd(embi_bind_ctx *c, embi_node * self, uint32_t a0);
-embi_dstr embi_impl_HTMLInputElement_get_selectionDirection(embi_bind_ctx *c, embi_node * self);
-void embi_impl_HTMLInputElement_set_selectionDirection(embi_bind_ctx *c, embi_node * self, embi_dstr a0);
+embi_dom_err embi_impl_HTMLInputElement_get_selectionStart(embi_bind_ctx *c, embi_node * self, embi_js_value *out);
+embi_dom_err embi_impl_HTMLInputElement_set_selectionStart(embi_bind_ctx *c, embi_node * self, embi_js_value a0);
+embi_dom_err embi_impl_HTMLInputElement_get_selectionEnd(embi_bind_ctx *c, embi_node * self, embi_js_value *out);
+embi_dom_err embi_impl_HTMLInputElement_set_selectionEnd(embi_bind_ctx *c, embi_node * self, embi_js_value a0);
+embi_dom_err embi_impl_HTMLInputElement_get_selectionDirection(embi_bind_ctx *c, embi_node * self, embi_js_value *out);
+embi_dom_err embi_impl_HTMLInputElement_set_selectionDirection(embi_bind_ctx *c, embi_node * self, embi_bind_nstr a0);
 embi_node * embi_impl_HTMLInputElement_get_form(embi_bind_ctx *c, embi_node * self);
 embi_js_value embi_impl_HTMLInputElement_get_files(embi_bind_ctx *c, embi_node * self);
 bool embi_impl_HTMLInputElement_get_willValidate(embi_bind_ctx *c, embi_node * self);

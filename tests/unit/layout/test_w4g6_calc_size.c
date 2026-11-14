@@ -135,13 +135,13 @@ EMB_TEST(row_flex_container_min_height_calc_size)
                       false, 24.0f));
 }
 
-/* The UA rules of select (html.css): min-block-size calc-size(auto, max(size, 24px, 1lh)). A select is a replaced box
- * of 19px; the minimum lifts it to 24px, as an inline box, as a block and as a flex item. */
-EMB_TEST(select_ua_min_block_size_applies_to_the_replaced_box)
+/* The UA rules of select (html.css): no min-block-size (the 24px minimum belongs to appearance: base-select). A
+ * drop-down select is a replaced box of 19px, as an inline box, as a block and as a flex item. */
+EMB_TEST(select_ua_min_block_size_leaves_the_replaced_box_at_19px)
 {
-    EMB_CHECK(size_is("<div><select id=a style=\"margin:0\"><option>Hi</option></select></div>", false, 24.0f));
-    EMB_CHECK(size_is("<div><select id=a style=\"margin:0;display:block\"></select></div>", false, 24.0f));
-    EMB_CHECK(size_is("<div style=\"display:flex\"><select id=a style=\"margin:0\"></select></div>", false, 24.0f));
+    EMB_CHECK(size_is("<div><select id=a style=\"margin:0\"><option>Hi</option></select></div>", false, 19.0f));
+    EMB_CHECK(size_is("<div><select id=a style=\"margin:0;display:block\"></select></div>", false, 19.0f));
+    EMB_CHECK(size_is("<div style=\"display:flex\"><select id=a style=\"margin:0\"></select></div>", false, 19.0f));
 }
 
 /* select-element-zero-height-001: in a zero-height flex column the select keeps its minimum, and matches the
@@ -150,10 +150,10 @@ EMB_TEST(select_in_zero_height_column_matches_the_block_case)
 {
     EMB_CHECK(size_is("<div style=\"display:flex;flex-direction:column;height:0\"><select id=a style=\"margin:0\">"
                       "<option>Hi</option></select></div>",
-                      false, 24.0f));
+                      false, 19.0f));
     EMB_CHECK(size_is("<div style=\"height:0\"><select id=a style=\"margin:0;width:100%\"><option>Hi</option></select>"
                       "</div>",
-                      false, 24.0f));
+                      false, 19.0f));
 }
 
 /* Replaced boxes: a length basis, the auto basis, min and max. */

@@ -19,7 +19,7 @@
 
 /* The real IDL files, sorted by name as idlgen reads them. */
 static const char *const k_idl_files[] = {
-    "canvas", "console", "crypto", "cssom", "dom", "encoding", "events", "eventsource", "eventtarget", "exception", "fetch", "fonts", "forms", "geometry", "html", "htmlcanvas", "messaging", "observers",
+    "canvas", "console", "crypto", "cssom", "dom", "encoding", "events", "eventsource", "eventtarget", "exception", "fetch", "fonts", "forms", "frames", "geometry", "html", "htmlcanvas", "messaging", "observers",
     "storage", "svg", "svgelement", "testing", "timers", "traversal", "uievents", "url", "websocket", "window",
 };
 #define N_IDL ((int)(sizeof k_idl_files / sizeof k_idl_files[0]))

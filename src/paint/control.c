@@ -826,6 +826,124 @@ static void paint_rows(embi_pst *p, const embi_style *s, const embi_paint_ctl *c
     }
 }
 
+/* ------------------------------------------------------------------ range with styled parts */
+
+/* The width of side i (left, top, right, bottom) of the border of a part of a control as its style gives it: a side whose
+ * style is none or hidden has none, the rest snap to whole px as the layout's borders do. */
+float embi_pb_part_border(const embi_style *s, int i)
+{
+    static const embi_prop_id wp[4] = {EMBI_PROP_border_left_width, EMBI_PROP_border_top_width, EMBI_PROP_border_right_width,
+                                       EMBI_PROP_border_bottom_width};
+    static const embi_prop_id sp[4] = {EMBI_PROP_border_left_style, EMBI_PROP_border_top_style, EMBI_PROP_border_right_style,
+                                       EMBI_PROP_border_bottom_style};
+    uint16_t st = embi_pb_kw(s, sp[i]);
+    if (st == 0 || st == EMBI_KW_none || st == EMBI_KW_hidden) {
+        return 0.0f;
+    }
+    float v = embi_style_px(s, wp[i]);
+    if (isnan(v) || v <= 0.0f) {
+        const embi_value *kv = embi_style_value(s, wp[i]);
+        if (kv != nullptr && kv->kind == EMBI_V_KEYWORD) {
+            return kv->kw == EMBI_KW_thin ? 1.0f : (kv->kw == EMBI_KW_thick ? 5.0f : 3.0f);
+        }
+        return 0.0f;
+    }
+    return v < 1.0f ? 1.0f : floorf(v);
+}
+
+float embi_pb_part_padding(const embi_style *s, int i)
+{
+    static const embi_prop_id pp[4] = {EMBI_PROP_padding_left, EMBI_PROP_padding_top, EMBI_PROP_padding_right,
+                                       EMBI_PROP_padding_bottom};
+    float v = embi_style_px(s, pp[i]);
+    return isnan(v) || v < 0.0f ? 0.0f : v;
+}
+
+/* The part of a control that has no box of its own (the track and thumb of a range) with the computed style ps, as a block of
+ * border box r: its shadows, background and border, under its own transform (ps's transform on r). */
+static void paint_part(embi_pst *p, const embi_style *ps, const float r[4], uint32_t xf, uint32_t clip)
+{
+    embi_fmet m;
+    memset(&m, 0, sizeof m);
+    for (int i = 0; i < 4; i++) {
+        m.bdr[i] = embi_pb_part_border(ps, i);
+        m.pad[i] = embi_pb_part_padding(ps, i);
+    }
+    embi_frag f;
+    memset(&f, 0, sizeof f);
+    f.kind = EMBI_FK_BOX;
+    f.w = r[2];
+    f.h = r[3];
+    f.met = &m;
+    uint32_t pxf = embi_pb_box_xform(p, ps, r, xf);
+    embi_pb_shadows(p, &f, ps, r, false, pxf, clip);
+    embi_pb_background(p, &f, ps, r, pxf, clip);
+    embi_pb_shadows(p, &f, ps, r, true, pxf, clip);
+    embi_pb_border(p, &f, ps, r, pxf, clip);
+}
+
+/* The size of a part along an axis: its width or height as a length, 0 when it is auto (a part with no content). */
+static float part_size(const embi_style *s, embi_prop_id prop)
+{
+    float v = embi_style_px(s, prop);
+    return isnan(v) || v < 0.0f ? 0.0f : v;
+}
+
+typedef struct range_geo {
+    float track[4]; /* the border box of the track */
+    float thumb[4]; /* the border box of the thumb, before its own transform */
+    float tl, tw;   /* the content box of the track along the axis: the thumb's left edge runs from tl to tl + tw - thumb w */
+} range_geo;
+
+/* The boxes of the parts of a range whose content box is cb: the track spans it and is centered on its height (a flex item of
+ * the input in Blink), the thumb is a block in the flow of the track (its top is the track's content top plus its margin-top)
+ * placed along the track by the value's fraction. */
+static void range_geometry(const embi_style *ts, const embi_style *hs, const float cb[4], double frac, range_geo *g)
+{
+    float th = ts != nullptr ? part_size(ts, EMBI_PROP_height) : 0.0f;
+    g->track[0] = cb[0];
+    g->track[2] = cb[2];
+    g->track[3] = th;
+    g->track[1] = cb[1] + (cb[3] - th) * 0.5f;
+    float bl = 0.0f, bt = 0.0f, br = 0.0f;
+    if (ts != nullptr) {
+        bl = embi_pb_part_border(ts, 0) + embi_pb_part_padding(ts, 0);
+        bt = embi_pb_part_border(ts, 1) + embi_pb_part_padding(ts, 1);
+        br = embi_pb_part_border(ts, 2) + embi_pb_part_padding(ts, 2);
+    }
+    g->tl = g->track[0] + bl;
+    g->tw = fmaxf(0.0f, g->track[2] - bl - br);
+    float w = hs != nullptr ? part_size(hs, EMBI_PROP_width) : 0.0f;
+    float h = hs != nullptr ? part_size(hs, EMBI_PROP_height) : 0.0f;
+    float mt = hs != nullptr ? embi_style_px(hs, EMBI_PROP_margin_top) : 0.0f;
+    if (isnan(mt)) {
+        mt = 0.0f;
+    }
+    if (frac < 0.0) {
+        frac = 0.0;
+    }
+    if (frac > 1.0) {
+        frac = 1.0;
+    }
+    g->thumb[0] = g->tl + (float)frac * (g->tw - w);
+    g->thumb[1] = g->track[1] + bt + mt;
+    g->thumb[2] = w;
+    g->thumb[3] = h;
+}
+
+/* The styled parts of a range input (appearance: none): the pseudo-element styles of the track and the thumb. */
+static bool range_parts(const embi_pst *p, const embi_element *el, const embi_style **ts, const embi_style **hs)
+{
+    *ts = nullptr;
+    *hs = nullptr;
+    if (p->se == nullptr || el == nullptr) {
+        return false;
+    }
+    *ts = embi_style_generated(p->se, (embi_element *)(uintptr_t)el, EMBI_PE_SLIDER_TRACK);
+    *hs = embi_style_generated(p->se, (embi_element *)(uintptr_t)el, EMBI_PE_SLIDER_THUMB);
+    return *ts != nullptr || *hs != nullptr;
+}
+
 static void paint_chrome_pre(embi_pst *p, const embi_style *s, const embi_paint_ctl *c, const float bb[4], uint32_t xf,
                              uint32_t clip)
 {
@@ -999,11 +1117,27 @@ void embi_pb_control(embi_pst *p, const embi_frag *f, const embi_box *b, const e
         break;
     }
     case EMBI_PCTL_RANGE: {
-        if (!chrome) {
-            break;
-        }
         double span = c.max - c.min;
         double frac = span > 0 ? (c.value - c.min) / span : 0.0;
+        if (!chrome) {
+            /* appearance: none: only what the author styles shows, the track and the thumb from the styles of
+             * ::-webkit-slider-runnable-track and ::-webkit-slider-thumb */
+            const embi_style *ts, *hs;
+            if (range_parts(p, b->el, &ts, &hs)) {
+                float content[4] = {bb[0] + bdr[0] + pad[0], bb[1] + bdr[1] + pad[1],
+                                    fmaxf(0.0f, bb[2] - bdr[0] - pad[0] - bdr[2] - pad[2]),
+                                    fmaxf(0.0f, bb[3] - bdr[1] - pad[1] - bdr[3] - pad[3])};
+                range_geo g;
+                range_geometry(ts, hs, content, frac, &g);
+                if (ts != nullptr && !embi_pb_hidden(ts)) {
+                    paint_part(p, ts, g.track, xf, clip);
+                }
+                if (hs != nullptr && !embi_pb_hidden(hs)) {
+                    paint_part(p, hs, g.thumb, xf, clip);
+                }
+            }
+            break;
+        }
         float d = fminf(bb[3], 16.0f);
         float th = 4.0f;
         float tx = bb[0] + d * 0.5f, tw = fmaxf(0.0f, bb[2] - d);
@@ -1192,5 +1326,31 @@ bool embi_paint_control_caret(const embi_layout_engine *e, const embi_element *e
     rect[2] = 1.0f;
     rect[3] = h.L.lh;
     hit_free(&h);
+    return true;
+}
+
+bool embi_paint_range_track(const embi_layout_engine *e, embi_style_engine *se, const embi_element *el, const float bb[4],
+                            float *left, float *width, float *thumb_w)
+{
+    const embi_box *bx = el != nullptr ? (const embi_box *)el->box : nullptr;
+    if (se == nullptr || bx == nullptr || bx->style == nullptr || !appearance_none(bx->style)) {
+        return false;
+    }
+    const embi_style *ts = embi_style_generated(se, (embi_element *)(uintptr_t)el, EMBI_PE_SLIDER_TRACK);
+    const embi_style *hs = embi_style_generated(se, (embi_element *)(uintptr_t)el, EMBI_PE_SLIDER_THUMB);
+    if (ts == nullptr && hs == nullptr) {
+        return false;
+    }
+    float bdr[4], pad[4], mg[4];
+    if (!embi_layout_box_edges(e, el, bdr, pad, mg)) {
+        return false;
+    }
+    float content[4] = {bb[0] + bdr[0] + pad[0], bb[1] + bdr[1] + pad[1], fmaxf(0.0f, bb[2] - bdr[0] - pad[0] - bdr[2] - pad[2]),
+                        fmaxf(0.0f, bb[3] - bdr[1] - pad[1] - bdr[3] - pad[3])};
+    range_geo g;
+    range_geometry(ts, hs, content, 0.0, &g);
+    *left = g.tl;
+    *width = g.tw;
+    *thumb_w = g.thumb[2];
     return true;
 }

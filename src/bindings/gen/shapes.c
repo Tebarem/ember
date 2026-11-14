@@ -518,7 +518,7 @@ embi_js_value embi_shape_1176fb2d(embi_js_realm *r, embi_js_value this_v, int ar
     return embi_bind_end(&sc, embi_bind_node_value(c, res));
 }
 
-/* HTMLInputElement.selectionStart */
+/* HTMLTextAreaElement.selectionStart */
 embi_js_value embi_shape_127f2585(embi_js_realm *r, embi_js_value this_v, int argc, const embi_js_value *argv, int magic)
 {
     (void)this_v;
@@ -3677,6 +3677,38 @@ embi_js_value embi_shape_83e25e1d(embi_js_realm *r, embi_js_value this_v, int ar
     return embi_bind_end(&sc, EMBI_JS_UNDEFINED);
 }
 
+/* Element.scrollIntoView */
+embi_js_value embi_shape_86539a22(embi_js_realm *r, embi_js_value this_v, int argc, const embi_js_value *argv, int magic)
+{
+    (void)this_v;
+    (void)argc;
+    (void)argv;
+    (void)magic;
+    const embi_bind_member *m = r->cur_data;
+    embi_bind_scope sc;
+    embi_bind_obj *bo = nullptr;
+    embi_bind_ctx *c = embi_bind_begin(r, this_v, m, EMBI_SELF_NODE, &sc, &bo);
+    if (!c) return sc.early;
+    embi_node *self = (embi_node *)bo->ptr;
+    (void)self;
+    embi_bind_union a0 = {0};
+    if (argc <= 0) {
+        a0 = (embi_bind_union){0};
+    } else {
+    { static const embi_bind_um um1[] = {{EMBI_UM_BOOL, 0, false, 0}, {EMBI_UM_OBJECT, 0, true, 0}};
+      if (!embi_bind_conv_union(c, argv[0], um1, 2, false, EMBI_CTX_ARG(1), &a0)) return embi_bind_end(&sc, EMBI_JS_EXCEPTION);
+      if (a0.kind == 2) {
+        embi_dict_ScrollIntoViewOptions *dd = (embi_dict_ScrollIntoViewOptions *)embi_bind_alloc(c, sizeof *dd);
+        SDL_memset(dd, 0, sizeof *dd);
+        if (!embi_gen_dict_conv_ScrollIntoViewOptions(c, a0.u.v, dd, EMBI_CTX_ARG(1))) return embi_bind_end(&sc, EMBI_JS_EXCEPTION);
+        a0.u.ptr = dd;
+      }
+    }
+    }
+    ((void (*)(embi_bind_ctx *, embi_node *, embi_bind_union))m->impl)(c, self, a0);
+    return embi_bind_end(&sc, EMBI_JS_UNDEFINED);
+}
+
 /* DOMMatrixReadOnly.rotateFromVector */
 embi_js_value embi_shape_87754c30(embi_js_realm *r, embi_js_value this_v, int argc, const embi_js_value *argv, int magic)
 {
@@ -4035,6 +4067,40 @@ embi_js_value embi_shape_90ca3165(embi_js_realm *r, embi_js_value this_v, int ar
     embi_dstr a0 = {0};
     if (!embi_bind_conv_str(c, v0, EMBI_CTX_SET, false, &a0)) return embi_bind_end(&sc, EMBI_JS_EXCEPTION);
     ((void (*)(embi_bind_ctx *, embi_bind_obj *, embi_dstr))m->impl2)(c, self, a0);
+    return embi_bind_end(&sc, EMBI_JS_UNDEFINED);
+}
+
+/* RemoteWindow.postMessage */
+embi_js_value embi_shape_9208d27f(embi_js_realm *r, embi_js_value this_v, int argc, const embi_js_value *argv, int magic)
+{
+    (void)this_v;
+    (void)argc;
+    (void)argv;
+    (void)magic;
+    const embi_bind_member *m = r->cur_data;
+    embi_bind_scope sc;
+    embi_bind_obj *bo = nullptr;
+    embi_bind_ctx *c = embi_bind_begin(r, this_v, m, EMBI_SELF_OBJ, &sc, &bo);
+    if (!c) return sc.early;
+    embi_bind_obj *self = bo;
+    (void)self;
+    if (argc < 1) return embi_bind_end(&sc, embi_bind_throw_args(c, EMBI_CTX_ARG(0), 1, argc));
+    embi_js_value a0 = {0};
+    a0 = argv[0];
+    embi_js_value a1 = {0};
+    if (argc <= 1) {
+        a1 = EMBI_JS_UNDEFINED;
+    } else {
+    a1 = argv[1];
+    }
+    embi_js_value a2 = {0};
+    if (argc <= 2) {
+        a2 = EMBI_JS_UNDEFINED;
+    } else {
+    a2 = argv[2];
+    }
+    embi_dom_err err = ((embi_dom_err (*)(embi_bind_ctx *, embi_bind_obj *, embi_js_value, embi_js_value, embi_js_value))m->impl)(c, self, a0, a1, a2);
+    if (err != EMBI_DOM_OK) return embi_bind_end(&sc, embi_bind_throw_dom(c, err));
     return embi_bind_end(&sc, EMBI_JS_UNDEFINED);
 }
 
@@ -7081,38 +7147,6 @@ embi_js_value embi_shape_e208daa8(embi_js_realm *r, embi_js_value this_v, int ar
 }
 #endif
 
-/* Element.scrollIntoView */
-embi_js_value embi_shape_e24ea5d4(embi_js_realm *r, embi_js_value this_v, int argc, const embi_js_value *argv, int magic)
-{
-    (void)this_v;
-    (void)argc;
-    (void)argv;
-    (void)magic;
-    const embi_bind_member *m = r->cur_data;
-    embi_bind_scope sc;
-    embi_bind_obj *bo = nullptr;
-    embi_bind_ctx *c = embi_bind_begin(r, this_v, m, EMBI_SELF_NODE, &sc, &bo);
-    if (!c) return sc.early;
-    embi_node *self = (embi_node *)bo->ptr;
-    (void)self;
-    embi_bind_union a0 = {0};
-    if (argc <= 0) {
-        a0 = (embi_bind_union){0};
-    } else {
-    { static const embi_bind_um um1[] = {{EMBI_UM_BOOL, 0, false, 0}, {EMBI_UM_OBJECT, 0, true, 0}};
-      if (!embi_bind_conv_union(c, argv[0], um1, 2, false, EMBI_CTX_ARG(1), &a0)) return embi_bind_end(&sc, EMBI_JS_EXCEPTION);
-      if (a0.kind == 2) {
-        embi_dict_ScrollToOptions *dd = (embi_dict_ScrollToOptions *)embi_bind_alloc(c, sizeof *dd);
-        SDL_memset(dd, 0, sizeof *dd);
-        if (!embi_gen_dict_conv_ScrollToOptions(c, a0.u.v, dd, EMBI_CTX_ARG(1))) return embi_bind_end(&sc, EMBI_JS_EXCEPTION);
-        a0.u.ptr = dd;
-      }
-    }
-    }
-    ((void (*)(embi_bind_ctx *, embi_node *, embi_bind_union))m->impl)(c, self, a0);
-    return embi_bind_end(&sc, EMBI_JS_UNDEFINED);
-}
-
 /* Document.adoptedStyleSheets */
 embi_js_value embi_shape_e26206f3(embi_js_realm *r, embi_js_value this_v, int argc, const embi_js_value *argv, int magic)
 {
@@ -7913,6 +7947,28 @@ embi_js_value embi_shape_fb4a4a93(embi_js_realm *r, embi_js_value this_v, int ar
     a4 = argv[4];
     }
     embi_dom_err err = ((embi_dom_err (*)(embi_bind_ctx *, embi_bind_obj *, double, double, double, double, embi_js_value))m->impl)(c, self, a0, a1, a2, a3, a4);
+    if (err != EMBI_DOM_OK) return embi_bind_end(&sc, embi_bind_throw_dom(c, err));
+    return embi_bind_end(&sc, EMBI_JS_UNDEFINED);
+}
+
+/* HTMLInputElement.selectionDirection */
+embi_js_value embi_shape_fb84643d(embi_js_realm *r, embi_js_value this_v, int argc, const embi_js_value *argv, int magic)
+{
+    (void)this_v;
+    (void)argc;
+    (void)argv;
+    (void)magic;
+    const embi_bind_member *m = r->cur_data;
+    embi_bind_scope sc;
+    embi_bind_obj *bo = nullptr;
+    embi_bind_ctx *c = embi_bind_begin(r, this_v, m, EMBI_SELF_NODE, &sc, &bo);
+    if (!c) return sc.early;
+    embi_node *self = (embi_node *)bo->ptr;
+    (void)self;
+    embi_js_value v0 = argc > 0 ? argv[0] : EMBI_JS_UNDEFINED;
+    embi_bind_nstr a0 = {0};
+    if (!embi_bind_conv_nstr(c, v0, EMBI_CTX_SET, false, &a0)) return embi_bind_end(&sc, EMBI_JS_EXCEPTION);
+    embi_dom_err err = ((embi_dom_err (*)(embi_bind_ctx *, embi_node *, embi_bind_nstr))m->impl2)(c, self, a0);
     if (err != EMBI_DOM_OK) return embi_bind_end(&sc, embi_bind_throw_dom(c, err));
     return embi_bind_end(&sc, EMBI_JS_UNDEFINED);
 }

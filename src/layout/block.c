@@ -1120,6 +1120,9 @@ static float block_width(embi_lctx *c, embi_box *b, const embi_cs *cs, float edg
 /* Puts the fragments of the tree rooted at f on the free list of the document. */
 static void frag_release(embi_lay_doc *ld, embi_frag *f)
 {
+    if (ld->lc_on) {
+        return; /* the layout cache (lcache.c) may hold fragments of this tree: the arena takes them back after the run */
+    }
     if (ld->reuse_on && embi_hashmap_len(&ld->reusedmap) != 0) {
         embi_hashmap_remove(&ld->reusedmap, (uint64_t)(uintptr_t)f); /* the address is about to be recycled */
     }
@@ -1714,7 +1717,9 @@ static void block_pass(embi_lctx *c, embi_box *b, const embi_cs *cs, embi_lres *
         }
     }
     /* Centered content (buttons): the content sits in the middle of a fixed height. */
-    if (((b->flags & EMBI_BF_CENTER) && !selfc && !isnan(hspec)) || ac_free > 0) {
+    /* A button that is a flex or grid container lays its children out as that container does (no extra centring). */
+    if (((b->flags & EMBI_BF_CENTER) && !selfc && !isnan(hspec) && b->kind != EMBI_BK_FLEX && b->kind != EMBI_BK_GRID) ||
+        ac_free > 0) {
         float free = ac_free > 0 ? ac_free : (used - ch) / 2;
         if (free > 0) {
             for (embi_frag *k = f->first; k != nullptr; k = k->next) {
@@ -1782,22 +1787,34 @@ static void block_gutters(embi_lctx *c, embi_box *b, const embi_cs *cs, embi_lre
         stable = sg != nullptr && sg->kind == EMBI_V_KEYWORD && sg->kw == EMBI_KW_stable;
     }
     float t = c->scrollbar > 0 ? c->scrollbar : 0;
+    float th = t; /* the thickness of a horizontal bar: the block-end gutter */
+    if ((b->flags & EMBI_BF_SCROLL) != 0 && b->el != nullptr && b->pe == 0 && !c->no_pseudo) {
+        /* A ::-webkit-scrollbar style makes the bars classic: they take their thickness from the container, whatever the
+         * scrollbar thickness of the layout (0: overlay bars take none), and display: none or no thickness removes them. */
+        const embi_style *sbs = embi_style_generated(c->style, b->el, EMBI_PE_SCROLLBAR);
+        if (sbs != nullptr) {
+            float tv, thh;
+            embi_style_scrollbar_thickness(sbs, &tv, &thh);
+            t = tv > 0.0f ? tv : 0.0f;
+            th = thh > 0.0f ? thh : 0.0f;
+        }
+    }
     bool auto_x = (b->flags & EMBI_BF_SCROLL) != 0 && ox == EMBI_KW_auto;
     bool auto_y = (b->flags & EMBI_BF_SCROLL) != 0 && oy == EMBI_KW_auto;
     /* The gutters that are there whatever the content: overflow: scroll, and scrollbar-gutter:
      * stable on a scroll container (not on overflow: clip). */
     float base_v = (oy == EMBI_KW_scroll || (stable && (b->flags & EMBI_BF_SCROLL) != 0)) ? t : 0;
-    float base_h = ox == EMBI_KW_scroll ? t : 0;
+    float base_h = ox == EMBI_KW_scroll ? th : 0;
     bool gv = auto_y && (b->flags2 & EMBI_BF2_VGUT) != 0;
     bool gh = auto_x && (b->flags2 & EMBI_BF2_HGUT) != 0;
     float sbv = gv ? t : base_v;
-    float sbh = gh ? t : base_h;
+    float sbh = gh ? th : base_h;
     bool ovx = false, ovy = false;
     embi_clamp cl0 = c->cl;
     block_pass(c, b, cs, out, sbv, sbh, &ovx, &ovy);
     if (auto_x || auto_y) {
         float sbv2 = auto_y && ovy ? t : base_v;
-        float sbh2 = auto_x && ovx ? t : base_h;
+        float sbh2 = auto_x && ovx ? th : base_h;
         if (sbv2 != sbv || sbh2 != sbh) {
             embi_lay_clear_frags(c, b);
             c->cl = cl0;
@@ -1858,14 +1875,23 @@ static void lay_box_dispatch(embi_lctx *c, embi_box *b, const embi_cs *cs, embi_
 
 void embi_lay_box(embi_lctx *c, embi_box *b, const embi_cs *cs, embi_lres *out)
 {
-    /* The intrinsic sizes this layout asks for have their own percentage basis (embi_lctx.ih_on). */
-    embi_ih ih = embi_lay_ih_push(c, NAN);
     /* W6b: a plain block laid out by block flow on a chain of such boxes is recorded for the partial relayout (incr.c).
      * CF1: so is a flex or grid container there, whose children are not (the chain ends at it). */
     bool via = c->via_flow;
     c->via_flow = false;
     bool saved = c->chain_ok;
     bool rec = saved && via && embi_lay_incr_chain_ok(c, b, cs);
+    /* The layout cache (lcache.c): the box's last layout in this run, when it was for the same constraints. A box on the
+     * chain is recorded instead (and so are the ones below it), and is not cached. */
+    embi_lc_mark lcm = {0, 0, 0, 0, 0};
+    if (!rec && c->ld->lc_on && embi_lay_lc_get(c, b, cs, out, &lcm)) {
+        if (saved) {
+            embi_lay_incr_forget(c->ld, b);
+        }
+        return;
+    }
+    /* The intrinsic sizes this layout asks for have their own percentage basis (embi_lctx.ih_on). */
+    embi_ih ih = embi_lay_ih_push(c, NAN);
     c->chain_ok = rec && b->kind == EMBI_BK_BLOCK;
     uint32_t n0 = cs->excl != nullptr ? cs->excl->rects.len : 0;
     uint32_t pos0 = rec ? embi_lay_pos_count(c) : 0;
@@ -1881,6 +1907,9 @@ void embi_lay_box(embi_lctx *c, embi_box *b, const embi_cs *cs, embi_lres *out)
     lay_box_dispatch(c, b, cs, out);
     if (iso) {
         c->cl = cl_saved;
+    }
+    if (lcm.slot != 0) {
+        embi_lay_lc_put(c, b, cs, out, &lcm);
     }
     c->chain_ok = saved;
     if (rec && out->frag != nullptr) {

@@ -20,6 +20,10 @@
 // points. The lookup is indexed by shift = 2 (v0 > 0) + 4 (v1 > 0) + 8 (v2 > 0).
 static const uint SLUG_ROOT_CLASS = 0x2E74u;
 
+// The class code alone decides whether a curve crosses the ray: a root that rounds to just outside [0, 1] is clamped, not dropped.
+// A vertex of the outline can lie exactly on the ray (a stroke's turns along a pixel row), where a curve that ends there has its root at
+// t = 1 and the one that starts there at t = 0, and the winding stays right only if each counts the crossing its signs say it has.
+
 // Signed crossing and reliability weight of one curve at parameter t. q holds the along-ray
 // coordinates of its three control points (relative to the pixel center), dv and du give the
 // derivatives across and along the ray.
@@ -87,12 +91,9 @@ SlugRay slugCastRay(ByteAddressBuffer sb, uint blob, uint entry, uint curveBase,
         if (a == 0.0) {
             // Linear in t: one root, which exists whenever the class says there is a crossing.
             if (b != 0.0) {
-                const float t = c / (2.0 * b);
-                if (t >= 0.0 && t <= 1.0) {
-                    const float2 cr = slugCrossing(t, a, b, au, bu, qa, k);
-                    r.sum += cr.x;
-                    r.weight += cr.y;
-                }
+                const float2 cr = slugCrossing(saturate(c / (2.0 * b)), a, b, au, bu, qa, k);
+                r.sum += cr.x;
+                r.weight += cr.y;
             }
             continue;
         }
@@ -110,13 +111,13 @@ SlugRay slugCastRay(ByteAddressBuffer sb, uint blob, uint entry, uint curveBase,
         const float rb = c / qq;
         const float r1 = (b >= 0.0) ? rb : ra; // (b - s) / a, class bit 0
         const float r2 = (b >= 0.0) ? ra : rb; // (b + s) / a, class bit 1
-        if ((code & 1u) != 0u && r1 >= 0.0 && r1 <= 1.0) {
-            const float2 cr = slugCrossing(r1, a, b, au, bu, qa, k);
+        if ((code & 1u) != 0u) {
+            const float2 cr = slugCrossing(saturate(r1), a, b, au, bu, qa, k);
             r.sum += cr.x;
             r.weight += cr.y;
         }
-        if ((code & 2u) != 0u && r2 >= 0.0 && r2 <= 1.0) {
-            const float2 cr = slugCrossing(r2, a, b, au, bu, qa, k);
+        if ((code & 2u) != 0u) {
+            const float2 cr = slugCrossing(saturate(r2), a, b, au, bu, qa, k);
             r.sum += cr.x;
             r.weight += cr.y;
         }

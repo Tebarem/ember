@@ -169,8 +169,13 @@ EMB_TEST(bind_engines_scroll_into_view_uses_the_layout)
     EMB_CHECK(js_true(&e, "f.scrollIntoView(); window.scrollY > 1000"));
     EMB_CHECK(e.scrolls >= 1);
     EMB_CHECK(e.scroll_y > 1000);
-    /* the rectangle is relative to the viewport, so it moved up by the scroll offset */
-    EMB_CHECK(js_true(&e, "Math.abs(f.getBoundingClientRect().top) < 1"));
+    /* the page ends 50 px below the top of #far: the scroll stops at the end of the overflow (scrollHeight less the
+     * viewport), so #far is at the viewport's bottom less its height, not at its top */
+    EMB_CHECK(js_true(&e, "var sh = document.documentElement.scrollHeight; sh > 2000 && window.scrollY === sh - innerHeight"));
+    EMB_CHECK(js_true(&e, "Math.abs(f.getBoundingClientRect().bottom - innerHeight) < 1"));
+    /* with room below it, block start brings its top to the top */
+    EMB_CHECK(js_true(&e, "document.body.style.paddingBottom = '2000px'; f.scrollIntoView(); "
+                          "Math.abs(f.getBoundingClientRect().top) < 1"));
     env_done(&e);
 }
 

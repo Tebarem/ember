@@ -610,6 +610,12 @@ static bool parse_colon(sp *p, const embi_css_cv *v, uint32_t n, uint32_t *ip,
             {"selection", EMBI_PE_SELECTION, true},
             {"backdrop", EMBI_PE_BACKDROP, true},
             {"file-selector-button", EMBI_PE_FILE_SELECTOR_BUTTON, true},
+            {"-webkit-slider-runnable-track", EMBI_PE_SLIDER_TRACK, true},
+            {"-webkit-slider-thumb", EMBI_PE_SLIDER_THUMB, true},
+            {"-webkit-scrollbar", EMBI_PE_SCROLLBAR, true},
+            {"-webkit-scrollbar-thumb", EMBI_PE_SCROLLBAR_THUMB, true},
+            {"-webkit-scrollbar-track", EMBI_PE_SCROLLBAR_TRACK, true},
+            {"-webkit-scrollbar-corner", EMBI_PE_SCROLLBAR_CORNER, true},
         };
         for (size_t j = 0; j < sizeof pes / sizeof pes[0]; j++) {
             if (ieq_lit(name, pes[j].n)) {

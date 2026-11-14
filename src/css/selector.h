@@ -32,7 +32,16 @@ typedef enum embi_sel_pseudo {
     EMBI_PE_FIRST_LINE,
     EMBI_PE_FIRST_LETTER,
     EMBI_PE_FILE_SELECTOR_BUTTON,
+    EMBI_PE_SLIDER_TRACK,     /* ::-webkit-slider-runnable-track of an input type=range */
+    EMBI_PE_SLIDER_THUMB,     /* ::-webkit-slider-thumb */
+    EMBI_PE_SCROLLBAR,        /* ::-webkit-scrollbar of a scroll container */
+    EMBI_PE_SCROLLBAR_THUMB,  /* ::-webkit-scrollbar-thumb */
+    EMBI_PE_SCROLLBAR_TRACK,  /* ::-webkit-scrollbar-track */
+    EMBI_PE_SCROLLBAR_CORNER, /* ::-webkit-scrollbar-corner */
+    EMBI_PE_COUNT,            /* 16: the style engine keys its pseudo-element styles by (element << 4 | pseudo) */
 } embi_sel_pseudo;
+
+static_assert(EMBI_PE_COUNT <= 16, "the pseudo-element style keys hold four bits of the pseudo-element");
 
 /* Pseudo-classes. The state ones (EMBI_PC_HOVER up to EMBI_PC_OUT_OF_RANGE) are answered by the
  * state hook when one is supplied. */

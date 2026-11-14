@@ -99,6 +99,13 @@ bool embi_paint_control_offset(const embi_layout_engine *e, const embi_element *
 /* The caret rectangle (x, y, w, h) in page px of a text control (the IME area and the blink damage). */
 bool embi_paint_control_caret(const embi_layout_engine *e, const embi_element *el, const float bb[4], float rect[4]);
 
+/* The track of a range input whose parts are styled (appearance: none with a ::-webkit-slider-runnable-track or
+ * ::-webkit-slider-thumb style): *left and *width are the content box of the track along the page's x axis for the input's
+ * border box bb (page px) and *thumb_w the width of the thumb, so that the thumb's left edge runs from *left to *left + *width -
+ * *thumb_w with the value. False for a range drawn natively. */
+bool embi_paint_range_track(const embi_layout_engine *e, embi_style_engine *se, const embi_element *el, const float bb[4],
+                            float *left, float *width, float *thumb_w);
+
 /* R4c: the host's lookup of SVG images by URL as written in the document (called with the build's cfg->user). It returns the
  * parsed SVG image behind the URL, or nullptr when the URL is not one (or not loaded). Process-wide: set it once; nullptr
  * (the default) means no SVG images, and <img src=x.svg> then paints nothing. */

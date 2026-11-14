@@ -17,6 +17,7 @@
  * the bytes), so fetch() sees one interface for every scheme.
  */
 #include "embed/resource_int.h"
+#include "embed/frames.h"
 #include "embed/netapi.h"
 #include "embed/netload.h"
 
@@ -1178,6 +1179,7 @@ void embi_rt_bind_ctx(embi_bind_ctx *c, emb_view *view)
 #endif
     }
     embi_loader_attach(c, &env);
+    embi_frames_bind(c, view); /* IF1: contentWindow, parent, top and the frames' postMessage */
 #if EMBER_CANVAS
     if (view != nullptr) {
         embi_canvas_env ce;

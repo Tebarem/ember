@@ -76,9 +76,9 @@ typedef struct embi_stroke_style {
                                              float tolerance, float *coverage);
 
 /* Strokes p and fills the result in one call. A solid paint has its alpha scaled by the hairline
- * coverage; other paints are drawn unscaled. The expanded path is rebuilt on every call and the
- * blob cache cannot reuse it: a stroke drawn every frame should keep the result of
- * embi_path_stroke and fill it with embi_frame_fill_path instead. */
+ * coverage; other paints are drawn unscaled. The expanded outline's blob is cached under a hash of
+ * the path and the style (width, caps, joins, miter limit, dashes, tolerance), so a stroke drawn
+ * again is not expanded again. */
 void embi_frame_stroke_path(embi_frame *f, const embi_path *p, const embi_stroke_style *st,
                             float tolerance, const embi_paint *paint, uint32_t xform,
                             uint32_t clip);

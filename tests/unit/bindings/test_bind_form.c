@@ -692,4 +692,106 @@ EMB_TEST(bind_form_submission_normalizes_line_breaks_and_resolves_get_urls)
     env_free(e);
 }
 
+/* A number field is edited as a text field (Chromium): typed text keeps only the number characters, the field shows what was
+ * typed while the value is the empty string until the text is a valid number (badInput, valueAsNumber NaN), the selection
+ * API reads null and throws, and select() and Ctrl+A select the text that the next edit replaces. */
+EMB_TEST(bind_form_number_field_edits_as_text)
+{
+    env e = env_new();
+    EMB_CHECK(js_true(e, "document.body.innerHTML = '<input id=n type=number value=\"16\"><input id=m type=email>'; true"));
+    EMB_CHECK(js_true(e, "window.log = []; var n = document.getElementById('n'); "
+                         "n.addEventListener('beforeinput', function (x) { log.push('before:' + x.data); });"
+                         "n.addEventListener('input', function (x) { log.push('input:' + n.value); }); true"));
+    embi_node *n = by_id(e, "n");
+    EMB_REQUIRE(n != nullptr);
+    /* the selection API does not apply to number (nor to email) */
+    EMB_CHECK(js_true(e, "n.selectionStart === null && n.selectionEnd === null && n.selectionDirection === null"));
+    EMB_CHECK(js_true(e, "var m = document.getElementById('m'); m.selectionStart === null && m.selectionEnd === null"));
+    EMB_CHECK(js_true(e, "var threw = ''; try { n.setSelectionRange(0, 1); } catch (x) { threw = x.name; } "
+                         "threw === 'InvalidStateError'"));
+    EMB_CHECK(js_true(e, "threw = ''; try { n.selectionStart = 0; } catch (x) { threw = x.name; } threw === 'InvalidStateError'"));
+    EMB_CHECK(js_true(e, "threw = ''; try { n.selectionDirection = 'forward'; } catch (x) { threw = x.name; } "
+                         "threw === 'InvalidStateError'"));
+    /* Ctrl+A selects the text, typing replaces it */
+    EMB_CHECK(embi_forms_key(e.c, n, "a", true, false, false));
+    EMB_CHECK(embi_forms_edit(e.c, n, "insertText", (embi_str){"12", 2}, false));
+    EMB_CHECK(js_true(e, "n.value === '12' && n.valueAsNumber === 12"));
+    EMB_CHECK(js_true(e, "log.join() === 'before:12,input:12'"));
+    /* characters that are not part of a number are dropped; text with none of them is no edit at all */
+    EMB_CHECK(js_true(e, "log = []; true"));
+    EMB_CHECK(!embi_forms_edit(e.c, n, "insertText", (embi_str){"x", 1}, false));
+    EMB_CHECK(js_true(e, "log.length === 0 && n.value === '12'"));
+    EMB_CHECK(embi_forms_edit(e.c, n, "insertText", (embi_str){"a.5", 3}, false));
+    EMB_CHECK(js_true(e, "n.value === '12.5' && log.join() === 'before:.5,input:12.5'"));
+    /* text that is not (yet) a number: the value is empty, the field shows the text */
+    EMB_CHECK(embi_forms_edit(e.c, n, "insertText", (embi_str){"e", 1}, false));
+    EMB_CHECK(js_true(e, "n.value === '' && isNaN(n.valueAsNumber) && n.validity.badInput && !n.validity.valid"));
+    embi_paint_ctl st;
+    memset(&st, 0, sizeof st);
+    EMB_CHECK(embi_forms_paint_state(n, &st));
+    EMB_CHECK(st.kind == EMBI_PCTL_TEXT && st.text_len == 5 && memcmp(st.text, "12.5e", 5) == 0 && st.caret == 5);
+    EMB_CHECK(embi_forms_edit(e.c, n, "insertText", (embi_str){"2", 1}, false));
+    EMB_CHECK(js_true(e, "n.value === '12.5e2' && n.valueAsNumber === 1250 && !n.validity.badInput"));
+    /* Backspace edits as in a text field */
+    EMB_CHECK(embi_forms_key(e.c, n, "Backspace", false, false, false));
+    EMB_CHECK(embi_forms_key(e.c, n, "Backspace", false, false, false));
+    EMB_CHECK(js_true(e, "n.value === '12.5'"));
+    /* select() selects the text: the next edit replaces it */
+    EMB_CHECK(js_true(e, "n.select(); true"));
+    EMB_CHECK(embi_forms_edit(e.c, n, "insertText", (embi_str){"7", 1}, false));
+    EMB_CHECK(js_true(e, "n.value === '7'"));
+    /* the value setter sanitizes */
+    EMB_CHECK(js_true(e, "n.value = 'abc'; n.value === '' && !n.validity.badInput"));
+    EMB_CHECK(js_true(e, "n.value = '-1.5e1'; n.value === '-1.5e1' && n.valueAsNumber === -15"));
+    /* badInput is reported before valueMissing */
+    EMB_CHECK(js_true(e, "n.required = true; n.value = ''; n.validationMessage === 'Please fill out this field.'"));
+    EMB_CHECK(embi_forms_edit(e.c, n, "insertText", (embi_str){"e", 1}, false));
+    EMB_CHECK(js_true(e, "n.validationMessage === 'Please enter a number.'"));
+    /* an email field's value has no white space around the typed text, which the field still shows */
+    embi_node *m = by_id(e, "m");
+    EMB_REQUIRE(m != nullptr);
+    EMB_CHECK(embi_forms_edit(e.c, m, "insertText", (embi_str){" a@b.c ", 7}, false));
+    EMB_CHECK(js_true(e, "m.value === 'a@b.c' && m.validity.valid"));
+    embi_paint_ctl mp;
+    memset(&mp, 0, sizeof mp);
+    EMB_CHECK(embi_forms_paint_state(m, &mp));
+    EMB_CHECK(mp.text_len == 7 && mp.caret == 7);
+    env_free(e);
+}
+
+/* ArrowUp and ArrowDown step a number field as Chromium's spin button does, firing input and then change on each step: by the
+ * step (1 for step=any) within min and max, snapping a value off the step, without the rounding error of binary fractions. */
+EMB_TEST(bind_form_number_field_arrow_keys_step)
+{
+    env e = env_new();
+    EMB_CHECK(js_true(e, "document.body.innerHTML = '<input id=a type=number min=0 max=10 step=2 value=4>"
+                         "<input id=b type=number step=any value=1.5><input id=c type=number min=5>"
+                         "<input id=d type=number step=0.1 value=0.1><input id=r type=number value=3 readonly>'; true"));
+    EMB_CHECK(js_true(e, "window.log = []; ['a','b','c','d'].forEach(function (id) { var x = document.getElementById(id); "
+                         "x.addEventListener('input', function () { log.push('input:' + x.value); }); "
+                         "x.addEventListener('change', function () { log.push('change:' + x.value); }); }); true"));
+    embi_node *a = by_id(e, "a");
+    EMB_REQUIRE(a != nullptr);
+    EMB_CHECK(embi_forms_key(e.c, a, "ArrowUp", false, false, false));
+    EMB_CHECK(js_true(e, "log.join() === 'input:6,change:6'"));
+    EMB_CHECK(embi_forms_key(e.c, a, "ArrowUp", false, false, false));
+    EMB_CHECK(embi_forms_key(e.c, a, "ArrowUp", false, false, false));
+    EMB_CHECK(embi_forms_key(e.c, a, "ArrowUp", false, false, false)); /* at max: no step, no event */
+    EMB_CHECK(js_true(e, "log.join() === 'input:6,change:6,input:8,change:8,input:10,change:10'"));
+    EMB_CHECK(js_true(e, "log = []; document.getElementById('a').value = '5'; true"));
+    EMB_CHECK(embi_forms_key(e.c, a, "ArrowDown", false, false, false)); /* off the step: snaps down */
+    EMB_CHECK(js_true(e, "log.join() === 'input:4,change:4'"));
+    EMB_CHECK(js_true(e, "log = []; true"));
+    EMB_CHECK(embi_forms_key(e.c, by_id(e, "b"), "ArrowUp", false, false, false));
+    EMB_CHECK(js_true(e, "document.getElementById('b').value === '2.5'"));
+    EMB_CHECK(embi_forms_key(e.c, by_id(e, "c"), "ArrowUp", false, false, false)); /* empty: starts at min */
+    EMB_CHECK(js_true(e, "document.getElementById('c').value === '5'"));
+    EMB_CHECK(embi_forms_key(e.c, by_id(e, "d"), "ArrowUp", false, false, false));
+    EMB_CHECK(embi_forms_key(e.c, by_id(e, "d"), "ArrowUp", false, false, false));
+    EMB_CHECK(js_true(e, "document.getElementById('d').value === '0.3'"));
+    EMB_CHECK(embi_forms_key(e.c, by_id(e, "r"), "ArrowUp", false, false, false)); /* read-only: taken, unchanged */
+    EMB_CHECK(js_true(e, "document.getElementById('r').value === '3'"));
+    env_free(e);
+}
+
 EMB_TEST_MAIN()

@@ -85,6 +85,15 @@ uint32_t embi_layout_client_rects(const embi_layout_engine *e, const embi_elemen
  * each transformed quad). Without a transform in the document they equal the two functions above. */
 bool embi_layout_border_box_xf(const embi_layout_engine *e, const embi_element *el, embi_rectf *out);
 uint32_t embi_layout_client_rects_xf(const embi_layout_engine *e, const embi_element *el, embi_rectf *out, uint32_t cap);
+/* The border box where it is painted (scrollIntoView, the pointer offsets, the caret and every caller that turns a box
+ * into viewport coordinates by subtracting the viewport's scroll offset): moved by the scroll offsets of the scroll
+ * containers around the element, and for a position: fixed box of the viewport (and its content) moved by the viewport's
+ * offset, which does not move it on screen (so the caller's subtraction leaves it in place). Equal to
+ * embi_layout_border_box when nothing is scrolled. The _xf forms apply the transforms as the _xf functions above do
+ * (getBoundingClientRect and getClientRects). */
+bool embi_layout_painted_box(const embi_layout_engine *e, const embi_element *el, embi_rectf *out);
+bool embi_layout_painted_box_xf(const embi_layout_engine *e, const embi_element *el, embi_rectf *out);
+uint32_t embi_layout_painted_rects_xf(const embi_layout_engine *e, const embi_element *el, embi_rectf *out, uint32_t cap);
 /* CSSOM View offsetParent, offsetLeft/Top/Width/Height. *parent receives the offsetParent
  * (nullptr when there is none). Widths and heights are the rounded border box size. The offsets
  * are relative to the padding edge of the offsetParent (see the spec for body). */
@@ -103,7 +112,8 @@ bool embi_layout_scroll_size(const embi_layout_engine *e, const embi_element *el
 /* The topmost element whose border box contains (x, y) in viewport coordinates (CSS px, the root's scroll offset applied as
  * paint applies it), in the paint order of src/paint (stacking contexts, z-index, positioned and floated boxes), skipping
  * pointer-events: none and visibility hidden boxes as targets (their children still count) and the parts outside an
- * ancestor's clip. Implemented in hit.c (W5d2). */
+ * ancestor's clip. A position: fixed box of the viewport is not moved by the root's offset, as paint keeps it still.
+ * Implemented in hit.c (W5d2). */
 embi_element *embi_layout_hit_test(const embi_layout_engine *e, const embi_document *doc, float x,
                                    float y);
 /* Every element hit at the same point: the walk of embi_layout_hit_test without its stop at the first hit. Each element
@@ -112,6 +122,10 @@ embi_element *embi_layout_hit_test(const embi_layout_engine *e, const embi_docum
  * of *n elements (free with embi_free(out, *n * sizeof *out)); *out is nullptr when nothing is hit. Implemented in hit.c. */
 void embi_layout_hit_test_all(const embi_layout_engine *e, const embi_document *doc, float x, float y,
                               embi_element ***out, uint32_t *n);
+/* As embi_layout_hit_test, and local gets the point in the hit element's border box, in the box's own space (every
+ * transform and scroll offset on the way undone; NAN when unknown). An iframe maps pointer events into a frame with it. */
+embi_element *embi_layout_hit_test_local(const embi_layout_engine *e, const embi_document *doc, float x, float y,
+                                         float local[2]);
 
 /* R4c: the SVG hit test of an svg element's box. The hook gets the engine, the svg element, its content box (x, y, w, h
  * relative to the border box) and the point relative to the content box's origin, and returns the element of the shape
@@ -156,6 +170,10 @@ size_t embi_layout_cache_bytes(const embi_layout_engine *e, const embi_document 
  * unchanged document keeps the tree; a change of the styles, the viewport, the scrollbar thickness or an
  * image size builds it again). For the tests and the bench. Zero for an unknown document. */
 uint32_t embi_layout_tree_builds(const embi_layout_engine *e, const embi_document *doc);
+
+/* How many times embi_layout_document was called on the engine (a layout that changed nothing counts too): a cache of
+ * fragment pointers and positions is valid only while this is unchanged (and the scroll offsets it read are). */
+uint64_t embi_layout_calls(const embi_layout_engine *e);
 
 /* Fragment allocation of the last layout, for the tests and the bench: the fragments the layout asked
  * for (including those of passes that were thrown away), and how many of them were served from the
@@ -209,6 +227,19 @@ typedef struct embi_layout_incr_stats {
     uint32_t tree_builds;     /* full builds of the box tree */
 } embi_layout_incr_stats;
 void embi_layout_incr_stats_get(const embi_layout_engine *e, const embi_document *doc, embi_layout_incr_stats *out);
+/* Running totals of the engine's embi_layout_document calls, for benches (tools/bench/bench_editor.c): how many there were,
+ * the time they took (SDL performance counter ticks), the parts of it in the style resolve and in the update plan (the box
+ * surgery), and the calls and time by what the update did. kinds[] is indexed by EMBI_LU_*, with EMBI_LAYOUT_PROF_PARTIAL
+ * for a SURGERY that patched the fragment tree (the others count under EMBI_LU_SURGERY). boxes sums boxes_laid_out. */
+enum { EMBI_LAYOUT_PROF_PARTIAL = 5, EMBI_LAYOUT_PROF_KINDS = 6 };
+typedef struct embi_layout_prof {
+    uint64_t calls, ticks, style_ticks, plan_ticks;
+    uint64_t kinds[EMBI_LAYOUT_PROF_KINDS];
+    uint64_t kind_ticks[EMBI_LAYOUT_PROF_KINDS];
+    uint64_t boxes;
+    uint64_t reused; /* boxes whose layout the layout cache gave back (lcache.c) */
+} embi_layout_prof;
+void embi_layout_prof_get(const embi_layout_engine *e, embi_layout_prof *out);
 /* The number of fragments the last layout run allocated: the boxes it laid out (0 when the last update ran no layout). */
 uint32_t embi_layout_boxes_laid_out(const embi_layout_engine *e, const embi_document *doc);
 /* The next layout builds the tree again (a change the style engine's change set does not describe). */
@@ -226,6 +257,10 @@ bool embi_layout_paint_dirty(embi_layout_engine *e, const embi_document *doc, ui
                              uint32_t *n);
 /* The paint module has painted: forget the dirty elements. */
 void embi_layout_paint_clean(embi_layout_engine *e, const embi_document *doc);
+/* The epoch of the document's shaped runs: it changes whenever a layout freed runs that a display list may name, and a layout
+ * state made again for the document has a new one. A list built at another epoch must not be read (compared, reused or
+ * drawn). 0 when the document has no layout state; never 0 otherwise, and never repeated. */
+uint64_t embi_layout_run_epoch(embi_layout_engine *e, const embi_document *doc);
 /* W4g4c, content_img.c: images of the content property (CSS Content 3). embi_lay_image_resolve picks the option of an
  * image-set() (1x, else the lowest resolution above it, else the highest below; nested sets too), and returns other
  * images unchanged (nullptr when no option applies); *dppx (when not null) is the chosen resolution.

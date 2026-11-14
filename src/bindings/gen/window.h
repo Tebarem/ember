@@ -137,6 +137,7 @@ embi_js_value embi_impl_Window_get_crypto(embi_bind_ctx *c, embi_bind_obj * self
 embi_dom_err embi_impl_Window_atob(embi_bind_ctx *c, embi_bind_obj * self, embi_dstr a0, embi_dstr *out);
 embi_dom_err embi_impl_Window_btoa(embi_bind_ctx *c, embi_bind_obj * self, embi_dstr a0, embi_dstr *out);
 embi_js_value embi_impl_Window_fetch(embi_bind_ctx *c, embi_bind_obj * self, embi_js_value a0, embi_js_value a1);
+embi_js_value embi_impl_Window_get_frameElement(embi_bind_ctx *c, embi_bind_obj * self);
 embi_dom_err embi_impl_Window_postMessage(embi_bind_ctx *c, embi_bind_obj * self, embi_js_value a0, embi_js_value a1, embi_js_value a2);
 embi_dom_err embi_impl_Window_structuredClone(embi_bind_ctx *c, embi_bind_obj * self, embi_js_value a0, embi_dict_StructuredSerializeOptions a1, embi_js_value *out);
 embi_dom_err embi_impl_Window_get_localStorage(embi_bind_ctx *c, embi_bind_obj * self, embi_js_value *out);

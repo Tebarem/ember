@@ -10,6 +10,7 @@
  */
 #include "embed_int.h"
 
+#include "embed/frames.h"
 #include "embed/input_int.h"
 #include "embed/script_int.h"
 #include "base/clock.h"
@@ -58,6 +59,23 @@ static uint32_t device_px(uint32_t css, float scale)
 }
 
 /* ------------------------------------------------------------------ callbacks for the document and the GPU side */
+
+/* The renderer of v, with its loader callbacks pointed at v: the frames of a view share their root's renderer (IF1), so each
+ * one sets itself before its images are measured, painted or drawn. */
+static embi_gfx *gfx_of(emb_view *v)
+{
+    if (v->gfx != nullptr) {
+        embi_gfx_set_user(v->gfx, v);
+    }
+    return v->gfx;
+}
+
+/* The style engine the renderer's SVG images are styled with: the root view's, which outlives every frame (the images are
+ * shared by the frames and released only with the root). */
+static struct embi_style_engine *svg_engine(emb_view *v)
+{
+    return embi_doc_style_engine(embi_frames_root(v)->doc);
+}
 
 /* The document's loader (stylesheets, @import): an http(s) URL goes over the network. One that has not arrived is pending (the
  * view's thread does not wait): the document load is suspended on a render-blocking sheet, later sheets are collected again,
@@ -143,8 +161,8 @@ static bool view_image_size(void *user, embi_str url, float *w, float *h, bool *
     if (!embi_view_gfx_ready(v)) {
         return false;
     }
-    embi_gfx_set_style_engine(v->gfx, embi_doc_style_engine(v->doc));
-    return embi_gfx_image_size(v->gfx, url, w, h, has_ratio);
+    embi_gfx_set_style_engine(gfx_of(v), svg_engine(v));
+    return embi_gfx_image_size(gfx_of(v), url, w, h, has_ratio);
 }
 
 static const struct embi_svg_image *view_svg_image(void *user, embi_str url)
@@ -153,8 +171,12 @@ static const struct embi_svg_image *view_svg_image(void *user, embi_str url)
     if (!embi_view_gfx_ready(v)) {
         return nullptr;
     }
-    embi_gfx_set_style_engine(v->gfx, embi_doc_style_engine(v->doc));
-    return embi_gfx_svg_image(v->gfx, url);
+    if ((url.len > 12 && memcmp(url.ptr, "ember-frame:", 12) == 0) ||
+        (url.len > 13 && memcmp(url.ptr, "ember-canvas:", 13) == 0)) {
+        return nullptr; /* the pictures of frames and canvases are textures, not images to fetch */
+    }
+    embi_gfx_set_style_engine(gfx_of(v), svg_engine(v));
+    return embi_gfx_svg_image(gfx_of(v), url);
 }
 
 static embi_str view_resolve(void *user, embi_str raw)
@@ -174,7 +196,7 @@ static void canvas_dirty(void *user)
 static bool canvas_pixels(void *user, embi_str url, const uint8_t **px, uint32_t *w, uint32_t *h)
 {
     emb_view *v = user;
-    return embi_view_gfx_ready(v) && embi_gfx_image_pixels(v->gfx, url, px, w, h);
+    return embi_view_gfx_ready(v) && embi_gfx_image_pixels(gfx_of(v), url, px, w, h);
 }
 
 static uint32_t canvas_image_gen(void *user)
@@ -313,6 +335,7 @@ static bool create_gfx_finish(emb_view *v, gfx_job *j)
         return false;
     }
     embi_gfx_attach_text(v->gfx, v->rt->text);
+    embi_gfx_set_frame_lookup(v->gfx, embi_frames_texture, v); /* IF1: the iframes' pictures */
     v->st.gpu_pipelines_ms = j->ms;
     return true;
 }
@@ -328,6 +351,14 @@ bool embi_view_gfx_ready(emb_view *v)
 {
     if (v->gfx != nullptr) {
         return true;
+    }
+    if (embi_frames_parent(v) != nullptr) {
+        /* A frame: the root's renderer, made by the root when it is windowed. */
+        if (!embi_view_gfx_ready(embi_frames_root(v))) {
+            return false;
+        }
+        embi_view_child_gfx(v);
+        return v->gfx != nullptr;
     }
     if (v->failed || v->mode != EMB_VIEW_WINDOWED) {
         return false;
@@ -351,6 +382,83 @@ bool embi_view_gfx_ready(emb_view *v)
 
 /* ------------------------------------------------------------------ lifetime */
 
+/* The view's document state, with the view's loaders. */
+static void make_doc(emb_view *v, bool no_script)
+{
+    embi_doc_cb cb = {v, view_fetch, view_image_size, v};
+    v->doc = embi_doc_create(v->rt->text, v->rt->fonts, &cb);
+    embi_doc_set_net(v->doc, view_fetch_script, view_pending_count, view_prefetch, view_net_pending);
+    embi_doc_set_load_done(v->doc, doc_load_done);
+    embi_doc_set_font_fetch(v->doc, view_fetch_font);
+    embi_doc_set_svg_image(v->doc, view_svg_image);
+    if (no_script && v->doc != nullptr) {
+        embi_doc_set_scripting(v->doc, false);
+    }
+    sync_doc_viewport(v);
+    embi_doc_prime_env(v->doc);
+}
+
+emb_view *embi_view_new_child(emb_view *parent)
+{
+    emb_view *v = embi_alloc(sizeof *v);
+    memset(v, 0, sizeof *v);
+    v->rt = parent->rt;
+    v->mode = EMB_VIEW_OFFSCREEN;
+    v->scheme = parent->scheme;
+    v->text_aa = EMB_TEXT_AA_GRAY; /* a frame's texture is transparent where its document paints nothing */
+    v->css_w = 300; /* the default object size of an iframe; the parent's layout sets the real one */
+    v->css_h = 150;
+    v->scale = parent->scale;
+    v->st.size = sizeof v->st;
+    v->fmt = parent->fmt;
+    v->force_full = true;
+    v->paint_dirty = true;
+    embi_damage_init(&v->damage);
+    embi_dl_init(&v->dl[0]);
+    embi_dl_init(&v->dl[1]);
+    if (!embi_frames_adopt(v, parent)) {
+        embi_damage_free(&v->damage);
+        embi_free(v, sizeof *v);
+        return nullptr;
+    }
+    make_doc(v, parent->doc != nullptr && !embi_doc_scripting(parent->doc));
+    if (v->doc == nullptr) {
+        emb_view_destroy(v);
+        return nullptr;
+    }
+    embi_view_child_gfx(v);
+    return v;
+}
+
+void embi_view_child_gfx(emb_view *v)
+{
+    emb_view *root = embi_frames_root(v);
+    if (v->gfx == nullptr && root != v && root->gfx != nullptr) {
+        v->gfx = root->gfx;
+        v->fmt = root->fmt;
+        v->gpu = root->gpu;
+        v->dev = root->dev;
+        v->dev_w = 0;
+        v->dev_h = 0;
+        set_texture_size(v, device_px(v->css_w, v->scale), device_px(v->css_h, v->scale));
+    }
+}
+
+void embi_view_set_child_size(emb_view *v, uint32_t css_w, uint32_t css_h)
+{
+    emb_view *root = embi_frames_root(v);
+    v->css_w = css_w > 0 ? css_w : 1;
+    v->css_h = css_h > 0 ? css_h : 1;
+    if (v->scale != root->scale || v->scheme != root->scheme) {
+        v->scale = root->scale;
+        v->scheme = root->scheme;
+        v->force_full = true;
+    }
+    sync_doc_viewport(v);
+    set_texture_size(v, device_px(v->css_w, v->scale), device_px(v->css_h, v->scale));
+    v->paint_dirty = true;
+}
+
 emb_view *emb_view_create(emb_runtime *rt, const emb_view_desc *desc)
 {
     if (desc == nullptr || rt == nullptr) {
@@ -363,6 +471,9 @@ emb_view *emb_view_create(emb_runtime *rt, const emb_view_desc *desc)
     v->scheme = desc->scheme;
     if (desc->size >= offsetof(emb_view_desc, text_aa) + sizeof desc->text_aa) {
         v->text_aa = desc->text_aa;
+    }
+    if (desc->size >= offsetof(emb_view_desc, transparent) + sizeof desc->transparent) {
+        v->transparent = desc->mode == EMB_VIEW_OFFSCREEN && desc->transparent;
     }
     v->css_w = desc->width > 0 ? desc->width : EMBI_VIEW_DEFAULT_W;
     v->css_h = desc->height > 0 ? desc->height : EMBI_VIEW_DEFAULT_H;
@@ -415,17 +526,7 @@ emb_view *emb_view_create(emb_runtime *rt, const emb_view_desc *desc)
         create_gfx_start(v, &gj, true, dev_w, dev_h);
     }
 
-    embi_doc_cb cb = {v, view_fetch, view_image_size, v};
-    v->doc = embi_doc_create(rt->text, rt->fonts, &cb);
-    embi_doc_set_net(v->doc, view_fetch_script, view_pending_count, view_prefetch, view_net_pending);
-    embi_doc_set_load_done(v->doc, doc_load_done);
-    embi_doc_set_font_fetch(v->doc, view_fetch_font);
-    embi_doc_set_svg_image(v->doc, view_svg_image);
-    if (desc->size >= offsetof(emb_view_desc, no_script) + sizeof desc->no_script && desc->no_script && v->doc != nullptr) {
-        embi_doc_set_scripting(v->doc, false);
-    }
-    sync_doc_viewport(v);
-    embi_doc_prime_env(v->doc);
+    make_doc(v, desc->size >= offsetof(emb_view_desc, no_script) + sizeof desc->no_script && desc->no_script);
     if (v->mode == EMB_VIEW_OFFSCREEN && !create_gfx_finish(v, &gj)) {
         emb_view_destroy(v);
         return nullptr;
@@ -458,11 +559,16 @@ void emb_view_destroy(emb_view *v)
     if (v == nullptr) {
         return;
     }
+    /* IF1: the frames first (they share this view's renderer). A frame keeps its root's renderer and device. */
+    const bool child = embi_frames_parent(v) != nullptr;
+    embi_frames_destroy(v);
     SDL_free(v->defer_html);
     SDL_free(v->defer_base);
     embi_netload_detach(v); /* the network thread posts to the view's document: stop before it goes */
     embi_input_destroy(v); /* unpins the nodes while the document (and its binding context) still exists */
-    embi_gfx_svg_clear(v->gfx); /* the parsed SVG images are styled by the document's engine: they go first */
+    if (!child) {
+        embi_gfx_svg_clear(v->gfx); /* the parsed SVG images are styled by the document's engine: they go first */
+    }
     if (v->doc != nullptr) {
         embi_doc_destroy(v->doc);
         v->doc = nullptr;
@@ -471,7 +577,9 @@ void emb_view_destroy(emb_view *v)
     if (v->gfx != nullptr) {
         embi_gfx_texture_destroy(v->gfx, v->tex);
         v->tex = nullptr;
-        embi_gfx_destroy(v->gfx);
+        if (!child) {
+            embi_gfx_destroy(v->gfx);
+        }
         v->gfx = nullptr;
     }
     SDL_free(v->tracks);
@@ -482,8 +590,10 @@ void emb_view_destroy(emb_view *v)
     if (v->mode == EMB_VIEW_WINDOWED) {
         embi_window_release(v);
     }
-    /* The device of an offscreen view is the host's: embi_gpu_destroy leaves it alone. */
-    embi_gpu_destroy(v->gpu);
+    /* The device of an offscreen view is the host's: embi_gpu_destroy leaves it alone. A frame's is its root's. */
+    if (!child) {
+        embi_gpu_destroy(v->gpu);
+    }
     if (v->mode == EMB_VIEW_WINDOWED) {
         embi_window_close(v);
     }
@@ -529,6 +639,7 @@ bool emb_view_load_html(emb_view *view, const char *html, size_t len, const char
         view->defer_has = true;
         return true;
     }
+    embi_frames_doc_begin(view); /* IF1: the old document's frames go; the new one has a new window id */
     embi_input_reset(view); /* the hover, press and focus of the old document go before its binding context does */
     embi_netload_reset(view); /* the network loads of the old document (and a navigation still in flight) are over */
     size_t base_len = base_url != nullptr ? strlen(base_url) : 0;
@@ -536,9 +647,14 @@ bool emb_view_load_html(emb_view *view, const char *html, size_t len, const char
         return false;
     }
     embi_str base = base_url != nullptr ? (embi_str){base_url, (uint32_t)base_len} : (embi_str){"", 0};
-    /* The images of the previous document are not the new document's, even for the same URL. */
-    if (view->gfx != nullptr) {
+    /* The images of the previous document are not the new document's, even for the same URL. A frame shares the cache of its
+     * root's renderer with the other documents of the tree: it keeps it. */
+    if (view->gfx != nullptr && embi_frames_parent(view) == nullptr) {
         embi_gfx_reset_images(view->gfx);
+    } else if (view->gfx != nullptr) {
+        embi_gfx *gx = gfx_of(view); /* the frame's old document resolves its URLs */
+        embi_gfx_forget_images(gx, &view->dl[0]);
+        embi_gfx_forget_images(gx, &view->dl[1]);
     }
     view->net_doc = view->net_doc_next; /* decided before parsing, so the inline scripts see it */
     view->net_doc_next = false;
@@ -841,14 +957,16 @@ void emb_view_scroll_to(emb_view *view, float x, float y)
     embi_view_scroll_root(view, x - cx, y - cy);
 }
 
-void embi_view_wheel(emb_view *v, float x, float y, float dx, float dy)
+bool embi_view_wheel(emb_view *v, float x, float y, float dx, float dy)
 {
     const void *key = nullptr;
     v->anim.active = false;
     if (embi_doc_wheel(v->doc, x, y, dx, dy, (float)v->css_w, (float)v->css_h, &key)) {
         embi_view_note_scroll(v, key);
         v->scroll_dirty = true;
+        return true;
     }
+    return false;
 }
 
 void emb_view_wheel(emb_view *view, float x, float y, float dx, float dy)
@@ -867,6 +985,9 @@ bool embi_view_animating(const emb_view *v)
     }
     if (v->doc != nullptr && embi_doc_animating(v->doc)) {
         return true; /* W6c: a running animation or transition, or a requestAnimationFrame callback */
+    }
+    if (embi_frames_animating((emb_view *)(uintptr_t)v)) {
+        return true; /* IF1: a frame animates, or one waits to be made, loaded or removed */
     }
     if (v->gfx != nullptr && embi_gfx_anim_active(v->gfx, embi_clock_ms())) {
         return true; /* W6c: an animated GIF on screen */
@@ -943,8 +1064,10 @@ bool embi_view_update(emb_view *v)
         v->scroll_dirty = true;
     }
 
-    /* W6c: animated GIFs follow the frame clock; a changed frame repaints (the damage is the image rects, below). */
-    if (v->gfx != nullptr && embi_gfx_anim_tick(v->gfx, embi_clock_ms()) > 0) {
+    /* W6c: animated GIFs follow the frame clock; a changed frame repaints (the damage is the image rects, below). A frame's
+     * renderer is its root's, which ticks it once for the whole tree before the frames update. */
+    const bool child = embi_frames_parent(v) != nullptr;
+    if (!child && v->gfx != nullptr && embi_gfx_anim_tick(gfx_of(v), embi_clock_ms()) > 0) {
         v->paint_dirty = true;
     }
 
@@ -977,6 +1100,12 @@ bool embi_view_update(emb_view *v)
     }
     /* The pointer's cursor follows the style this frame resolved (a :hover rule or a script may have changed it). */
     embi_input_cursor_refresh(v);
+    /* IF1: the frames, now that the iframes' boxes are laid out (their viewports). */
+    const bool kids_changed = v->doc != nullptr && embi_frames_update(v);
+    if (v->doc == nullptr) {
+        return false;
+    }
+    const bool anim_kept = child && embi_gfx_anim_pending(v->gfx);
 
     /* Scrollbars: those that fade are repainted until they are gone. */
     bool fading = false, sb_dirty = false;
@@ -999,12 +1128,44 @@ bool embi_view_update(emb_view *v)
     if (fading) {
         sb_dirty = true;
     }
+    if (v->sbar_dirty) {
+        sb_dirty = true; /* the pointer moved on or off the thumb of a styled scrollbar */
+        v->sbar_dirty = false;
+    }
 
     if (embi_input_forms_tick(v)) {
         v->paint_dirty = true; /* W5e: a form control changed or the caret blinked */
     }
+    /* Layouts this update did not see through embi_view_layout: a script that read geometry (a task, a host message, a timer,
+     * an event or an observer callback) laid the document out at once, and embi_doc_update then had nothing to do. A layout
+     * that rebuilt the fragments changed the picture: it is painted again (compared with the list on screen). One that freed
+     * shaped runs (a tree built again sweeps the runs it no longer uses) left the list on screen naming freed runs: that list
+     * is neither compared (damage.c hashes its runs' text) nor reused for a scroll, and the whole view is drawn. */
+    const uint64_t lay_serial = embi_doc_layout_serial(v->doc);
+    const uint64_t run_epoch = embi_doc_run_epoch(v->doc);
+    if (lay_serial != v->prev_serial) {
+        v->paint_dirty = true;
+    }
+    if (v->have_prev && run_epoch != v->prev_runs) {
+        v->have_prev = false;
+        v->force_full = true;
+        v->paint_dirty = true;
+    }
     const bool scroll_pending = v->scroll_dirty;
     v->scroll_dirty = false;
+    if (!v->paint_dirty && !v->force_full && !v->style_paint && !scroll_pending && !sb_dirty && v->have_prev &&
+        (kids_changed || anim_kept)) {
+        /* IF1: only the pictures of frames (or of animated images a frame shows) changed: the list on screen stays, and the
+         * damage is the rects of the items that show them. */
+        SDL_free(sbs);
+        embi_damage_set_page_rects(&v->damage, nullptr, 0, v->scale, v->dev_w, v->dev_h);
+        embi_frames_add_damage(v, &v->damage, &v->dl[v->cur]);
+        if (anim_kept) {
+            embi_gfx_anim_damage_keep(gfx_of(v), &v->damage, &v->dl[v->cur], v->scale, v->dev_w, v->dev_h);
+        }
+        v->st.paint_ms = ticks_to_ms(SDL_GetPerformanceCounter() - t0);
+        return v->damage.any;
+    }
     if (!v->paint_dirty && !v->force_full && !v->style_paint && !scroll_pending && !sb_dirty) {
         v->st.damage_rects = 0;
         SDL_free(sbs);
@@ -1099,11 +1260,20 @@ bool embi_view_update(emb_view *v)
     SDL_free(old_tail);
     v->st.damage_ms = ticks_to_ms(SDL_GetPerformanceCounter() - td0);
     if (v->gfx != nullptr) {
-        /* An animated image that changed frame has the same item hash: its rects are damaged by URL. */
-        embi_gfx_anim_damage(v->gfx, &v->damage, out, v->scale, v->dev_w, v->dev_h);
+        /* An animated image that changed frame has the same item hash: its rects are damaged by URL. A frame leaves the
+         * changes to its root, which forgets them after its frames have seen them. */
+        if (child) {
+            embi_gfx_anim_damage_keep(gfx_of(v), &v->damage, out, v->scale, v->dev_w, v->dev_h);
+        } else {
+            embi_gfx_anim_damage(gfx_of(v), &v->damage, out, v->scale, v->dev_w, v->dev_h);
+        }
     }
+    /* IF1: a frame whose picture changed has the same item: its rect is damaged by name. */
+    embi_frames_add_damage(v, &v->damage, out);
     v->cur = next;
     v->have_prev = true;
+    v->prev_serial = lay_serial;
+    v->prev_runs = run_epoch;
     v->paint_dirty = false;
     v->style_paint = false;
     v->force_full = false;
@@ -1114,6 +1284,13 @@ bool embi_view_update(emb_view *v)
 bool embi_view_frame(emb_view *v, SDL_GPUCommandBuffer *cmd)
 {
     bool changed = embi_view_update(v);
+    /* IF1: the frames draw into their textures first: this view's list samples them. */
+    embi_frames_draw(v, cmd);
+    return embi_view_draw(v, cmd, changed);
+}
+
+bool embi_view_draw(emb_view *v, SDL_GPUCommandBuffer *cmd, bool changed)
+{
     v->st.damage_rects = changed ? v->damage.rects.len : 0;
     v->st.damage_area = changed ? v->damage.area : 0;
     v->st.full_redraw = changed && v->damage.full;
@@ -1122,6 +1299,9 @@ bool embi_view_frame(emb_view *v, SDL_GPUCommandBuffer *cmd)
         v->paint_dirty = true;
     }
     if (!changed || v->tex == nullptr) {
+        if (embi_frames_parent(v) == nullptr) {
+            embi_gfx_trim_idle(v->gfx);
+        }
         /* Nothing was recorded: the GPU stats of this frame are zero, not the last frame's. */
         v->st.upload_ms = 0.0;
         v->st.gpu_ms = 0.0;
@@ -1137,12 +1317,15 @@ bool embi_view_frame(emb_view *v, SDL_GPUCommandBuffer *cmd)
     t.w = v->dev_w;
     t.h = v->dev_h;
     t.scale = v->scale;
-    t.clear_rgba = embi_doc_canvas_rgba(v->doc);
+    /* A frame's canvas is transparent (IF1): the parent shows through where its document paints nothing; so is the canvas of
+     * an offscreen view made transparent (emb_view_desc.transparent). */
+    const bool child = embi_frames_parent(v) != nullptr;
+    t.clear_rgba = child || v->transparent ? 0u : embi_doc_canvas_rgba(v->doc);
     t.text_aa = resolve_text_aa(v);
     t.animating = embi_view_animating(v);
     embi_gfx_stats gs;
     memset(&gs, 0, sizeof gs);
-    bool ok = embi_gfx_draw(v->gfx, cmd, &t, &v->dl[v->cur], &v->damage, embi_doc_group_mode, &gs);
+    bool ok = embi_gfx_draw(gfx_of(v), cmd, &t, &v->dl[v->cur], &v->damage, embi_doc_group_mode, &gs);
     v->st.upload_ms = gs.upload_ms;
     v->st.gpu_ms = gs.record_ms;
     v->st.layers = gs.layers;
@@ -1150,7 +1333,9 @@ bool embi_view_frame(emb_view *v, SDL_GPUCommandBuffer *cmd)
     v->st.items_recorded = gs.items_recorded;
     v->st.items_culled = gs.items_culled;
     v->st.batches = gs.batches;
-    embi_gfx_trim(v->gfx);
+    if (!child) {
+        embi_gfx_trim(v->gfx); /* between frames: the root trims once its frames have drawn */
+    }
     if (!ok) {
         /* The damage is consumed but the texture was not drawn: the next frame redraws everything. */
         v->force_full = true;

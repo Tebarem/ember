@@ -287,6 +287,17 @@ static float limited(const gtrack *t, const gsitem *g, float contrib, float gap)
     return v < g->mi ? g->mi : v;
 }
 
+/* Whether the item spans a live track with a flexible maximum. */
+static bool spans_flex(const gtrack *t, const gsitem *g)
+{
+    for (uint32_t j = g->a; j < g->b; j++) {
+        if (!t[j].collapsed && t[j].maxk == GTK_FR) {
+            return true;
+        }
+    }
+    return false;
+}
+
 /* One sub-step for the items it[order[lo..hi)]: item-incurred increases against the current sizes,
  * then the planned increases are applied. */
 static void substep(gtrack *t, uint32_t n, const gsitem *it, const uint32_t *order, uint32_t lo, uint32_t hi,
@@ -305,8 +316,11 @@ static void substep(gtrack *t, uint32_t n, const gsitem *it, const uint32_t *ord
         if (lim && which != 0) {
             contrib = limited(t, g, contrib, gap);
         } else if (lim && which == 0) {
-            float m = limited(t, g, g->mn, gap);
-            contrib = m;
+            /* Under an intrinsic constraint an auto minimum takes the limited min-content contribution, but an item that
+             * spans a flexible track contributes its minimum contribution: this follows Chromium (a literal reading of
+             * Grid 2 section 12.5 step 4 would use the min-content contribution), so a min-width the author set below
+             * the min-content size (a select with min-width: 0 in a 1fr track) does not widen the track. */
+            contrib = spans_flex(t, g) ? g->mi : limited(t, g, g->mn, gap);
         }
         uint32_t k = 0;
         float cur = 0.0f;

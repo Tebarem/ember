@@ -32,10 +32,38 @@ static void doc_origin(const embi_frag *f, float *x, float *y)
     *y = oy;
 }
 
-static embi_grect frag_rect(const embi_frag *f)
+void embi_lay_frag_painted_origin(const embi_frag *f, float *x, float *y)
+{
+    float ox = 0, oy = 0;
+    for (const embi_frag *p = f; p != nullptr; p = p->parent) {
+        ox += p->x;
+        oy += p->y;
+        const embi_frag *q = p->parent;
+        if (q == nullptr) {
+            break;
+        }
+        if (q->parent != nullptr) {
+            /* a scroll container moves its content by its offset (paint.c enter) */
+            ox -= embi_frag_sx(q);
+            oy -= embi_frag_sy(q);
+        } else if (embi_lay_frag_vp_fixed(p)) {
+            /* the viewport's offset, which the caller subtracts, does not move a fixed box */
+            ox += embi_frag_sx(q);
+            oy += embi_frag_sy(q);
+        }
+    }
+    *x = ox;
+    *y = oy;
+}
+
+static embi_grect frag_rect(const embi_frag *f, bool painted)
 {
     float x = 0, y = 0;
-    doc_origin(f, &x, &y);
+    if (painted) {
+        embi_lay_frag_painted_origin(f, &x, &y);
+    } else {
+        doc_origin(f, &x, &y);
+    }
     embi_grect r = {x, y, x + f->w, y + f->h};
     return r;
 }
@@ -70,41 +98,42 @@ static bool is_inline_piece_of(const embi_frag *k, const embi_element *el)
 }
 
 /* Collects the fragments of the inline pieces of el below f, in tree order. */
-static void collect(const embi_frag *f, const embi_element *el, embi_grect *u, bool *any,
+static void collect(const embi_frag *f, const embi_element *el, bool painted, embi_grect *u, bool *any,
                     uint32_t *count, embi_rectf *out, uint32_t cap)
 {
     for (const embi_frag *k = f; k != nullptr; k = k->next) {
         if (is_inline_piece_of(k, el)) {
-            embi_grect r = frag_rect(k);
+            embi_grect r = frag_rect(k, painted);
             grow(u, &r, any);
             if (out != nullptr && *count < cap) {
                 out[*count] = (embi_rectf){r.x0, r.y0, r.x1 - r.x0, r.y1 - r.y0};
             }
             (*count)++;
         }
-        collect(embi_frag_first(k), el, u, any, count, out, cap);
+        collect(embi_frag_first(k), el, painted, u, any, count, out, cap);
     }
 }
 
-/* Collects the fragments of box b below f, in tree order. */
-static void collect_box(const embi_frag *f, const embi_box *b, embi_grect *u, bool *any, uint32_t *count, embi_rectf *out,
-                        uint32_t cap)
+/* Collects the fragments of box b below f, in tree order (painted: as for collect). */
+static void collect_box(const embi_frag *f, const embi_box *b, bool painted, embi_grect *u, bool *any, uint32_t *count,
+                        embi_rectf *out, uint32_t cap)
 {
     for (const embi_frag *k = f; k != nullptr; k = k->next) {
         if (k->kind == EMBI_FK_BOX && k->box == b) {
-            embi_grect r = frag_rect(k);
+            embi_grect r = frag_rect(k, painted);
             grow(u, &r, any);
             if (out != nullptr && *count < cap) {
                 out[*count] = (embi_rectf){r.x0, r.y0, r.x1 - r.x0, r.y1 - r.y0};
             }
             (*count)++;
         }
-        collect_box(embi_frag_first(k), b, u, any, count, out, cap);
+        collect_box(embi_frag_first(k), b, painted, u, any, count, out, cap);
     }
 }
 
-/* The fragments of an element's principal box and its pieces: a block has one fragment. */
-static uint32_t element_rects(const embi_layout_engine *e, const embi_element *el, embi_grect *u,
+/* The fragments of an element's principal box and its pieces: a block has one fragment. painted: where they are
+ * painted (embi_lay_frag_painted_origin), else their layout positions. */
+static uint32_t element_rects(const embi_layout_engine *e, const embi_element *el, bool painted, embi_grect *u,
                               bool *any, embi_rectf *out, uint32_t cap)
 {
     *any = false;
@@ -124,7 +153,7 @@ static uint32_t element_rects(const embi_layout_engine *e, const embi_element *e
         while (top != nullptr && (top->box == nullptr || (top->box->tflags & EMBI_TF_MC) == 0)) {
             top = top->parent;
         }
-        collect_box(top != nullptr ? embi_frag_first(top) : root, box, u, any, &count, out, cap);
+        collect_box(top != nullptr ? embi_frag_first(top) : root, box, painted, u, any, &count, out, cap);
         if (count != 0) {
             return count;
         }
@@ -133,34 +162,50 @@ static uint32_t element_rects(const embi_layout_engine *e, const embi_element *e
         if (box->frag == nullptr) {
             return 0;
         }
-        embi_grect r = frag_rect(box->frag);
+        embi_grect r = frag_rect(box->frag, painted);
         grow(u, &r, any);
         if (out != nullptr && cap > 0) {
             out[0] = (embi_rectf){r.x0, r.y0, r.x1 - r.x0, r.y1 - r.y0};
         }
         return 1;
     }
-    collect(root, el, u, any, &count, out, cap);
+    collect(root, el, painted, u, any, &count, out, cap);
     return count;
 }
 
-bool embi_layout_border_box(const embi_layout_engine *e, const embi_element *el, embi_rectf *out)
+bool embi_lay_element_box(const embi_layout_engine *e, const embi_element *el, bool painted, embi_rectf *out)
 {
     embi_grect u = {0, 0, 0, 0};
     bool any = false;
-    if (element_rects(e, el, &u, &any, nullptr, 0) == 0 || !any) {
+    if (element_rects(e, el, painted, &u, &any, nullptr, 0) == 0 || !any) {
         return false;
     }
     *out = (embi_rectf){u.x0, u.y0, u.x1 - u.x0, u.y1 - u.y0};
     return true;
 }
 
-uint32_t embi_layout_client_rects(const embi_layout_engine *e, const embi_element *el,
-                                  embi_rectf *out, uint32_t cap)
+uint32_t embi_lay_element_rects(const embi_layout_engine *e, const embi_element *el, bool painted, embi_rectf *out,
+                                uint32_t cap)
 {
     embi_grect u = {0, 0, 0, 0};
     bool any = false;
-    return element_rects(e, el, &u, &any, out, cap);
+    return element_rects(e, el, painted, &u, &any, out, cap);
+}
+
+bool embi_layout_border_box(const embi_layout_engine *e, const embi_element *el, embi_rectf *out)
+{
+    return embi_lay_element_box(e, el, false, out);
+}
+
+uint32_t embi_layout_client_rects(const embi_layout_engine *e, const embi_element *el,
+                                  embi_rectf *out, uint32_t cap)
+{
+    return embi_lay_element_rects(e, el, false, out, cap);
+}
+
+bool embi_layout_painted_box(const embi_layout_engine *e, const embi_element *el, embi_rectf *out)
+{
+    return embi_lay_element_box(e, el, true, out);
 }
 
 /* The principal fragment of an element, or nullptr. */
@@ -257,7 +302,7 @@ bool embi_layout_offset(const embi_layout_engine *e, const embi_element *el,
     if (f->box != nullptr && f->box->kind == EMBI_BK_INLINE) {
         embi_grect u = {0, 0, 0, 0};
         bool any = false;
-        if (element_rects(e, el, &u, &any, nullptr, 0) > 0 && any) {
+        if (element_rects(e, el, false, &u, &any, nullptr, 0) > 0 && any) {
             bw = u.x1 - u.x0;
             bh = u.y1 - u.y0;
         }
@@ -405,6 +450,9 @@ bool embi_layout_scroll_size(const embi_layout_engine *e, const embi_element *el
     embi_frag_ov(f, fov);
     float ow = fov[2] - embi_frag_bdr(f, 0);
     float oh = fov[3] - embi_frag_bdr(f, 1);
+    if (fov[2] <= f->w - embi_frag_bdr(f, 2)) {
+        ow = cw; /* the overflow rectangle starts as the padding box, a vertical bar's gutter included: that is no overflow */
+    }
     *w = SDL_roundf(ow > cw ? ow : cw);
     *h = SDL_roundf(oh > ch ? oh : ch);
     return true;

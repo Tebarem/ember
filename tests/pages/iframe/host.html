@@ -1,0 +1,15 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>embedder host</title></head>
+<body style="margin:0">
+<iframe id="frame" src="host_child.html" style="border:0;width:200px;height:100px"></iframe>
+<script>
+var frame = document.getElementById('frame');
+window.got = [];
+window.addEventListener('message', function (e) {
+  got.push({data: e.data, fromFrame: e.source === frame.contentWindow, origin: e.origin});
+  if (e.data && e.data.type === 'ready') {
+    frame.contentWindow.postMessage({type: 'hello', items: [1, 2, 3]}, '*');
+  }
+});
+</script>
+</body></html>

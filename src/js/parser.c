@@ -6150,10 +6150,11 @@ static void block_enter(cunit *p, cblk *b, bool maybe_fn)
     p->blk = b;
 }
 
-/* Leaves a block. With function declarations, the code after the body is a hoisting stub: for
- * each closure it creates the binding (a fresh box when the binding is captured, made before the
- * closure is created so that the closure can refer to its own name), stores the closure, and
- * jumps back to the body. The entry jump reaches the stub; normal completion steps over it. */
+/* Leaves a block. With function declarations, the code after the body is a hoisting stub: it
+ * first creates every function binding of the block (a fresh box when the binding is captured),
+ * then creates the closures and stores them, so that each closure refers to its own name and to
+ * the block's other functions, and jumps back to the body. The entry jump reaches the stub;
+ * normal completion steps over it. */
 static void block_leave(cunit *p, cblk *b)
 {
     uint32_t resume = b->hoist_at + 4u;
@@ -6178,6 +6179,8 @@ static void block_leave(cunit *p, cblk *b)
                 embi_jsc_emit_sym(p, SYM_KIND_INIT, x->name, b->scope, x);
             }
         }
+        /* Every function binding of the block (a fresh box for a captured one) exists before any of its closures is
+         * created: a function that refers to one declared after it in the block captures that box, not a stale slot. */
         for (uint32_t i = 0; i < b->fns.len; i++) {
             const cblkfn *d = &b->fns.data[i];
             bool first = true;
@@ -6188,6 +6191,9 @@ static void block_leave(cunit *p, cblk *b)
                 OPC(PUSH_UNDEF);
                 embi_jsc_emit_sym(p, SYM_KIND_INIT, d->name, b->scope, d->bind);
             }
+        }
+        for (uint32_t i = 0; i < b->fns.len; i++) {
+            const cblkfn *d = &b->fns.data[i];
             OPC32(NEW_CLOSURE, d->child->const_idx);
             embi_jsc_emit_sym(p, SYM_KIND_SET, d->name, b->scope, d->bind);
             OPC(POP);

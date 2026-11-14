@@ -7,6 +7,7 @@
  */
 #include "embed/script_int.h"
 #include "embed/frame.h"
+#include "embed/frames.h"
 #include "embed_int.h"
 
 #include "base/clock.h"
@@ -81,6 +82,9 @@ struct embi_script {
     double t_realm_ms;     /* taking or building the realm */
     double t_run_ms;       /* the outermost script runs (parse-time scripts, deferred and module scripts), realm and compile included */
     uint32_t t_depth;
+    /* HX1: the host channel is installed on this realm, under host_name (the name given when it was installed). */
+    bool host_on;
+    char host_name[64];
 };
 
 enum { SCRIPT_LOADING = 0, SCRIPT_INTERACTIVE = 1, SCRIPT_COMPLETE = 2 };
@@ -359,6 +363,9 @@ static bool host_navigate(void *user, embi_str url, bool replace)
     if (!nav_scheme_ok(s, url)) {
         return false;
     }
+    if (embi_frames_navigate(v, url)) {
+        return true; /* IF1: a frame navigates itself (at its parent's next update) */
+    }
     if (!embi_input_has_navigate(v) && (doc_is_remote(s) || doc_url_is_http(s)) && embi_netload_allowed(v, url)) {
         /* A remote page with no navigation hook of the embedder: the view follows the link itself (N1d). */
         return embi_netload_navigate(v, url);
@@ -375,13 +382,13 @@ static bool host_navigate_form(void *user, embi_str method, embi_str url, embi_s
     return v != nullptr && nav_scheme_ok(s, url) && embi_input_navigate_form(v, method, url, body, ctype);
 }
 
-/* window.scrollTo and scrollIntoView: the view's root moves to the offsets. */
 static bool host_image_size(void *user, embi_str url, float *w, float *h)
 {
     embi_script *s = user;
     return embi_doc_image_natural(s->doc, url, w, h);
 }
 
+/* window.scrollTo and scrollIntoView: the view's root moves to the offsets. */
 static void host_scroll(void *user, double x, double y)
 {
     embi_script *s = user;
@@ -389,6 +396,16 @@ static void host_scroll(void *user, double x, double y)
     if (v != nullptr) {
         emb_view_scroll_to(v, (float)x, (float)y);
     }
+}
+
+/* window.scrollX/scrollY and the client rectangles: the viewport's offset now (a wheel or a smooth scroll moves it). */
+static void host_root_offset(void *user, double *x, double *y)
+{
+    embi_script *s = user;
+    float fx = 0.0f, fy = 0.0f;
+    embi_doc_root_offset(s->doc, &fx, &fy);
+    *x = (double)fx;
+    *y = (double)fy;
 }
 
 /* scrollTop and scrollLeft of a scroll container element: the offsets live on its fragment. */
@@ -650,6 +667,69 @@ static bool pre_take(embi_script *s, embi_js_runtime **rt, embi_bind_ctx **ctx)
     return true;
 }
 
+/* ------------------------------------------------------------------ the host channel (HX1) */
+
+/* postMessage of the channel object: calls the host's receiver with String(message). The view is the function's data. */
+static embi_js_value host_post_message(embi_js_realm *r, embi_js_value this_v, int argc, const embi_js_value *argv,
+                                       int magic)
+{
+    (void)this_v;
+    (void)magic;
+    emb_view *v = embi_js_native_data_current(r);
+    embi_js_runtime *rt = r->rt;
+    if (argc < 1) {
+        return embi_js_throw_type_error(rt, "postMessage needs a message");
+    }
+    if (v == nullptr || v->host_fn == nullptr) {
+        return EMBI_JS_UNDEFINED;
+    }
+    embi_js_string *str = embi_js_to_string(rt, argv[0]);
+    if (str == nullptr) {
+        return EMBI_JS_EXCEPTION;
+    }
+    embi_sb sb = {0};
+    embi_js_str_append_utf8(str, &sb);
+    v->host_fn(v->host_user, (const char *)sb.data, sb.len);
+    embi_sb_free(&sb);
+    return EMBI_JS_UNDEFINED;
+}
+
+/* Installs the channel object on the realm of s when the view has a channel and the document is the view's own. The
+ * global property is read-only and not deletable; onMessage starts null. A realm keeps the first name it got. */
+static void host_channel_install(embi_script *s, emb_view *v)
+{
+    if (v == nullptr || !v->host_channel || s->host_on || s->ctx == nullptr || v->doc != s->doc) {
+        return;
+    }
+    embi_js_runtime *rt = s->rt;
+    embi_js_realm *r = embi_bind_realm(s->ctx);
+    embi_js_object *chan = embi_js_object_new_plain(rt);
+    embi_js_object *post = embi_js_native_function_new_data(r, "postMessage", 1, host_post_message, 0, v);
+    embi_js_pdesc d;
+    memset(&d, 0, sizeof d);
+    d.value = embi_js_from_object(post);
+    d.has = EMBI_JS_PD_VALUE | EMBI_JS_PD_WRITABLE | EMBI_JS_PD_ENUMERABLE | EMBI_JS_PD_CONFIGURABLE;
+    d.attrs = EMBI_JS_ATTR_WRITABLE | EMBI_JS_ATTR_CONFIGURABLE;
+    if (embi_js_define_property_or_throw(rt, chan, embi_js_key_c(rt, "postMessage"), &d) != EMBI_JS_YES) {
+        embi_js_exception_clear(rt);
+        return;
+    }
+    if (embi_js_create_data_property_or_throw(rt, chan, embi_js_key_c(rt, "onMessage"), EMBI_JS_NULL) !=
+        EMBI_JS_YES) {
+        embi_js_exception_clear(rt);
+        return;
+    }
+    d.value = embi_js_from_object(chan);
+    d.attrs = 0; /* not writable, not enumerable, not configurable */
+    if (embi_js_define_property_or_throw(rt, r->global, embi_js_key_c(rt, v->host_name), &d) != EMBI_JS_YES) {
+        embi_js_exception_clear(rt);
+        slog(s, EMB_LOG_WARN, "host channel: the global \"%s\" could not be defined", v->host_name);
+        return;
+    }
+    memcpy(s->host_name, v->host_name, sizeof s->host_name);
+    s->host_on = true;
+}
+
 static bool ensure_js_inner(embi_script *s);
 
 /* Makes the realm of the document if it does not exist yet. False when there is no document or no memory. */
@@ -702,6 +782,7 @@ static bool ensure_js_inner(embi_script *s)
     h.navigate = host_navigate;
     h.navigate_form = host_navigate_form;
     h.scroll = host_scroll;
+    h.root_offset = host_root_offset;
     h.viewport = host_viewport;
     h.image_size = host_image_size;
     h.scroll_el = host_scroll_el;
@@ -724,6 +805,7 @@ static bool ensure_js_inner(embi_script *s)
     s->mods = embi_modules_new(rt, embi_bind_realm(c), &mh);
     embi_modules_set_doc_url(s->mods, embi_doc_url(s->doc));
     embi_modules_attach(s->mods);
+    host_channel_install(s, embi_doc_owner(s->doc));
     return true;
 }
 
@@ -1343,6 +1425,7 @@ static void task_load(void *user)
     s->ready = SCRIPT_COMPLETE;
     fire_lifecycle(s, "readystatechange");
     fire_lifecycle(s, "load");
+    embi_frames_doc_complete(embi_doc_owner(s->doc)); /* IF1: the iframe of a frame gets its load event */
 }
 
 void embi_script_parse_done(embi_script *s)
@@ -1416,6 +1499,7 @@ void embi_script_finish_events(embi_script *s)
         }
     } else {
         s->ready = SCRIPT_COMPLETE;
+        embi_frames_doc_complete(embi_doc_owner(s->doc)); /* IF1: the iframe of a frame gets its load event */
     }
 }
 
@@ -1517,6 +1601,7 @@ void embi_script_reset(embi_script *s)
     s->mod_wait = false;
     s->had_defers = false;
     s->load_gated = false;
+    s->host_on = false;
     s->epoch++;
     s->t_realm_ms = 0.0;
     s->t_run_ms = 0.0;
@@ -1664,4 +1749,104 @@ bool embi_script_has_tasks(embi_script *s)
 void embi_script_set_wake(embi_script *s, bool wake)
 {
     embi_loop_set_wake(s->loop, wake);
+}
+
+/* ------------------------------------------------------------------ the host channel: messages (HX1) */
+
+/* A message of the host, copied at its post: the bytes follow the header in the same block. */
+typedef struct host_msg {
+    emb_view *view;
+    size_t len;
+} host_msg;
+
+static void host_msg_free(host_msg *m)
+{
+    embi_free(m, sizeof *m + m->len);
+}
+
+static void host_msg_drop(void *user)
+{
+    host_msg_free(user);
+}
+
+/* Runs on the view's thread: calls the current document's onMessage with the message, then the microtasks. The message is
+ * dropped when that document has no channel or onMessage is not callable. */
+static void host_msg_run(void *user)
+{
+    host_msg *m = user;
+    emb_view *v = m->view;
+    embi_script *s = v->doc != nullptr ? embi_doc_script(v->doc) : nullptr;
+    embi_bind_ctx *c = s != nullptr ? embi_script_bind_if(s) : nullptr;
+    if (c != nullptr && s->host_on) {
+        embi_js_realm *r = embi_bind_realm(c);
+        embi_js_runtime *rt = s->rt;
+        embi_js_value chan = embi_js_get(rt, r->global, embi_js_key_c(rt, s->host_name));
+        if (chan == EMBI_JS_EXCEPTION) {
+            embi_js_exception_clear(rt);
+        } else if (embi_js_is_object(chan)) {
+            embi_js_value fn = embi_js_get_v(rt, chan, embi_js_key_c(rt, "onMessage"));
+            if (fn == EMBI_JS_EXCEPTION) {
+                report_exception(s);
+            } else if (embi_js_is_callable(fn)) {
+                embi_js_value arg = embi_js_from_string(embi_js_str_new_utf8(rt, (const char *)(m + 1), m->len));
+                if (embi_js_call(rt, fn, chan, 1, &arg) == EMBI_JS_EXCEPTION) {
+                    report_exception(s);
+                }
+            }
+        }
+        embi_js_run_jobs(rt);
+    }
+    host_msg_free(m);
+}
+
+/* Whether name is an ASCII identifier of at most 63 bytes (a letter, _ or $, then letters, digits, _ or $). */
+static bool host_name_ok(const char *name)
+{
+    if (name == nullptr) {
+        return false;
+    }
+    size_t n = strlen(name);
+    if (n == 0 || n > 63) {
+        return false;
+    }
+    for (size_t i = 0; i < n; i++) {
+        unsigned char c = (unsigned char)name[i];
+        bool letter = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_' || c == '$';
+        bool digit = c >= '0' && c <= '9';
+        if (!letter && !(digit && i > 0)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool emb_view_set_host_channel(emb_view *view, const char *name, emb_host_message_fn fn, void *user)
+{
+    if (view == nullptr || !host_name_ok(name)) {
+        return false;
+    }
+    memcpy(view->host_name, name, strlen(name) + 1);
+    view->host_channel = true;
+    view->host_fn = fn;
+    view->host_user = user;
+    if (view->doc != nullptr) {
+        host_channel_install(embi_doc_script(view->doc), view); /* at once when the realm exists (else at its setup) */
+    }
+    return true;
+}
+
+bool emb_view_post_host_message(emb_view *view, const char *message, size_t len)
+{
+    if (view == nullptr || message == nullptr) {
+        return false;
+    }
+    host_msg *m = embi_alloc(sizeof *m + len);
+    m->view = view;
+    m->len = len;
+    memcpy(m + 1, message, len);
+    if (!embi_view_post_task_ex(view, host_msg_run, m, host_msg_drop)) {
+        host_msg_free(m); /* the task was not queued, so no drop runs */
+        return false;
+    }
+    return true;
 }

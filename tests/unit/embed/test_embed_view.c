@@ -633,8 +633,9 @@ static bool pixel_is(const uint8_t *px, uint32_t w, uint32_t x, uint32_t y, uint
     return p[0] == r && p[1] == g && p[2] == b && p[3] == 0xFF;
 }
 
-/* Renders html in a w x hh view of the scheme and returns the readback (SDL_free), or nullptr. */
-static uint8_t *render_page(host *h, emb_runtime *rt, const char *html, uint32_t w, uint32_t hh, emb_color_scheme scheme)
+/* Renders html in a w x hh view of the scheme (with a transparent canvas or not) and returns the readback (SDL_free), or nullptr. */
+static uint8_t *render_page_ex(host *h, emb_runtime *rt, const char *html, uint32_t w, uint32_t hh, emb_color_scheme scheme,
+                               bool transparent)
 {
     emb_view_desc d;
     memset(&d, 0, sizeof d);
@@ -645,6 +646,7 @@ static uint8_t *render_page(host *h, emb_runtime *rt, const char *html, uint32_t
     d.scale = 1.0f;
     d.device = h->dev;
     d.scheme = scheme;
+    d.transparent = transparent;
     emb_view *v = emb_view_create(rt, &d);
     if (v == nullptr || !emb_view_load_html(v, html, strlen(html), nullptr)) {
         emb_view_destroy(v);
@@ -654,6 +656,42 @@ static uint8_t *render_page(host *h, emb_runtime *rt, const char *html, uint32_t
     uint8_t *px = readback(h->dev, emb_view_texture(v), w, hh);
     emb_view_destroy(v);
     return px;
+}
+
+static uint8_t *render_page(host *h, emb_runtime *rt, const char *html, uint32_t w, uint32_t hh, emb_color_scheme scheme)
+{
+    return render_page_ex(h, rt, html, w, hh, scheme, false);
+}
+
+EMB_TEST(embed_transparent_view_leaves_the_canvas_clear)
+{
+    host h;
+    if (!host_open(&h)) {
+        return;
+    }
+    emb_runtime *rt = emb_runtime_create(nullptr);
+    EMB_REQUIRE(rt != nullptr);
+    /* Where the page paints nothing the texture stays (0, 0, 0, 0), whatever the scheme; text is still drawn. */
+    const char *pages[] = {"<p style=\"color:#000;font-size:40px\">x</p>", "<html style=\"color-scheme:dark\"><p style=\"color:#fff;font-size:40px\">x</p>"};
+    for (int i = 0; i < 2; i++) {
+        uint8_t *px = render_page_ex(&h, rt, pages[i], 64, 64, i == 0 ? EMB_SCHEME_LIGHT : EMB_SCHEME_DARK, true);
+        EMB_REQUIRE(px != nullptr);
+        const uint8_t *c = px + ((size_t)63 * 64 + 63) * 4u;
+        EMB_CHECK(c[0] == 0 && c[1] == 0 && c[2] == 0 && c[3] == 0);
+        uint32_t inked = 0;
+        for (size_t k = 0; k < (size_t)64 * 64; k++) {
+            inked += px[k * 4u + 3u] != 0;
+        }
+        EMB_CHECK(inked > 20);
+        SDL_free(px);
+    }
+    /* A root or body background is the page's own: it still fills the canvas. */
+    uint8_t *bg = render_page_ex(&h, rt, "<body style=\"background:rgb(0,200,0)\">", 64, 48, EMB_SCHEME_DARK, true);
+    EMB_REQUIRE(bg != nullptr);
+    EMB_CHECK(pixel_is(bg, 64, 63, 47, 0, 200, 0));
+    SDL_free(bg);
+    emb_runtime_destroy(rt);
+    host_close(&h);
 }
 
 EMB_TEST(embed_dark_scheme_canvas_follows_the_root_color_scheme)

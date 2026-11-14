@@ -20,6 +20,8 @@
 #include <stdint.h>
 
 struct embi_style;
+struct embi_style_engine;
+struct embi_element;
 
 #define EMBI_SCROLL_SMOOTH_MS 150.0
 #define EMBI_SB_VISIBLE_MS 1000.0 /* a scrollbar stays opaque this long after the last scroll */
@@ -108,3 +110,47 @@ uint32_t embi_sb_emit(embi_dl *d, const embi_frag *f, float x, float y, const em
 /* The thumb of a scrollbar along a track of track px for a client of client px over content of content px at offset
  * offset. start and len are in px along the track. Returns false when there is nothing to scroll (no bar). */
 bool embi_sb_thumb(float track, float client, float content, float offset, float *start, float *len);
+
+/* ------------------------------------------------------------------ styled (classic) scrollbars
+ *
+ * A scroll container with a ::-webkit-scrollbar style has classic scrollbars: they take their thickness from the container
+ * (the layout reserves it as the gutter), they show whenever the content overflows, and their parts are painted from the
+ * styles of ::-webkit-scrollbar, ::-webkit-scrollbar-track, ::-webkit-scrollbar-thumb and ::-webkit-scrollbar-corner. A style
+ * with display: none or no thickness removes the bars. */
+
+typedef enum embi_sb_pe_kind {
+    EMBI_SBPE_NONE = 0, /* no ::-webkit-scrollbar style: the overlay scrollbars of embi_sb_emit */
+    EMBI_SBPE_STYLED,
+    EMBI_SBPE_HIDDEN,   /* the container shows no scrollbar */
+} embi_sb_pe_kind;
+
+typedef struct embi_sb_pe {
+    float vert, horz; /* the width of the vertical bar and the height of the horizontal one */
+    bool vbar_left;
+    const struct embi_style *bar, *thumb, *track, *corner; /* nullptr: nothing is painted for the part */
+    const struct embi_style *thumb_hover;                   /* the thumb as the hovered bar shows it (owned), or nullptr */
+    int hover_axis;                                         /* 1: the pointer is over the vertical bar's thumb, 2: the horizontal */
+} embi_sb_pe;
+
+/* The scrollbar parts of el (the element is the key of its scroller). hover_axis: 1 or 2 when the pointer is over the thumb of
+ * the vertical or horizontal bar (the thumb then takes its :hover style); the caller releases the result with embi_sb_pe_free. */
+embi_sb_pe_kind embi_sb_pe_from(struct embi_style_engine *se, struct embi_element *el, int hover_axis, embi_sb_pe *out);
+void embi_sb_pe_free(struct embi_style_engine *se, embi_sb_pe *pe);
+
+/* Where the bars of the scroll container f (its border box starts at (x, y)) are: each bar's track (x, y, w, h), its thumb, the
+ * corner, and along the axis the thumb's start and length and the track's length. */
+typedef struct embi_sb_geo {
+    bool vert, horz;
+    float v[4], h[4];       /* the vertical and the horizontal bar */
+    float vthumb[4], hthumb[4];
+    float corner[4];
+    bool has_corner;
+    float vstart, vlen, hstart, hlen; /* the thumbs along their tracks */
+    float vtrack, htrack;             /* the tracks' lengths */
+    float vmax, hmax;                 /* the scroll ranges */
+} embi_sb_geo;
+bool embi_sb_geometry(const embi_frag *f, float x, float y, const embi_sb_pe *pe, embi_sb_geo *g);
+
+/* Appends the bars of f to d: for each its own box, the track, the thumb (the hovered one with the hovered style), and the
+ * corner. clip is the rectangle (x0, y0, x1, y1) that the bars are cut by. Returns the number of items appended. */
+uint32_t embi_sb_emit_styled(embi_dl *d, const embi_frag *f, float x, float y, const embi_sb_pe *pe, const float clip[4]);

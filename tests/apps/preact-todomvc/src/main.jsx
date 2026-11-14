@@ -58,10 +58,10 @@ function TodoItem({ todo, editing, onToggle, onDestroy, onStartEdit, onCommit, o
           value={draft}
           ref={(el) => el && document.activeElement !== el && el.focus()}
           onInput={(e) => setDraft(e.currentTarget.value)}
-          onBlur={() => onCommit(draft)}
+          onBlur={(e) => { if (!e.currentTarget._cancelled) onCommit(draft); }}
           onKeyDown={(e) => {
             if (e.key === 'Enter') onCommit(draft);
-            else if (e.key === 'Escape') onCancel();
+            else if (e.key === 'Escape') { e.currentTarget._cancelled = true; onCancel(); }
           }}
         />
       )}

@@ -7,6 +7,8 @@
 #include "canvas/canvas.h"
 #include "image/png.h"
 
+#include <SDL3/SDL_timer.h>
+
 /* The canvas on the GPU: recorded commands replayed into the backing texture and read back. Tolerances are +-2 for flat
  * colors and wider for gradients and blurs. The tests that end in an embi_mem_live comparison check that the canvases and
  * the manager give all their memory back. */
@@ -341,6 +343,349 @@ EMB_TEST(draw_stroke_dash)
     px = snap(cv);
     PX(px, 64, 4, 8, 0, 0, 0, 0, 0);
     PX(px, 64, 12, 8, 0, 0, 0, 255, TOL);
+    SDL_free(px);
+    embi_canvas_destroy(cv);
+    rig_close(&r);
+}
+
+/* A horizontal cubic whose control points lie on the chord, some past its ends (a node editor's wire between two
+ * sockets at one height): the curve goes forward, back and forward along one line, and its stroke has round-join discs at
+ * the turns, with vertices on the rays the coverage shader casts through a row of pixel centers. The stroke is the union
+ * of its parts, so the line is solid: the pixel under every column of the central rows has the full color, and nothing is
+ * drawn before the start. */
+static const char *g_case = "";
+
+/* Every column of [x0, x1) is the color in the rows ya..yb (the line's core) and empty in the rows ye0..ye1; the pixel
+ * (xe, yrow) before the start is empty. */
+static void check_solid_run(const uint8_t *px, uint32_t w, int x0, int x1, int ya, int yb, int ye0, int ye1, int xe,
+                            int yrow)
+{
+    for (int x = x0; x < x1; x++) {
+        for (int y = ya; y <= yb; y++) {
+            const uint8_t *q = px + ((size_t)y * w + (uint32_t)x) * 4;
+            if (q[0] < 253 || q[1] > 2 || q[2] > 2 || q[3] < 253) {
+                SDL_Log("hole at %d,%d: %d %d %d %d (%s)", x, y, q[0], q[1], q[2], q[3], g_case);
+                EMB_CHECK(false);
+                return;
+            }
+        }
+        for (int y = ye0; y <= ye1; y++) {
+            const uint8_t *q = px + ((size_t)y * w + (uint32_t)x) * 4;
+            if (q[3] > 2) {
+                SDL_Log("stray at %d,%d: alpha %d (%s)", x, y, q[3], g_case);
+                EMB_CHECK(false);
+                return;
+            }
+        }
+    }
+    if (px[((size_t)yrow * w + (uint32_t)xe) * 4 + 3] > 2) {
+        SDL_Log("stray before the start at %d,%d (%s)", xe, yrow, g_case);
+        EMB_CHECK(false);
+    }
+}
+
+/* The antialiased rows along the line's two edges have the same coverage in every column of [x0, x1): the stroke is one
+ * bar, not pieces stacked on each other whose edge coverages add up (a doubled edge row would be about twice the
+ * coverage, a full row). */
+static void check_edge_rows(const uint8_t *px, uint32_t w, int x0, int x1, double dy, double zoom, const char *what)
+{
+    const double top = dy - zoom, bot = dy + zoom;
+    const int rt = (int)floor(top), rb = (int)floor(bot);
+    const double ct = (rt + 1) - top, cb = bot - rb;
+    for (int x = x0; x < x1; x++) {
+        const int at = px[((size_t)rt * w + (uint32_t)x) * 4 + 3];
+        const int ab = px[((size_t)rb * w + (uint32_t)x) * 4 + 3];
+        if (fabs(at - ct * 255.0) > 24.0 || fabs(ab - cb * 255.0) > 24.0) {
+            SDL_Log("%s: edge rows at x %d: %d (want %d), %d (want %d) (%s)", what, x, at, (int)(ct * 255.0), ab,
+                    (int)(cb * 255.0), g_case);
+            EMB_CHECK(false);
+            return;
+        }
+    }
+}
+
+/* A wire from (ax, y) to (bx, y) in user space, drawn under translate(120, 20) scale(zoom) translate(-120, -20 - oy). */
+static void wire_case(rig *r, const char *join, bool dash_then_clear, double ax, double bx, double y, double dx,
+                      double zoom, bool line_to, double oy)
+{
+    static char name[128];
+    SDL_snprintf(name, sizeof name, "%s dash %d from %g to %g at y %g dx %g zoom %g line_to %d oy %g", join,
+                 dash_then_clear, ax, bx, y, dx, zoom, line_to, oy);
+    g_case = name;
+    embi_canvas *cv = cv_new(r, 240, 40, true);
+    embi_canvas_translate(cv, 120, 20);
+    embi_canvas_scale(cv, zoom, zoom);
+    embi_canvas_translate(cv, -120, -20 - oy);
+    embi_canvas_set_color(cv, 1, S("#ff0000"));
+    embi_canvas_set_line_width(cv, 2);
+    embi_canvas_set_line_join(cv, S(join));
+    if (dash_then_clear) {
+        const double d[2] = {5, 4};
+        EMB_CHECK(embi_canvas_set_line_dash(cv, d, 2));
+        EMB_CHECK(embi_canvas_set_line_dash(cv, nullptr, 0)); /* setLineDash([]): solid again */
+        const double *v = nullptr;
+        EMB_CHECK_EQ_INT((int)embi_canvas_get_line_dash(cv, &v), 0);
+    }
+    double m[6];
+    embi_canvas_get_transform(cv, m);
+    embi_cpath *p = embi_canvas_path(cv);
+    embi_cpath_move_to(p, m, ax, y);
+    if (line_to) {
+        embi_cpath_line_to(p, m, bx, y);
+    } else {
+        embi_cpath_cubic_to(p, m, ax + dx, y, bx - dx, y, bx, y);
+    }
+    embi_canvas_stroke(cv, nullptr);
+    uint8_t *px = snap(cv);
+    /* The line is 2 * zoom px thick around the device row of y: the rows wholly inside it are solid. */
+    double dy = 20 + (y - oy - 20) * zoom;
+    double dax = 120 + (ax - 120) * zoom, dbx = 120 + (bx - 120) * zoom;
+    int ya = (int)ceil(dy - zoom + 0.05), yb = (int)floor(dy + zoom - 0.05) - 1;
+    check_solid_run(px, 240, (int)ceil(dax) + 1, (int)floor(dbx) - 1, ya, yb, (int)ceil(dy + zoom) + 1,
+                    (int)ceil(dy + zoom) + 3, (int)floor(dax) - 1, (int)floor(dy));
+    if (bx - ax >= 60) {
+        check_edge_rows(px, 240, (int)ceil(dax) + 4, (int)floor(dbx) - 4, dy, zoom, "wire");
+    }
+    SDL_free(px);
+    embi_canvas_destroy(cv);
+}
+
+EMB_TEST(draw_stroke_collinear_cubic_is_solid)
+{
+    rig r;
+    if (!rig_open(&r, false)) {
+        EMB_SKIP("no GPU device");
+        return;
+    }
+    static const char *const joins[3] = {"miter", "round", "bevel"};
+    for (int j = 0; j < 3; j++) {
+        /* controls past the ends: x = 140 and 126 for the ends 100 and 166; y on a pixel center or on a pixel edge */
+        wire_case(&r, joins[j], false, 100, 166, 17.5, 40, 1, false, 0);
+        wire_case(&r, joins[j], false, 100, 166, 18, 40, 1, false, 0);
+        wire_case(&r, joins[j], false, 100, 166, 17.5, 40, 1.3, false, 0);
+        wire_case(&r, joins[j], false, 100, 166, 18, 40, 1.3, false, 0);
+        /* far from the origin, as a camera moved over a big graph does it: the same line at y 447.5 and 448 */
+        wire_case(&r, joins[j], false, 100, 166, 447.5, 40, 1, false, 430);
+        wire_case(&r, joins[j], false, 100, 166, 448, 40, 1, false, 430);
+        /* short wires, the turns close together; a vertex of the joins on the ray exactly (user y 449.5) */
+        wire_case(&r, joins[j], false, 50.5, 69.5, 449.5, 40, 1, false, 430);
+        wire_case(&r, joins[j], false, 50.5, 69.5, 449.786, 40, 1.0001, false, 430);
+        /* collinear without overshoot */
+        wire_case(&r, joins[j], false, 100, 200, 17.5, 20, 1, false, 0);
+        wire_case(&r, joins[j], false, 100, 200, 18, 20, 1.3, false, 0);
+        /* with a dash array set and cleared again */
+        wire_case(&r, joins[j], true, 100, 166, 17.5, 40, 1, false, 0);
+    }
+    /* a straight line for comparison */
+    wire_case(&r, "miter", false, 100, 166, 17.5, 0, 1, true, 0);
+    wire_case(&r, "miter", false, 100, 166, 18, 0, 1.3, true, 0);
+    rig_close(&r);
+}
+
+/* Wires of every length under camera transforms (zoom, fractional translation), on and off the pixel grid: each one is
+ * solid along its whole length. */
+EMB_TEST(draw_stroke_collinear_cubic_fuzz)
+{
+    rig r;
+    if (!rig_open(&r, false)) {
+        EMB_SKIP("no GPU device");
+        return;
+    }
+    enum { W = 400, H = 60 };
+    embi_canvas *cv = cv_new(&r, W, H, true);
+    static const double zooms[4] = {1, 1.3, 2, 1.0001};
+    uint32_t seed = 12345;
+    int bad = 0;
+    for (int it = 0; it < 300 && bad < 5; it++) {
+        seed = seed * 1664525u + 1013904223u;
+        const double zoom = zooms[(seed >> 8) & 3];
+        seed = seed * 1664525u + 1013904223u;
+        const double cx = 100 + ((seed >> 8) & 1023) / 8.0, cy = 400 + ((seed >> 4) & 1023) / 7.0;
+        seed = seed * 1664525u + 1013904223u;
+        const double len = 3 + ((seed >> 8) % 120);
+        const double ax = cx - 100 / zoom, bx = ax + len;
+        const double y = cy + (it & 1) * 0.5 + (it % 5 - 2);
+        const double dx = fmax(40, len * 0.5);
+        embi_canvas_set_transform(cv, (double[6]){1, 0, 0, 1, 0, 0});
+        embi_canvas_clear_rect(cv, 0, 0, W, H);
+        embi_canvas_translate(cv, W / 2.0, H / 2.0);
+        embi_canvas_scale(cv, zoom, zoom);
+        embi_canvas_translate(cv, -cx, -cy);
+        embi_canvas_set_color(cv, 1, S("#ff0000"));
+        embi_canvas_set_line_width(cv, 2);
+        double m[6];
+        embi_canvas_get_transform(cv, m);
+        embi_canvas_begin_path(cv);
+        embi_cpath *p = embi_canvas_path(cv);
+        embi_cpath_move_to(p, m, ax, y);
+        embi_cpath_cubic_to(p, m, ax + dx, y, bx - dx, y, bx, y);
+        embi_canvas_stroke(cv, nullptr);
+        uint8_t *px = snap(cv);
+        const double dy = m[3] * y + m[5], da = m[0] * ax + m[4], db = m[0] * bx + m[4];
+        const int row = (int)floor(dy);
+        if (len >= 40) {
+            check_edge_rows(px, W, (int)ceil(da) + 4, (int)floor(db) - 4, dy, zoom, "fuzz");
+        }
+        for (int x = (int)ceil(da) + 1; x < (int)floor(db) - 1; x++) {
+            if (px[((size_t)row * W + (size_t)x) * 4 + 3] < 250) {
+                SDL_Log("gap: len %g zoom %g y %g, device x %g..%g y %g, at x %d alpha %d", len, zoom, y, da, db, dy, x,
+                        px[((size_t)row * W + (size_t)x) * 4 + 3]);
+                bad++;
+                break;
+            }
+        }
+        SDL_free(px);
+    }
+    EMB_CHECK(bad == 0);
+    embi_canvas_destroy(cv);
+    rig_close(&r);
+}
+
+/* A short wire far from the origin: the stroke is in user space at y about 449 and is drawn under a transform that puts
+ * it on row 32. Vertices of the round-join discs at its turns lie exactly on the ray of that row's pixel centers (the
+ * ray y is the vertex y in single precision), where a curve that ends on the ray has its root at t = 1 rounded to just
+ * above 1, or the one that starts there at just below 0: the crossing was dropped for one and counted for the other,
+ * and the winding of everything left of the turn was off by one (a stray pixel before the start, holes after it). */
+EMB_TEST(draw_stroke_wire_with_vertices_on_the_pixel_row)
+{
+    rig r;
+    if (!rig_open(&r, false)) {
+        EMB_SKIP("no GPU device");
+        return;
+    }
+    static const double cfg[][5] = {
+        /* zoom, user x of the start, user y, device x of the start, device y of the line */
+        {1.0001, 50.51, 449.7857, 100, 32.5002},
+        {1, 50.51, 449.7857, 100, 32.5002},
+        {1, 50.51, 449.7857, 100, 32.5},
+        {1, 50.5, 449.5, 100, 32.5},
+        {1, 50.0, 449.5, 100, 32.5},
+        {1, 50.51, 49.7857, 100, 32.5002},
+    };
+    embi_canvas *cv = cv_new(&r, 200, 60, true);
+    for (size_t c = 0; c < sizeof cfg / sizeof *cfg; c++) {
+        const double z = cfg[c][0], x0 = cfg[c][1], y0 = cfg[c][2];
+        embi_canvas_set_transform(cv, (double[6]){1, 0, 0, 1, 0, 0});
+        embi_canvas_clear_rect(cv, 0, 0, 200, 60);
+        embi_canvas_set_transform(cv, (double[6]){z, 0, 0, z, cfg[c][3] - z * x0, cfg[c][4] - z * y0});
+        double m[6];
+        embi_canvas_get_transform(cv, m);
+        embi_canvas_set_color(cv, 1, S("#ff0000"));
+        embi_canvas_set_line_width(cv, 2);
+        embi_canvas_begin_path(cv);
+        embi_cpath *p = embi_canvas_path(cv);
+        embi_cpath_move_to(p, m, x0, y0);
+        embi_cpath_cubic_to(p, m, x0 + 40, y0, x0 + 19 - 40, y0, x0 + 19, y0);
+        embi_canvas_stroke(cv, nullptr);
+        uint8_t *px = snap(cv);
+        const int row = (int)floor(cfg[c][4]);
+        EMB_CHECK(px[((size_t)row * 200 + 99) * 4 + 3] <= 2);
+        for (int x = 101; x < 117; x++) {
+            const uint8_t *q = px + ((size_t)row * 200 + (size_t)x) * 4;
+            if (q[3] < 253 || q[0] < 253) {
+                SDL_Log("wire %d: hole at %d,%d alpha %d", (int)c, x, row, q[3]);
+                EMB_CHECK(false);
+                break;
+            }
+        }
+        SDL_free(px);
+    }
+    embi_canvas_destroy(cv);
+    rig_close(&r);
+}
+
+/* A reversing collinear wire inside a longer path and with each line cap: its stroke joins the neighbouring segments
+ * and ends as a plain line's does. Path: a line to the right, the wire (overshooting past both ends), a line down. */
+EMB_TEST(draw_stroke_collinear_cubic_with_neighbours_and_caps)
+{
+    rig r;
+    if (!rig_open(&r, false)) {
+        EMB_SKIP("no GPU device");
+        return;
+    }
+    embi_canvas *cv = cv_new(&r, 240, 80, true);
+    embi_canvas_set_color(cv, 1, S("#ff0000"));
+    embi_canvas_set_line_width(cv, 4);
+    /* in a longer path: line (20,20)-(60,20), wire (60,20)-(126,20), line down to (126,60) */
+    embi_cpath *p = embi_canvas_path(cv);
+    embi_cpath_move_to(p, nullptr, 20, 20);
+    embi_cpath_line_to(p, nullptr, 60, 20);
+    embi_cpath_cubic_to(p, nullptr, 100, 20, 86, 20, 126, 20);
+    embi_cpath_line_to(p, nullptr, 126, 60);
+    embi_canvas_stroke(cv, nullptr);
+    uint8_t *px = snap(cv);
+    for (int x = 20; x < 122; x++) {
+        PX(px, 240, x, 19, 255, 0, 0, 255, TOL); /* rows 18..21 are the line, whole */
+        PX(px, 240, x, 20, 255, 0, 0, 255, TOL);
+        PX(px, 240, x, 17, 0, 0, 0, 0, 0);
+        PX(px, 240, x, 22, 0, 0, 0, 0, 0);
+    }
+    PX(px, 240, 127, 19, 255, 0, 0, 255, TOL); /* the miter corner: filled out to the square */
+    PX(px, 240, 127, 18, 255, 0, 0, 255, TOL);
+    PX(px, 240, 126, 40, 255, 0, 0, 255, TOL); /* the line down */
+    PX(px, 240, 126, 62, 0, 0, 0, 0, 0);
+    PX(px, 240, 19, 20, 0, 0, 0, 0, 0); /* butt cap at the start of the path */
+    SDL_free(px);
+    /* the wire alone with each cap: it starts at 50.5, the lowest point it reaches, and ends at 69.5 */
+    static const char *const caps[3] = {"butt", "round", "square"};
+    for (int c = 0; c < 3; c++) {
+        embi_canvas_clear_rect(cv, 0, 0, 240, 80);
+        embi_canvas_begin_path(cv);
+        embi_canvas_set_line_cap(cv, S(caps[c]));
+        p = embi_canvas_path(cv);
+        embi_cpath_move_to(p, nullptr, 50.5, 40.5);
+        embi_cpath_cubic_to(p, nullptr, 90.5, 40.5, 29.5, 40.5, 69.5, 40.5);
+        embi_canvas_stroke(cv, nullptr);
+        px = snap(cv);
+        const int want = c == 0 ? 0 : 255; /* just before the start: only round and square caps reach it */
+        EMB_CHECK_EQ_INT(px[((size_t)40 * 240 + 49) * 4 + 3] > 128, want != 0);
+        EMB_CHECK_EQ_INT(px[((size_t)40 * 240 + 70) * 4 + 3] > 128, want != 0);
+        PX(px, 240, 60, 40, 255, 0, 0, 255, TOL);
+        PX(px, 240, 60, 43, 0, 0, 0, 0, 0);
+        SDL_free(px);
+    }
+    embi_canvas_destroy(cv);
+    rig_close(&r);
+}
+
+/* A curve that doubles back has a round cusp whatever the line join: a wide line with the default miter join and a
+ * collinear cubic that overshoots its end points ends in a half disc at its highest and lowest points. */
+EMB_TEST(draw_stroke_collinear_cubic_cusps_are_round_with_a_miter_join)
+{
+    rig r;
+    if (!rig_open(&r, false)) {
+        EMB_SKIP("no GPU device");
+        return;
+    }
+    embi_canvas *cv = cv_new(&r, 240, 60, true);
+    embi_canvas_set_color(cv, 1, S("#ff0000"));
+    embi_canvas_set_line_width(cv, 10);
+    const double ax = 100, bx = 119, dx = 100, y = 30.5;
+    double lo = 1e9, hi = -1e9;
+    for (int k = 0; k <= 2000; k++) {
+        const double t = k / 2000.0, mt = 1 - t;
+        const double x = ax * mt * mt * mt + 3 * mt * mt * t * (ax + dx) + 3 * mt * t * t * (bx - dx) + bx * t * t * t;
+        lo = fmin(lo, x);
+        hi = fmax(hi, x);
+    }
+    EMB_CHECK(hi > bx + 1 || lo < ax - 1); /* it does overshoot */
+    embi_cpath *p = embi_canvas_path(cv);
+    embi_cpath_move_to(p, nullptr, ax, y);
+    embi_cpath_cubic_to(p, nullptr, ax + dx, y, bx - dx, y, bx, y);
+    embi_canvas_stroke(cv, nullptr);
+    uint8_t *px = snap(cv);
+    const int row = 30;
+    /* the bar is flat at [lo, hi] except where a cusp is: the disc reaches 5 px past an extreme that is a turn */
+    for (int e = 0; e < 2; e++) {
+        const double ext = e == 0 ? hi : lo;
+        const bool turn = e == 0 ? hi > bx + 0.5 : lo < ax - 0.5;
+        if (!turn) {
+            continue;
+        }
+        const int sx = e == 0 ? (int)floor(ext) + 3 : (int)ceil(ext) - 4;
+        EMB_CHECK(px[((size_t)row * 240 + (size_t)sx) * 4 + 3] > 200);                 /* inside the disc */
+        EMB_CHECK(px[((size_t)(row - 5) * 240 + (size_t)sx) * 4 + 3] < 60);            /* its corner is round */
+    }
     SDL_free(px);
     embi_canvas_destroy(cv);
     rig_close(&r);
@@ -847,6 +1192,56 @@ EMB_TEST(draw_resize_clears_and_resets)
     SDL_free(px);
     embi_canvas_destroy(cv);
     rig_close(&r);
+}
+
+/* A page that makes its canvas again on each update: the new canvas of the same size gets the texture of the one that
+ * went away (creating one costs about 0.7 ms on Direct3D 12), starting clear; embi_canvas_gpu_trim frees the spares that
+ * stayed unused. */
+EMB_TEST(draw_canvas_made_again_reuses_the_texture)
+{
+    size_t live = embi_mem_live();
+    rig r;
+    if (!rig_open(&r, false)) {
+        EMB_SKIP("no GPU device");
+        return;
+    }
+    embi_canvas *cv = cv_new(&r, 64, 48, true);
+    fill(cv, "#ff0000", 0, 0, 32, 48);
+    uint8_t *px = snap(cv);
+    PX(px, 64, 10, 10, 255, 0, 0, 255, TOL);
+    SDL_free(px);
+    const void *tex = nullptr;
+    uint32_t tw = 0, th = 0;
+    tex = embi_canvas_gpu_texture(r.cg, embi_canvas_key(cv), &tw, &th);
+    EMB_CHECK(tex != nullptr);
+    EMB_CHECK_EQ_INT((int)embi_canvas_gpu_bytes(r.cg), 64 * 48 * 4);
+    embi_canvas_destroy(cv);
+    EMB_CHECK_EQ_INT((int)embi_canvas_gpu_bytes(r.cg), 64 * 48 * 4); /* kept as a spare */
+
+    cv = cv_new(&r, 64, 48, true);
+    fill(cv, "#0000ff", 32, 0, 32, 48);
+    px = snap(cv);
+    PX(px, 64, 10, 10, 0, 0, 0, 0, 0); /* the old picture is not there */
+    PX(px, 64, 40, 10, 0, 0, 255, 255, TOL);
+    SDL_free(px);
+    EMB_CHECK(embi_canvas_gpu_texture(r.cg, embi_canvas_key(cv), &tw, &th) == tex);
+    EMB_CHECK_EQ_INT((int)embi_canvas_gpu_bytes(r.cg), 64 * 48 * 4);
+
+    /* Another size gets a texture of its own; the spare left unused goes after the keep time. */
+    embi_canvas_destroy(cv);
+    cv = cv_new(&r, 32, 32, true);
+    fill(cv, "#00ff00", 0, 0, 8, 8);
+    px = snap(cv);
+    PX(px, 32, 4, 4, 0, 255, 0, 255, TOL);
+    SDL_free(px);
+    EMB_CHECK_EQ_INT((int)embi_canvas_gpu_bytes(r.cg), 64 * 48 * 4 + 32 * 32 * 4);
+    embi_canvas_gpu_trim(r.cg, SDL_GetTicks());
+    EMB_CHECK_EQ_INT((int)embi_canvas_gpu_bytes(r.cg), 64 * 48 * 4 + 32 * 32 * 4);
+    embi_canvas_gpu_trim(r.cg, SDL_GetTicks() + 60000);
+    EMB_CHECK_EQ_INT((int)embi_canvas_gpu_bytes(r.cg), 32 * 32 * 4);
+    embi_canvas_destroy(cv);
+    rig_close(&r);
+    EMB_CHECK(embi_mem_live() == live);
 }
 
 EMB_TEST(draw_to_png_decodes_to_the_pixels)

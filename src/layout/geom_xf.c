@@ -3,7 +3,9 @@
  * paints at, so the transform, translate, rotate and scale of the element's box and of every ancestor box move and
  * grow them. Each rectangle becomes the axis-aligned bounding box of its four corners mapped through the matrices of
  * the boxes on the containing-block chain, innermost first (a matrix already holds the move of its origin, see xform.h).
- * Scroll offsets are not applied here (the callers subtract the viewport scroll). The perspective of a parent and
+ * The _xf functions report layout positions (no scroll offsets); the painted ones (embi_layout_painted_box_xf) move them as
+ * paint does (the scroll offsets of the containers around them, fixed boxes kept still); the viewport's own offset is
+ * left to the callers in both cases. The perspective of a parent and
  * preserve-3d are not modelled: every box maps its plane flat.
  */
 #include "layout_int.h"
@@ -13,8 +15,12 @@
 #include <math.h>
 #include <string.h>
 
-static void origin_of(const embi_frag *f, float *x, float *y)
+static void origin_of(const embi_frag *f, bool painted, float *x, float *y)
 {
+    if (painted) {
+        embi_lay_frag_painted_origin(f, x, y);
+        return;
+    }
     float ox = 0, oy = 0;
     for (const embi_frag *p = f; p != nullptr; p = p->parent) {
         ox += p->x;
@@ -44,8 +50,9 @@ static const embi_frag *start_frag(const embi_element *el)
     return nullptr;
 }
 
-/* Maps the rectangle through the transforms from the fragment start up the chain. Returns the bounding box. */
-static embi_rectf map_rect(const embi_frag *start, float vw, float vh, float rem, embi_rectf r)
+/* Maps the rectangle through the transforms from the fragment start up the chain. Returns the bounding box. painted: the
+ * rectangle and the boxes of the transforms are at their painted positions (embi_lay_frag_painted_origin). */
+static embi_rectf map_rect(const embi_frag *start, bool painted, float vw, float vh, float rem, embi_rectf r)
 {
     double px[4] = {r.x, r.x + r.w, r.x + r.w, r.x};
     double py[4] = {r.y, r.y, r.y + r.h, r.y + r.h};
@@ -58,7 +65,7 @@ static embi_rectf map_rect(const embi_frag *start, float vw, float vh, float rem
             continue;
         }
         float ox, oy;
-        origin_of(f, &ox, &oy);
+        origin_of(f, painted, &ox, &oy);
         float bb[4] = {ox, oy, f->w, f->h};
         embi_m4 m;
         if (!embi_lay_box_matrix(f->box->style, bb, vw, vh, rem, &m)) {
@@ -102,28 +109,48 @@ static bool xf_setup(const embi_layout_engine *e, const embi_element *el, const 
     return true;
 }
 
-bool embi_layout_border_box_xf(const embi_layout_engine *e, const embi_element *el, embi_rectf *out)
+static bool box_xf(const embi_layout_engine *e, const embi_element *el, bool painted, embi_rectf *out)
 {
-    if (!embi_layout_border_box(e, el, out)) {
+    if (!embi_lay_element_box(e, el, painted, out)) {
         return false;
     }
     const embi_frag *start;
     float vw, vh, rem;
     if (xf_setup(e, el, &start, &vw, &vh, &rem)) {
-        *out = map_rect(start, vw, vh, rem, *out);
+        *out = map_rect(start, painted, vw, vh, rem, *out);
     }
     return true;
 }
 
-uint32_t embi_layout_client_rects_xf(const embi_layout_engine *e, const embi_element *el, embi_rectf *out, uint32_t cap)
+static uint32_t rects_xf(const embi_layout_engine *e, const embi_element *el, bool painted, embi_rectf *out, uint32_t cap)
 {
-    uint32_t n = embi_layout_client_rects(e, el, out, cap);
+    uint32_t n = embi_lay_element_rects(e, el, painted, out, cap);
     const embi_frag *start;
     float vw, vh, rem;
     if (n != 0 && xf_setup(e, el, &start, &vw, &vh, &rem)) {
-        for (uint32_t i = 0; i < n; i++) {
-            out[i] = map_rect(start, vw, vh, rem, out[i]);
+        for (uint32_t i = 0; i < n && i < cap; i++) {
+            out[i] = map_rect(start, painted, vw, vh, rem, out[i]);
         }
     }
     return n;
+}
+
+bool embi_layout_border_box_xf(const embi_layout_engine *e, const embi_element *el, embi_rectf *out)
+{
+    return box_xf(e, el, false, out);
+}
+
+uint32_t embi_layout_client_rects_xf(const embi_layout_engine *e, const embi_element *el, embi_rectf *out, uint32_t cap)
+{
+    return rects_xf(e, el, false, out, cap);
+}
+
+bool embi_layout_painted_box_xf(const embi_layout_engine *e, const embi_element *el, embi_rectf *out)
+{
+    return box_xf(e, el, true, out);
+}
+
+uint32_t embi_layout_painted_rects_xf(const embi_layout_engine *e, const embi_element *el, embi_rectf *out, uint32_t cap)
+{
+    return rects_xf(e, el, true, out, cap);
 }

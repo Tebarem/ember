@@ -346,24 +346,22 @@ static void history_go(embi_bind_ctx *c, int64_t delta)
 
 /* A navigation requested through location: a change of the fragment stays in the document, the
  * rest goes to the embedder. */
-/* Scrolls the viewport so that the element with the id frag is at the top (the fragment's target). An empty fragment or
- * "top" scrolls to the top; an unknown id leaves the scroll alone. */
+/* Scrolls to the fragment's target, the element with the id frag (HTML "scroll to the fragment": scrollIntoView with block
+ * start and inline nearest, so its scroll containers move too). An empty fragment or "top" scrolls the viewport to the top;
+ * an unknown id leaves the scroll alone. */
 static void scroll_to_fragment(embi_bind_ctx *c, embi_str frag)
 {
-    double y = 0;
     if (frag.len != 0 && !embi_str_eq(frag, EMBI_STR("top"))) {
         embi_element *el = embi_get_element_by_id(c->doc, frag);
-        embi_layout_engine *e = el != nullptr ? embi_bind_layout(c) : nullptr;
-        embi_rectf r;
-        if (e == nullptr || !embi_layout_border_box(e, el, &r)) {
-            return;
+        if (el != nullptr) {
+            embi_impl_scroll_into_view(c, el, EMBI_ENUM_ScrollLogicalPosition_start,
+                                       EMBI_ENUM_ScrollLogicalPosition_nearest);
         }
-        y = (double)r.y;
+        return;
     }
-    c->scroll_y = y;
-    if (c->host.scroll) {
-        c->host.scroll(c->host.user, c->scroll_x, c->scroll_y);
-    }
+    double x = 0.0, y = 0.0;
+    embi_impl_root_offset(c, &x, &y);
+    embi_impl_scroll_root_to(c, x, 0.0);
 }
 
 /* The hashchange event of a same-document navigation (at the window, after the scroll). */
@@ -1090,12 +1088,12 @@ embi_js_value embi_impl_Window_get_frames(embi_bind_ctx *c, embi_bind_obj *self)
 
 embi_js_value embi_impl_Window_get_top(embi_bind_ctx *c, embi_bind_obj *self)
 {
-    return embi_impl_Window_get_window(c, self);
+    return embi_impl_frames_parent(c, self, true); /* IF1: the top window's proxy in a frame */
 }
 
 embi_js_value embi_impl_Window_get_parent(embi_bind_ctx *c, embi_bind_obj *self)
 {
-    return embi_impl_Window_get_window(c, self);
+    return embi_impl_frames_parent(c, self, false); /* IF1: the parent window's proxy in a frame */
 }
 
 int32_t embi_impl_Window_get_length(embi_bind_ctx *c, embi_bind_obj *self)
@@ -1148,13 +1146,17 @@ WIN_VIEW_GET(screenY, int32_t, 0)
 double embi_impl_Window_get_scrollX(embi_bind_ctx *c, embi_bind_obj *self)
 {
     (void)self;
-    return c->scroll_x;
+    double x = 0.0, y = 0.0;
+    embi_impl_root_offset(c, &x, &y);
+    return x;
 }
 
 double embi_impl_Window_get_scrollY(embi_bind_ctx *c, embi_bind_obj *self)
 {
     (void)self;
-    return c->scroll_y;
+    double x = 0.0, y = 0.0;
+    embi_impl_root_offset(c, &x, &y);
+    return y;
 }
 
 double embi_impl_Window_get_pageXOffset(embi_bind_ctx *c, embi_bind_obj *self)
@@ -1167,24 +1169,19 @@ double embi_impl_Window_get_pageYOffset(embi_bind_ctx *c, embi_bind_obj *self)
     return embi_impl_Window_get_scrollY(c, self);
 }
 
+/* The viewport scroll of window.scroll, scrollTo and scrollBy, clamped to the viewport's scroll range. */
 static void scroll_apply(embi_bind_ctx *c, double x, double y, bool relative)
 {
+    double cx = 0.0, cy = 0.0;
+    embi_impl_root_offset(c, &cx, &cy);
     /* NaN means "keep" */
     if (x == x) {
-        c->scroll_x = relative ? c->scroll_x + x : x;
+        cx = relative ? cx + x : x;
     }
     if (y == y) {
-        c->scroll_y = relative ? c->scroll_y + y : y;
+        cy = relative ? cy + y : y;
     }
-    if (c->scroll_x < 0) {
-        c->scroll_x = 0;
-    }
-    if (c->scroll_y < 0) {
-        c->scroll_y = 0;
-    }
-    if (c->host.scroll) {
-        c->host.scroll(c->host.user, c->scroll_x, c->scroll_y);
-    }
+    embi_impl_scroll_root_to(c, cx, cy);
 }
 
 void embi_impl_Window_scroll_0(embi_bind_ctx *c, embi_bind_obj *self, embi_dict_ScrollToOptions a0)

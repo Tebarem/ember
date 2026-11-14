@@ -306,6 +306,8 @@ typedef struct embi_lay_doc {
     EMBI_VEC(embi_element *) pdirty; /* elements whose paint changed since the paint module last looked (paint-only updates) */
     bool pover;          /* ... or too many: repaint everything */
     uint64_t fserial;    /* counts the layouts that rebuilt the fragments (the paint module's cache is valid for one) */
+    uint64_t run_epoch;  /* a new value (embi_lay_next_run_epoch) when the state is made and whenever shaped runs that a display
+                          * list may name are freed (embi_lay_tcache_sweep): a list built at another epoch names freed runs */
     /* ---- W6b: partial relayout (incr.c) ---- */
     embi_hashmap prmap;  /* block embi_box * -> index + 1 in precs: how it was laid out (embi_prec) */
     EMBI_VEC(struct embi_prec) precs;
@@ -323,6 +325,17 @@ typedef struct embi_lay_doc {
     embi_hashmap reusedmap; /* fragment -> 1: the fragments reused in this relayout (their insides are final) */
     uint32_t reused;     /* fragments reused by the last partial relayout */
     embi_hashmap rebanc; /* box -> 1: the box ancestors of the boxes this surgery built again (never reused) */
+    /* ---- the layout cache (lcache.c): the last layout of each box in this run, reused for the same constraints ---- */
+    bool lc_on;          /* the cache is in use (set per layout run; off from the final pass on, and in partial relayouts) */
+    embi_hashmap lcmap;  /* embi_box * -> index + 1 in lcv of the box's first entry (the others are chained) */
+    embi_hashmap lcf;    /* embi_frag * -> index + 1 in lcv of the entry whose layout made the fragment */
+    EMBI_VEC(struct embi_lc_ent) lcv;
+    EMBI_VEC(struct embi_excl_rect) lcr; /* the exclusion rectangles of the keys */
+    EMBI_VEC(struct embi_lc_bs) lcs;     /* the state of the boxes below each entry (fragment pointers, gutter flags) */
+    EMBI_VEC(struct embi_lc_ref) lcref;  /* the fragments of other entries inside each entry's fragment tree */
+    EMBI_VEC(uint16_t) lct;              /* the gutter flags of the boxes below the layouts in progress, as they started */
+    uint32_t lc_serial;                  /* the last serial given to an entry */
+    uint32_t lc_hits, lc_misses;         /* in the last layout run */
 } embi_lay_doc;
 
 struct embi_layout_engine {
@@ -336,6 +349,7 @@ struct embi_layout_engine {
     bool images_stable; /* W6b: the embedder's image sizes only change with a DOM or style change (embi_layout_set_images_stable) */
     embi_layout_control_fn control_fn; /* W5e: the painter's form control state hook */
     void *control_user;
+    embi_layout_prof prof; /* running totals of embi_layout_document (embi_layout_prof_get) */
 };
 
 /* Depth of the container-size stack (see embi_lctx.cq). Deeper containers are not recorded. */
@@ -701,6 +715,14 @@ void embi_lay_frag_append(embi_frag *parent, embi_frag *child);
 const embi_fmet *embi_lay_met(embi_lay_doc *ld, const embi_fmet *key);
 /* Whether the box tree of the document has a box with a transform (set while the boxes are made; hit.c). */
 bool embi_lay_doc_has_transform(const embi_layout_engine *e, const embi_document *doc);
+/* Geometry (geom.c). The painted origin of a fragment's border box: its layout position moved by the scroll offsets of the
+ * scroll containers around it (the viewport's excepted) and, for a fixed box of the viewport and its content, by the
+ * viewport's offset (which does not move them), so that subtracting the viewport's offset gives where it is painted. */
+void embi_lay_frag_painted_origin(const embi_frag *f, float *x, float *y);
+/* embi_layout_border_box and embi_layout_client_rects at layout positions (painted false) or painted ones. */
+bool embi_lay_element_box(const embi_layout_engine *e, const embi_element *el, bool painted, embi_rectf *out);
+uint32_t embi_lay_element_rects(const embi_layout_engine *e, const embi_element *el, bool painted, embi_rectf *out,
+                                uint32_t cap);
 /* Sets the used border widths and paddings of a box fragment (keeps its margins), or its margins (keeps the
  * rest). Each call interns the new combination, so set the margins once the fragment is placed. */
 void embi_lay_frag_set_edges(embi_lay_doc *ld, embi_frag *f, const embi_edges *bdr, const embi_edges *pad);
@@ -804,6 +826,8 @@ size_t embi_lay_ifc_pool_bytes(const embi_lay_doc *ld);
 void embi_lay_prep_sweep(embi_lay_doc *ld, bool all);
 /* Drops the cache entries the layout that just ended did not use (layout.c), or all when all. */
 void embi_lay_tcache_sweep(embi_lay_doc *ld, bool all);
+/* A value no layout state of the process had before (embi_lay_doc.run_epoch). */
+uint64_t embi_lay_next_run_epoch(void);
 
 /* ------------------------------------------------------------------ line metrics (line.c) */
 
@@ -1029,6 +1053,22 @@ void embi_lay_set_partial_enabled(bool on);
 /* position.c: the final pass over a detached fragment subtree, and the offset a relative box gives its fragment. */
 void embi_lay_prep_subtree(embi_lctx *c, embi_frag *f);
 void embi_lay_frag_shift(const embi_lctx *c, const embi_box *b, float *dx, float *dy);
+/* The layout cache (lcache.c). embi_lay_box asks embi_lay_lc_get first: true when the box's last layout in this run was
+ * for the same constraints and nothing below it was laid out since (out then holds that layout's result, restored in
+ * place); otherwise *slot is the entry to give to embi_lay_lc_put once the box is laid out (0: not cached). */
+typedef struct embi_lc_mark {
+    uint32_t slot, pos0, nrects0, ih_need0, t0;
+} embi_lc_mark;
+bool embi_lay_lc_get(embi_lctx *c, embi_box *b, const embi_cs *cs, embi_lres *out, embi_lc_mark *m);
+void embi_lay_lc_put(embi_lctx *c, embi_box *b, const embi_cs *cs, const embi_lres *out, const embi_lc_mark *m);
+/* Starts a layout run (on: the cache is used) and drops what the last run cached; embi_lay_lc_free frees it all. */
+void embi_lay_lc_begin(embi_lay_doc *ld, bool on);
+void embi_lay_lc_free(embi_lay_doc *ld);
+/* Test switch: enables or disables the layout cache (overrides EMBER_NO_LAYOUT_CACHE). */
+void embi_lay_set_cache_enabled(bool on);
+bool embi_lay_cache_enabled(void);
+/* position.c: the out-of-flow records [from, to) of this layout are made again (a cached layout that made them). */
+void embi_lay_pos_replay(embi_lctx *c, uint32_t from, uint32_t to);
 /* block.c: puts the fragment tree rooted at f on the free lists of the document. */
 void embi_lay_release_frags(embi_lay_doc *ld, embi_frag *f);
 

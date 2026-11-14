@@ -1580,7 +1580,8 @@ void embi_grid_content(embi_lctx *c, embi_box *b, embi_frag *f, const embi_flex_
     bool sdum;
     int cdj = cd_of(embi_lay_prop(c, b, EMBI_PROP_justify_content), g->rtl, &sdum);
     bool safe_j = sdum;
-    int cda = cd_of(embi_lay_prop(c, b, EMBI_PROP_align_content), false, &sdum);
+    /* A grid button is not centred by the UA's align-content: center (see flex.c). */
+    int cda = cd_of((b->flags & EMBI_BF_CENTER) != 0 ? nullptr : embi_lay_prop(c, b, EMBI_PROP_align_content), false, &sdum);
     bool safe_a = sdum;
 
     float ch_avail = NAN; /* the block size the rows are distributed in */

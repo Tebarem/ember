@@ -18,7 +18,7 @@
 bool embi_forms_edit(embi_bind_ctx *c, embi_node *target, const char *input_type, embi_str data, bool composing);
 
 /* A key of a focused editable control that moves the caret or deletes (Backspace, Delete, ArrowLeft/Right, Home, End,
- * ArrowUp/Down in textarea, and Ctrl+A for select all). The keys name the DOM key values; ctrl, shift, alt are the
+ * ArrowUp/Down in textarea, and Ctrl+A for select all); ArrowUp/Down step a number field (input and change fire). The keys name the DOM key values; ctrl, shift, alt are the
  * modifiers. Returns true when the key was taken by the control (the caller then skips the page's default action). */
 bool embi_forms_key(embi_bind_ctx *c, embi_node *target, const char *key, bool ctrl, bool shift, bool alt);
 

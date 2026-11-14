@@ -7,6 +7,10 @@
 #include "js/runtime.h"
 #include "js/string.h"
 
+const char *const embi_enum_names_ScrollBehavior[] = {"auto", "instant", "smooth"};
+
+const char *const embi_enum_names_ScrollLogicalPosition[] = {"start", "center", "end", "nearest"};
+
 const char *const embi_enum_names_DOMParserSupportedType[] = {"text/html", "text/xml", "application/xml", "application/xhtml+xml", "image/svg+xml"};
 
 static const embi_bind_member gen_Attr_m[] = {
@@ -360,6 +364,7 @@ static const embi_bind_member gen_Document_m[] = {
     {.name = "contentType", .impl = (embi_gen_fn)embi_impl_Document_get_contentType, .fn = embi_shape_8db39402, .iface = EMBI_IF_Document, .kind = EMBI_MEMBER_ATTR},
     {.name = "doctype", .impl = (embi_gen_fn)embi_impl_Document_get_doctype, .fn = embi_shape_73bc6013, .iface = EMBI_IF_Document, .kind = EMBI_MEMBER_ATTR},
     {.name = "documentElement", .impl = (embi_gen_fn)embi_impl_Document_get_documentElement, .fn = embi_shape_73bc6013, .iface = EMBI_IF_Document, .kind = EMBI_MEMBER_ATTR},
+    {.name = "scrollingElement", .impl = (embi_gen_fn)embi_impl_Document_get_scrollingElement, .fn = embi_shape_73bc6013, .iface = EMBI_IF_Document, .kind = EMBI_MEMBER_ATTR},
     {.name = "getElementsByTagName", .impl = (embi_gen_fn)embi_impl_Document_getElementsByTagName, .fn = embi_shape_0b2a11c6, .iface = EMBI_IF_Document, .kind = EMBI_MEMBER_OP, .len = 1},
     {.name = "getElementsByTagNameNS", .impl = (embi_gen_fn)embi_impl_Document_getElementsByTagNameNS, .fn = embi_shape_1cb84ac0, .iface = EMBI_IF_Document, .kind = EMBI_MEMBER_OP, .len = 2},
     {.name = "getElementsByClassName", .impl = (embi_gen_fn)embi_impl_Document_getElementsByClassName, .fn = embi_shape_0b2a11c6, .iface = EMBI_IF_Document, .kind = EMBI_MEMBER_OP, .len = 1},
@@ -415,7 +420,7 @@ static const embi_bind_member gen_Document_m[] = {
 
 const embi_bind_iface embi_gen_iface_Document = {
     .members = gen_Document_m,
-    .nmembers = 62,
+    .nmembers = 63,
     .ctor = gen_Document_ctor,
     .ctor_len = 0,
 };
@@ -568,7 +573,7 @@ static const embi_bind_member gen_Element_m[] = {
     {.name = "outerHTML", .impl = (embi_gen_fn)embi_impl_Element_get_outerHTML, .impl2 = (embi_gen_fn)embi_impl_Element_set_outerHTML, .set = embi_shape_aad775f8, .fn = embi_shape_d239bff8, .iface = EMBI_IF_Element, .kind = EMBI_MEMBER_ATTR},
     {.name = "getClientRects", .impl = (embi_gen_fn)embi_impl_Element_getClientRects, .fn = embi_shape_0115b945, .iface = EMBI_IF_Element, .kind = EMBI_MEMBER_OP, .len = 0},
     {.name = "getBoundingClientRect", .impl = (embi_gen_fn)embi_impl_Element_getBoundingClientRect, .fn = embi_shape_0115b945, .iface = EMBI_IF_Element, .kind = EMBI_MEMBER_OP, .len = 0},
-    {.name = "scrollIntoView", .impl = (embi_gen_fn)embi_impl_Element_scrollIntoView, .fn = embi_shape_e24ea5d4, .iface = EMBI_IF_Element, .kind = EMBI_MEMBER_OP, .len = 0},
+    {.name = "scrollIntoView", .impl = (embi_gen_fn)embi_impl_Element_scrollIntoView, .fn = embi_shape_86539a22, .iface = EMBI_IF_Element, .kind = EMBI_MEMBER_OP, .len = 0},
     {.name = "scrollTop", .impl = (embi_gen_fn)embi_impl_Element_get_scrollTop, .impl2 = (embi_gen_fn)embi_impl_Element_set_scrollTop, .set = embi_shape_aaff8b61, .fn = embi_shape_5488fe92, .iface = EMBI_IF_Element, .kind = EMBI_MEMBER_ATTR},
     {.name = "scrollLeft", .impl = (embi_gen_fn)embi_impl_Element_get_scrollLeft, .impl2 = (embi_gen_fn)embi_impl_Element_set_scrollLeft, .set = embi_shape_aaff8b61, .fn = embi_shape_5488fe92, .iface = EMBI_IF_Element, .kind = EMBI_MEMBER_ATTR},
     {.name = "scrollWidth", .impl = (embi_gen_fn)embi_impl_Element_get_scrollWidth, .fn = embi_shape_e5b519c6, .iface = EMBI_IF_Element, .kind = EMBI_MEMBER_ATTR},
@@ -1004,6 +1009,50 @@ bool embi_gen_dict_conv_GetRootNodeOptions(embi_bind_ctx *c, embi_js_value v, em
             out->composed = false;
         } else {
     out->composed = embi_js_to_boolean(mv);
+        }
+    }
+    return true;
+}
+
+bool embi_gen_dict_conv_ScrollIntoViewOptions(embi_bind_ctx *c, embi_js_value v, embi_dict_ScrollIntoViewOptions *out, const char *ctx)
+{
+    embi_js_runtime *rt = c->rt;
+    (void)rt;
+    if (!embi_gen_dict_conv_ScrollOptions(c, v, &out->base, ctx)) return false;
+    if (!embi_bind_dict_check(c, v, ctx)) return false;
+    {
+        embi_js_value mv = EMBI_JS_UNDEFINED;
+        if (!embi_bind_dict_get(c, v, "block", &mv)) return false;
+        if (embi_js_is_undefined(mv)) {
+            out->block = EMBI_ENUM_ScrollLogicalPosition_start;
+        } else {
+    if (!embi_bind_conv_enum(c, mv, false, embi_enum_names_ScrollLogicalPosition, EMBI_ENUM_COUNT_ScrollLogicalPosition, ctx, &out->block)) return false;
+        }
+    }
+    {
+        embi_js_value mv = EMBI_JS_UNDEFINED;
+        if (!embi_bind_dict_get(c, v, "inline", &mv)) return false;
+        if (embi_js_is_undefined(mv)) {
+            out->inline_ = EMBI_ENUM_ScrollLogicalPosition_nearest;
+        } else {
+    if (!embi_bind_conv_enum(c, mv, false, embi_enum_names_ScrollLogicalPosition, EMBI_ENUM_COUNT_ScrollLogicalPosition, ctx, &out->inline_)) return false;
+        }
+    }
+    return true;
+}
+
+bool embi_gen_dict_conv_ScrollOptions(embi_bind_ctx *c, embi_js_value v, embi_dict_ScrollOptions *out, const char *ctx)
+{
+    embi_js_runtime *rt = c->rt;
+    (void)rt;
+    if (!embi_bind_dict_check(c, v, ctx)) return false;
+    {
+        embi_js_value mv = EMBI_JS_UNDEFINED;
+        if (!embi_bind_dict_get(c, v, "behavior", &mv)) return false;
+        if (embi_js_is_undefined(mv)) {
+            out->behavior = EMBI_ENUM_ScrollBehavior_auto;
+        } else {
+    if (!embi_bind_conv_enum(c, mv, false, embi_enum_names_ScrollBehavior, EMBI_ENUM_COUNT_ScrollBehavior, ctx, &out->behavior)) return false;
         }
     }
     return true;

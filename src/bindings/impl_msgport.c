@@ -75,6 +75,7 @@ static embi_js_value port_wrap(embi_bind_ctx *c, embi_mport *p)
     w->bo = bo;
     unpin(c, p);
     embi_mp_set_slot(p, embi_js_persistent_new(c->rt, v) + 1u);
+    embi_mp_set_owner(p, c);
     return v;
 }
 
@@ -98,6 +99,47 @@ void ldr_msg_release(embi_bind_ctx *c, embi_mports *ports)
     }
     embi_mports_each(ports, release_each, c);
     embi_mports_free(ports);
+}
+
+typedef struct owned_list {
+    embi_bind_ctx *c;
+    embi_mport **v;
+    uint32_t n, cap;
+} owned_list;
+
+static void collect_owned(embi_mport *p, void *arg)
+{
+    owned_list *l = arg;
+    if (embi_mp_owner(p) != l->c) {
+        return;
+    }
+    if (l->n == l->cap) {
+        uint32_t cap = l->cap ? l->cap * 2 : 8;
+        embi_mport **nv = SDL_realloc(l->v, (size_t)cap * sizeof *nv);
+        if (nv == nullptr) {
+            return;
+        }
+        l->v = nv;
+        l->cap = cap;
+    }
+    l->v[l->n++] = p;
+}
+
+void ldr_msg_release_owned(embi_bind_ctx *c, embi_mports *ports)
+{
+    if (ports == nullptr) {
+        return;
+    }
+    /* IF1: the registry is shared with other frames: only this context's ports go (closed, so their peers in other realms
+     * are disentangled), then this context's reference. */
+    owned_list l = {c, nullptr, 0, 0};
+    embi_mports_each(ports, collect_owned, &l);
+    for (uint32_t i = 0; i < l.n; i++) {
+        unpin(c, l.v[i]);
+        embi_mp_release(ports, l.v[i]);
+    }
+    SDL_free(l.v);
+    embi_mports_unref(ports);
 }
 
 /* ------------------------------------------------------------------ delivery */
@@ -193,9 +235,13 @@ static void mtask_run(void *arg)
     mtask_free(t);
 }
 
-/* Queues one delivery task for the port. */
+/* Queues one delivery task for the port, on the loop of the realm that has the port (another frame's, for a port of a
+ * shared registry whose peer was transferred there). */
 static void schedule(embi_bind_ctx *c, embi_mport *p)
 {
+    if (embi_mp_owner(p) != nullptr) {
+        c = embi_mp_owner(p);
+    }
     const embi_loader_env *env = ldr_env(c);
     if (env->post == nullptr) {
         return;
@@ -503,11 +549,9 @@ static void doc_origin(embi_bind_ctx *c, embi_sb *out)
     }
 }
 
-embi_dom_err embi_impl_Window_postMessage(embi_bind_ctx *c, embi_bind_obj *self, embi_js_value a0, embi_js_value a1,
-                                          embi_js_value a2)
+embi_dom_err ldr_msg_window_args(embi_bind_ctx *c, embi_js_value a0, embi_js_value a1, embi_js_value a2, const char *what,
+                                 embi_sb *bytes, embi_sb *origin, embi_sb *target_origin)
 {
-    (void)self;
-    const char *what = "Failed to execute 'postMessage' on 'Window'";
     embi_bind_scope sc = embi_bind_enter(c);
     embi_sb target = {0};
     embi_js_value tlist = a2;
@@ -537,33 +581,60 @@ embi_dom_err embi_impl_Window_postMessage(embi_bind_ctx *c, embi_bind_obj *self,
         (void)embi_bind_leave(sc, EMBI_JS_UNDEFINED);
         return EMBI_BIND_THREW;
     }
-    embi_sb origin = {0};
-    doc_origin(c, &origin);
-    /* targetOrigin: "*" always matches, "/" and the empty default mean this document's origin, anything else must parse and
-     * match (an unparsable one is a SyntaxError). A mismatch drops the message silently. */
-    bool match = true;
-    if (have_target && !embi_str_eq((embi_str){target.data, target.len}, EMBI_STR("*")) &&
-        !embi_str_eq((embi_str){target.data, target.len}, EMBI_STR("/"))) {
+    doc_origin(c, origin);
+    /* targetOrigin: "*" matches everything, "/" and the default mean the sender's origin, anything else must parse (an
+     * unparsable one is a SyntaxError) and names the origin of its URL. */
+    if (have_target && embi_str_eq((embi_str){target.data, target.len}, EMBI_STR("*"))) {
+        embi_sb_clear(target_origin);
+    } else if (!have_target || embi_str_eq((embi_str){target.data, target.len}, EMBI_STR("/"))) {
+        embi_sb_clear(target_origin);
+        embi_sb_append(target_origin, (embi_str){origin->data, origin->len});
+    } else {
         embi_url tu = {0};
         if (!embi_url_parse((embi_str){target.data, target.len}, nullptr, &tu)) {
             embi_sb_free(&target);
-            embi_sb_free(&origin);
+            embi_sb_free(origin);
             (void)embi_bind_leave(sc, EMBI_JS_UNDEFINED);
-            return embi_impl_throw(c, "SyntaxError", "Failed to execute 'postMessage' on 'Window': Invalid target origin.");
+            char msg[160];
+            SDL_snprintf(msg, sizeof msg, "%s: Invalid target origin.", what);
+            return embi_impl_throw(c, "SyntaxError", msg);
         }
-        embi_sb to = {0};
-        embi_url_origin(&tu, &to);
-        match = to.len == origin.len && (to.len == 0 || memcmp(to.data, origin.data, to.len) == 0);
-        embi_sb_free(&to);
+        embi_sb_clear(target_origin);
+        embi_url_origin(&tu, target_origin);
         embi_url_free(&tu);
     }
     embi_sb_free(&target);
-    embi_sb bytes = {0};
-    if (!serialize_message(c, a0, items, n, &bytes)) {
-        embi_sb_free(&origin);
+    if (!serialize_message(c, a0, items, n, bytes)) {
+        embi_sb_free(origin);
+        embi_sb_free(target_origin);
         (void)embi_bind_leave(sc, EMBI_JS_UNDEFINED);
         return EMBI_BIND_THREW;
     }
+    (void)embi_bind_leave(sc, EMBI_JS_UNDEFINED);
+    return EMBI_DOM_OK;
+}
+
+void ldr_msg_fire_window(embi_bind_ctx *c, embi_str bytes, embi_str origin, embi_js_value source)
+{
+    if (c->gbo != nullptr) {
+        fire_message(c, c->realm, c->gbo, bytes, origin, source);
+    }
+}
+
+embi_dom_err embi_impl_Window_postMessage(embi_bind_ctx *c, embi_bind_obj *self, embi_js_value a0, embi_js_value a1,
+                                          embi_js_value a2)
+{
+    (void)self;
+    embi_sb bytes = {0}, origin = {0}, target = {0};
+    embi_dom_err err = ldr_msg_window_args(c, a0, a1, a2, "Failed to execute 'postMessage' on 'Window'", &bytes, &origin,
+                                           &target);
+    if (err != EMBI_DOM_OK) {
+        return err;
+    }
+    /* The window posts to itself: a target origin other than its own drops the message silently. */
+    bool match = target.len == 0 || (target.len == origin.len && memcmp(target.data, origin.data, target.len) == 0);
+    embi_sb_free(&target);
+    embi_bind_scope sc = embi_bind_enter(c);
     const embi_loader_env *env = ldr_env(c);
     if (!match || env->post == nullptr) {
         embi_sb_free(&bytes);
@@ -642,6 +713,7 @@ static void port_detach(embi_bind_ctx *c, embi_js_value v)
     if (p != nullptr) {
         embi_mp_stop(p);
         unpin(c, p);
+        embi_mp_set_owner(p, nullptr); /* in transit until a realm receives it */
     }
 }
 

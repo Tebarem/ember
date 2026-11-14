@@ -157,6 +157,33 @@ EMB_TEST(es6_block_functions)
     es6_env_free(e);
 }
 
+/* Every function of a block exists from the block's entry, so a block function can call one declared after it in the
+ * same block, before the declaration is reached (the Falcon editor's script runs inside one try block). */
+EMB_TEST(es6_block_functions_forward)
+{
+    es6_env e = es6_env_new();
+    EMB_REQUIRE(e.r != nullptr);
+    E6_TEXT(e, "var r1; { function g1() { return typeof h1 } r1 = g1(); function h1() {} } r1", "function");
+    E6_NUM(e, "var r2; try { function g2() { return h2() } r2 = g2(); function h2() { return 7 } } catch (x) {} r2", 7);
+    E6_NUM(e, "var r3; { let a = 1; function g3() { return h3() + a } r3 = g3(); let k = 2; function h3() { return 5 } } r3", 6);
+    E6_NUM(e, "function outer() { { function g4() { return h4() } var r = g4(); function h4() { return 9 } } return r } outer()",
+           9);
+    E6_TEXT(e, "var r5; { r5 = typeof h5; function h5() {} } r5", "function");
+    E6_TEXT(e, "'use strict'; var r6; { function g6() { return typeof h6 } r6 = g6(); function h6() {} } r6", "function");
+    /* Each entry of a loop body makes fresh bindings: the escaped closures see their own iteration's functions. */
+    E6_NUM(e, "var fs = []; for (var i = 0; i < 2; i++) { let k = i; function a7() { return b7() } function b7() { return k } "
+              "fs.push(a7) } fs[0]() * 10 + fs[1]()",
+           1);
+    E6_NUM(e, "var r8; switch (1) { case 1: function g8() { return h8() } r8 = g8(); function h8() { return 3 } } r8", 3);
+    E6_NUM(e, "var r9; { function* g9() { yield h9() } r9 = g9().next().value; function h9() { return 4 } } r9", 4);
+    E6_NUM(e, "var r10; { { function g10() { return h10() } r10 = g10(); } function h10() { return 6 } } r10", 6);
+    E6_NUM(e, "var esc; { function ev(n) { return n ? od(n - 1) : 1 } function od(n) { return n ? ev(n - 1) : 0 } esc = ev } "
+              "esc(4) * 10 + od(3)",
+           11);
+    E6_TEXT(e, "{ function g12() { return h12 } function h12() {} } typeof g12() + typeof h12", "functionfunction");
+    es6_env_free(e);
+}
+
 /* A closure captures the binding of its block: each block entry makes a fresh one. */
 EMB_TEST(es6_block_closures)
 {

@@ -22,6 +22,12 @@
 #include <stdint.h>
 
 #include <ember/ember.h>
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+/* SDL3's event union, forward declared (SDL declares the same typedef). */
+typedef union SDL_Event SDL_Event;
 
 /* Mouse and pointer buttons, as the DOM numbers them (MouseEvent.button). */
 typedef enum emb_button {
@@ -100,6 +106,11 @@ EMB_API void emb_view_mouse_move(emb_view *view, float x, float y, uint32_t mods
 /* A mouse button was pressed (down true) or released at (x, y). Dispatches pointerdown or pointerup, mousedown or
  * mouseup, and click, auxclick or contextmenu as the DOM defines them (click counts through detail). */
 EMB_API void emb_view_mouse_button(emb_view *view, float x, float y, emb_button button, bool down, uint32_t mods);
+/* emb_view_mouse_button with the platform's click count for this press (clicks >= 1, as SDL's button.clicks: the system's
+ * double-click time and distance), which detail, dblclick and the form controls follow; 0 counts as emb_view_mouse_button
+ * does (by time and distance). */
+EMB_API void emb_view_mouse_button_clicks(emb_view *view, float x, float y, emb_button button, bool down, uint32_t mods,
+                                         uint32_t clicks);
 /* The pointer left the view (the mouse went out of the window): the hover target becomes none. Dispatches pointerout,
  * pointerleave, mouseout and mouseleave (relatedTarget null) for the elements that were under the pointer. */
 EMB_API void emb_view_mouse_leave(emb_view *view);
@@ -140,3 +151,18 @@ typedef enum emb_clipboard_command {
  * Shift+Insert (Cmd instead of Ctrl on the Meta key) of emb_view_key run these after an uncanceled keydown. The system
  * clipboard is SDL's, or a process-local buffer when SDL's video is not initialized (embi_pf_clipboard_native). */
 EMB_API void emb_view_clipboard(emb_view *view, emb_clipboard_command command);
+
+/* Dispatches one SDL3 event to the view the way a windowed view handles the events of its own window, for offscreen
+ * hosts that run their own event loop: key down and up (the DOM key on the user's layout, code, location, modifiers),
+ * text input and IME editing, mouse motion, buttons and wheel, and the window's mouse leave and focus gained and lost.
+ * Pointer positions map to CSS px of the view as ((event x - origin_x) * scale, (event y - origin_y) * scale), where
+ * origin is where the view's top-left corner is in the event's coordinates and scale converts event units to CSS px.
+ * Window IDs are not checked: the host passes the events it wants the view to have. Touch-synthesized mouse events
+ * are ignored as in a windowed view. Returns true when the event is one of these kinds (and was dispatched), false for
+ * any other event, a null view or event, or a scale that is not positive and finite. Mouse events carry the keyboard
+ * modifiers SDL holds now (SDL_GetModState), as in a windowed view. */
+EMB_API bool emb_view_sdl_event(emb_view *view, const SDL_Event *event, float origin_x, float origin_y, float scale);
+
+#ifdef __cplusplus
+}
+#endif

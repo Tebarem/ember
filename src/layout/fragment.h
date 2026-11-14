@@ -314,6 +314,11 @@ embi_fext *embi_lay_frag_ext(struct embi_lay_doc *ld, embi_frag *f);
  * Position 3 section 3.4), to add to x and y when painting. Zero for other fragments. */
 void embi_lay_sticky_offset(const embi_frag *f, float *dx, float *dy);
 
+/* Whether f is the box of a position: fixed element whose containing block is the viewport (a child of the initial
+ * containing block). The viewport's scroll offset does not move it (CSS Position 3 section 2.2): paint, the hit test and
+ * the painted geometry (embi_layout_painted_box) add the offset back for it and its content. */
+bool embi_lay_frag_vp_fixed(const embi_frag *f);
+
 /* The fragment of a table box is allocated with room for its collapsed borders after the common
  * fragment, so the 8 bytes cost only tables, not every fragment (the 160 B per box budget). */
 /* The column and column group boxes of a table, for W4 to paint their backgrounds (CSS 2.1 17.5.1: column groups,

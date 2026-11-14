@@ -112,6 +112,9 @@ enum {
 #define EMBI_TF_MC 0x04u
 /* A box that multicol.c split in fragments (its box->frag is the first one): geometry queries walk the tree for the others. */
 #define EMBI_TF_SPLIT 0x08u
+/* tflags of a form control (never a table box): the control has a text baseline of its own, the one of its text centred in
+ * the content box (a text field, a drop-down select), where the other controls align on their bottom margin edge. */
+#define EMBI_TF_CTLBASE 0x10u
 
 /* The box record is 72 bytes, and a text box 64 (W3p). The fields of a text run (text, lt, text_len, in
  * TEXT and MARKER boxes) share the bytes of the fields of the other boxes (first, frag, min_c, max_c), which

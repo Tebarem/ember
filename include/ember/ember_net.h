@@ -18,6 +18,9 @@
 
 #include <stdbool.h>
 #include <stddef.h>
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /* Adds an allowlist entry. Patterns (compared after URL host normalization: IDNA, lowercase, IPv6 in brackets):
  *   "host"           that host on any port            "host:port"   that host on that port
@@ -41,3 +44,7 @@ EMB_API void emb_runtime_net_use_bundled_roots(emb_runtime *rt, bool on);
 
 /* The User-Agent header of network requests (default "Ember/<version>"). A copy is kept. */
 EMB_API void emb_runtime_net_set_user_agent(emb_runtime *rt, const char *ua);
+
+#ifdef __cplusplus
+}
+#endif

@@ -35,6 +35,9 @@
 #include <SDL3/SDL_timer.h>
 
 #define EMBI_GFX_DEFAULT_BUDGET ((size_t)64 << 20)
+/* How long a layer texture nothing used stays in the pool. A layer the size of the view costs about a millisecond to create
+ * (the driver allocates and clears it), and a page that changes draws the same layers frame after frame. */
+#define EMBI_GFX_LAYER_KEEP_MS 2000u
 #define EMBI_GFX_MAX_LAYER_DEPTH 8u
 #define EMBI_GFX_MAX_TILES 65536u
 #define EMBI_GFX_MAX_WAVE 512u
@@ -70,6 +73,9 @@ struct embi_gfx {
     uint32_t nbitmaps;
     SDL_GPUCommandBuffer *cmd;   /* the command buffer of the draw in progress (the glyph uploads go into it) */
     EMBI_VEC(embi_str) changed;  /* W6c: URLs (heap copies) of the animated images whose frame changed, until damaged */
+    /* IF1: the textures of the iframes' documents ("ember-frame:" items), looked up by the iframe element. */
+    SDL_GPUTexture *(*frame_tex)(void *user, const void *key, uint32_t *w, uint32_t *h);
+    void *frame_user;
 };
 
 /* One frame stream: a target and the frame being recorded into it, with the index maps of that frame. */
@@ -730,6 +736,34 @@ static void draw_item(seg *s, const embi_ditem *it, float alpha)
                 const float csrc[4] = {0.0f, 0.0f, (float)cw, (float)ch};
                 embi_frame_layer(s->f, &lay, csrc, it->rect, it->radii, alpha * (float)(it->colors[0] >> 24) / 255.0f, xf,
                                  cl);
+            }
+            break;
+        }
+        if (curl.len > 12 && memcmp(curl.ptr, "ember-frame:", 12) == 0) {
+            /* IF1: an iframe, drawn from the texture its document was drawn into (premultiplied, transparent where the
+             * document painted nothing). */
+            uint32_t fw = 0, fh = 0;
+            char name[64];
+            void *key = nullptr;
+            size_t n = curl.len - 12 < sizeof name - 1 ? curl.len - 12 : sizeof name - 1;
+            memcpy(name, (const char *)curl.ptr + 12, n);
+            name[n] = '\0';
+            (void)SDL_sscanf(name, "%p", &key);
+            SDL_GPUTexture *ft = gx->frame_tex != nullptr ? gx->frame_tex(gx->frame_user, key, &fw, &fh) : nullptr;
+            if (ft != nullptr && fw > 0 && fh > 0) {
+                embi_layer lay = {.tex = ft, .w = fw, .h = fh, .tex_w = fw, .tex_h = fh};
+                const float fsrc[4] = {0.0f, 0.0f, (float)fw, (float)fh};
+                /* 1:1 in device pixels: the texture is the frame's viewport at the view's scale, drawn at its own size
+                 * from the content box's corner snapped to a device pixel (the item's clip is the content box), so a
+                 * fractional box does not resample the frame's picture. */
+                float dst[4] = {it->rect[0], it->rect[1], it->rect[2], it->rect[3]};
+                if (s->scale > 0.0f) {
+                    dst[0] = roundf(dst[0] * s->scale) / s->scale;
+                    dst[1] = roundf(dst[1] * s->scale) / s->scale;
+                    dst[2] = (float)fw / s->scale;
+                    dst[3] = (float)fh / s->scale;
+                }
+                embi_frame_layer(s->f, &lay, fsrc, dst, it->radii, alpha * (float)(it->colors[0] >> 24) / 255.0f, xf, cl);
             }
             break;
         }
@@ -2131,6 +2165,23 @@ void embi_gfx_texture_destroy(embi_gfx *gx, SDL_GPUTexture *t)
     }
 }
 
+void embi_gfx_forget_images(embi_gfx *gx, const embi_dl *d)
+{
+    for (uint32_t i = 0; d != nullptr && i < d->items.len; i++) {
+        const embi_ditem *it = &d->items.data[i];
+        if (it->kind != EMBI_DI_IMAGE) {
+            continue;
+        }
+        embi_str raw = embi_dl_url(d, it->aux);
+        if (raw.len > 6 && memcmp(raw.ptr, "ember-", 6) == 0) {
+            continue; /* a frame's or a canvas's picture */
+        }
+        embi_str url = gx->resolve != nullptr ? gx->resolve(gx->user, raw) : raw;
+        embi_image_cache_forget(gx->images, url);
+    }
+    gx->image_gen++;
+}
+
 void embi_gfx_reset_images(embi_gfx *gx)
 {
     anim_clear(gx);
@@ -2195,9 +2246,49 @@ void embi_gfx_anim_damage(embi_gfx *gx, embi_damage *d, const embi_dl *cur, floa
     }
 }
 
+bool embi_gfx_anim_pending(const embi_gfx *gx)
+{
+    return gx != nullptr && gx->changed.len > 0;
+}
+
+void embi_gfx_anim_damage_keep(embi_gfx *gx, embi_damage *d, const embi_dl *cur, float scale, uint32_t view_w,
+                               uint32_t view_h)
+{
+    if (gx != nullptr && gx->changed.len > 0) {
+        embi_damage_add_images(d, cur, scale, view_w, view_h, anim_match, gx);
+    }
+}
+
+void embi_gfx_set_user(embi_gfx *gx, void *user)
+{
+    if (gx != nullptr) {
+        gx->user = user;
+    }
+}
+
+void embi_gfx_set_frame_lookup(embi_gfx *gx, SDL_GPUTexture *(*fn)(void *user, const void *key, uint32_t *w, uint32_t *h),
+                               void *user)
+{
+    if (gx != nullptr) {
+        gx->frame_tex = fn;
+        gx->frame_user = user;
+    }
+}
+
 void embi_gfx_trim(embi_gfx *gx)
 {
     embi_svgcache_trim(gx->svgs); /* R4c: after a draw no paint holds an SVG image */
     embi_image_cache_trim(gx->images);
-    embi_layer_pool_trim(gx->pool);
+    embi_gfx_trim_idle(gx);
+}
+
+void embi_gfx_trim_idle(embi_gfx *gx)
+{
+    if (gx != nullptr) {
+        const uint64_t now = SDL_GetTicks();
+        embi_layer_pool_trim_unused(gx->pool, now, EMBI_GFX_LAYER_KEEP_MS);
+        if (gx->canvas != nullptr) {
+            embi_canvas_gpu_trim(gx->canvas, now);
+        }
+    }
 }

@@ -108,6 +108,47 @@ EMB_TEST(sel_pseudo_element_placement)
     embi_arena_free(&a);
 }
 
+/* The WebKit parts of a range input and of a scroll container parse as pseudo-elements, with a user-action class after them. */
+EMB_TEST(sel_webkit_range_and_scrollbar_parts)
+{
+    embi_arena a;
+    embi_arena_init(&a, 1024);
+    static const struct {
+        const char *sel;
+        embi_sel_pseudo pe;
+    } ok[] = {
+        {"input::-webkit-slider-runnable-track", EMBI_PE_SLIDER_TRACK},
+        {"input[type=range]:hover::-webkit-slider-thumb", EMBI_PE_SLIDER_THUMB},
+        {"input[type=range]:active::-webkit-slider-thumb", EMBI_PE_SLIDER_THUMB},
+        {"::-webkit-scrollbar", EMBI_PE_SCROLLBAR},
+        {"*::-webkit-scrollbar", EMBI_PE_SCROLLBAR},
+        {".foo::-webkit-scrollbar", EMBI_PE_SCROLLBAR},
+        {"::-webkit-scrollbar-thumb", EMBI_PE_SCROLLBAR_THUMB},
+        {"::-webkit-scrollbar-thumb:hover", EMBI_PE_SCROLLBAR_THUMB},
+        {"::-webkit-scrollbar-track", EMBI_PE_SCROLLBAR_TRACK},
+        {"::-webkit-scrollbar-corner", EMBI_PE_SCROLLBAR_CORNER},
+        {"::-WEBKIT-Scrollbar", EMBI_PE_SCROLLBAR},
+    };
+    for (size_t i = 0; i < sizeof ok / sizeof ok[0]; i++) {
+        const embi_sel_list *l = parse(&a, ok[i].sel, nullptr);
+        EMB_REQUIRE(l != nullptr);
+        EMB_CHECK_EQ_INT(l->items[0].pseudo, ok[i].pe);
+    }
+    /* a list takes each item's own pseudo-element, and the compound before it keeps its classes */
+    const embi_sel_list *l = parse(&a, "::-webkit-scrollbar-track, ::-webkit-scrollbar-corner", nullptr);
+    EMB_REQUIRE(l != nullptr && l->n == 2);
+    EMB_CHECK_EQ_INT(l->items[0].pseudo, EMBI_PE_SCROLLBAR_TRACK);
+    EMB_CHECK_EQ_INT(l->items[1].pseudo, EMBI_PE_SCROLLBAR_CORNER);
+    l = parse(&a, "input[type=range]:hover::-webkit-slider-thumb", nullptr);
+    EMB_REQUIRE(l != nullptr);
+    EMB_CHECK_EQ_INT(l->items[0].comp[0].n, 3); /* input, [type=range], :hover */
+    /* single-colon forms are not accepted, nor a pseudo-element inside :is() or a structural class after one */
+    EMB_CHECK(parse(&a, "input:-webkit-slider-thumb", nullptr) == nullptr);
+    EMB_CHECK(parse(&a, "::-webkit-scrollbar:first-child", nullptr) == nullptr);
+    EMB_CHECK(parse(&a, "::-webkit-scrollbar::before", nullptr) == nullptr);
+    embi_arena_free(&a);
+}
+
 EMB_TEST(sel_compound_structure)
 {
     embi_arena a;

@@ -219,11 +219,13 @@ static const embi_bind_member gen_HTMLIFrameElement_m[] = {
     {.name = "height", .attr = "height", .fn = embi_bind_refl_get_str, .set = embi_bind_refl_set_str, .iface = EMBI_IF_HTMLIFrameElement, .kind = EMBI_MEMBER_ATTR},
     {.name = "allow", .attr = "allow", .fn = embi_bind_refl_get_str, .set = embi_bind_refl_set_str, .iface = EMBI_IF_HTMLIFrameElement, .kind = EMBI_MEMBER_ATTR},
     {.name = "loading", .attr = "loading", .fn = embi_bind_refl_get_str, .set = embi_bind_refl_set_str, .iface = EMBI_IF_HTMLIFrameElement, .kind = EMBI_MEMBER_ATTR},
+    {.name = "contentWindow", .impl = (embi_gen_fn)embi_impl_HTMLIFrameElement_get_contentWindow, .fn = embi_shape_0115b945, .iface = EMBI_IF_HTMLIFrameElement, .kind = EMBI_MEMBER_ATTR},
+    {.name = "contentDocument", .impl = (embi_gen_fn)embi_impl_HTMLIFrameElement_get_contentDocument, .fn = embi_shape_0115b945, .iface = EMBI_IF_HTMLIFrameElement, .kind = EMBI_MEMBER_ATTR},
 };
 
 const embi_bind_iface embi_gen_iface_HTMLIFrameElement = {
     .members = gen_HTMLIFrameElement_m,
-    .nmembers = 7,
+    .nmembers = 9,
 };
 
 static const embi_bind_member gen_HTMLImageElement_m[] = {

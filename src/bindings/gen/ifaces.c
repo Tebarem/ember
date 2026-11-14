@@ -202,6 +202,7 @@ const embi_js_class *const embi_bind_classes[EMBI_IF_COUNT] = {
     &embi_gen_class_plain,
     &embi_gen_class_plain,
     &embi_gen_class_plain,
+    &embi_gen_class_plain,
     EMBI_F_SVG(&embi_gen_class_SVGLengthList),
     &embi_gen_class_plain,
     &embi_gen_class_plain,
@@ -410,6 +411,7 @@ const embi_bind_iface *const embi_bind_ifaces[EMBI_IF_COUNT] = {
     &embi_gen_iface_ReadableStreamAsyncIterator,
     &embi_gen_iface_ReadableStreamDefaultController,
     &embi_gen_iface_ReadableStreamDefaultReader,
+    &embi_gen_iface_RemoteWindow,
     &embi_gen_iface_Request,
     &embi_gen_iface_ResizeObserver,
     &embi_gen_iface_ResizeObserverEntry,
@@ -501,6 +503,7 @@ const embi_bind_iface *const embi_bind_ifaces[EMBI_IF_COUNT] = {
 };
 
 const bool embi_bind_testing[EMBI_IF_COUNT] = {
+    false,
     false,
     false,
     false,
@@ -884,6 +887,7 @@ const char *const embi_bind_names[EMBI_IF_COUNT] = {
     "ReadableStreamAsyncIterator",
     "ReadableStreamDefaultController",
     "ReadableStreamDefaultReader",
+    "RemoteWindow",
     "Request",
     "ResizeObserver",
     "ResizeObserverEntry",
@@ -1117,6 +1121,7 @@ const uint16_t embi_bind_parent[EMBI_IF_COUNT] = {
     EMBI_IF_CharacterData,
     EMBI_IF_Event,
     EMBI_IF_DOMException,
+    EMBI_IF_NONE,
     EMBI_IF_NONE,
     EMBI_IF_NONE,
     EMBI_IF_NONE,

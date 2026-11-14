@@ -67,6 +67,16 @@ void **ldr_net_registry(embi_bind_ctx *c);
 void embi_impl_net_release(embi_bind_ctx *c, void *registry);
 /* Releases the ports of a state: their wrappers' persistent handles and the registry (impl_msgport.c). */
 void ldr_msg_release(embi_bind_ctx *c, embi_mports *ports);
+/* IF1: releases the ports of a shared registry that belong to c, then c's reference to it. */
+void ldr_msg_release_owned(embi_bind_ctx *c, embi_mports *ports);
+/* IF1: the arguments of a window's postMessage(message, targetOrigin, transfer) or postMessage(message, {targetOrigin,
+ * transfer}), read and the message serialized (with the transfer list) in c's realm: bytes, the sender's origin, and the
+ * origin the receiver must have ("" for "*"; the sender's own for "/" and for no target). EMBI_BIND_THREW with the exception
+ * pending (a DataCloneError for a value that cannot be cloned, a SyntaxError for a bad target origin). */
+embi_dom_err ldr_msg_window_args(embi_bind_ctx *c, embi_js_value message, embi_js_value a1, embi_js_value a2, const char *what,
+                                 embi_sb *bytes, embi_sb *origin, embi_sb *target_origin);
+/* IF1: fires the message (or messageerror) event of a window message at the window. */
+void ldr_msg_fire_window(embi_bind_ctx *c, embi_str bytes, embi_str origin, embi_js_value source);
 /* Frees what the state keeps for the streams prelude. */
 void ldr_prelude_release(embi_bind_ctx *c, uint32_t slot);
 

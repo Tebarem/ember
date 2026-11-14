@@ -129,9 +129,23 @@ const embi_style *embi_style_get(embi_style_engine *e, embi_element *el, embi_se
  * these on every element of every layout, and the on-demand path rebuilds the ancestor chain and the
  * selector context for the elements that have no such pseudo-element (W3h). */
 const embi_style *embi_style_generated(embi_style_engine *e, embi_element *el, embi_sel_pseudo pseudo);
+/* The style of pseudo-element pseudo of el as it is while the pointer is over the pseudo-element itself (the :hover of its
+ * compound matches el), for ::-webkit-scrollbar-thumb:hover. Computed on each call: release it with
+ * embi_style_pseudo_release. nullptr when the pseudo-element has no style. */
+const embi_style *embi_style_pseudo_hovered(embi_style_engine *e, embi_element *el, embi_sel_pseudo pseudo);
+void embi_style_pseudo_release(embi_style_engine *e, const embi_style *s);
+/* The px of a length property of a style (px, em and rem), NaN for auto, a percentage or anything else. */
+float embi_style_px(const embi_style *s, embi_prop_id prop);
+/* The thickness of the classic scrollbars that the style of a ::-webkit-scrollbar gives: *vert the width of a vertical bar,
+ * *horz the height of a horizontal one. Both are 0 for a nullptr style (no styled bar: the default scrollbars), and -1 when
+ * the style hides the bars (display: none, or no thickness at all): the container then has no bar and no gutter. A size
+ * the style does not give is the other one, else 15. */
+void embi_style_scrollbar_thickness(const embi_style *sb, float *vert, float *horz);
 /* False when no element of the document has a stored generated (::before, ::after, ::marker) style, so
  * embi_style_generated would find none: the box build skips its per-element lookups then (W3q). True when the
  * document is not attached. */
+/* Whether a rule of the UA, user or author sheets of the document has the pseudo-element pe as its subject. */
+bool embi_style_uses_pseudo(embi_style_engine *e, const embi_document *doc, embi_sel_pseudo pe);
 bool embi_style_has_generated(embi_style_engine *e, const embi_document *doc);
 /* The @counter-style rule named name that applies to the document (CSS Counter Styles 3 section 3: the last one
  * in the author sheets, then the user and UA sheets), or nullptr. Valid until the document's sheets change. */

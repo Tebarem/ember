@@ -558,17 +558,19 @@ embi_js_value embi_impl_Element_getClientRects(embi_bind_ctx *c, embi_node *self
 {
     embi_layout_engine *e = layout_ready(c);
     embi_rectf rects[64];
-    uint32_t n = e ? embi_layout_client_rects_xf(e, el_of(self), rects, 64) : 0;
+    uint32_t n = e ? embi_layout_painted_rects_xf(e, el_of(self), rects, 64) : 0;
+    n = n < 64 ? n : 64;
+    double sx = 0.0, sy = 0.0;
+    embi_impl_root_offset(c, &sx, &sy);
     double sr[4];
     if (n == 0 && embi_impl_svg_client_bbox(c, self, sr)) {
-        rects[0] = (embi_rectf){(float)(sr[0] + c->scroll_x), (float)(sr[1] + c->scroll_y), (float)(sr[2] - sr[0]),
-                                (float)(sr[3] - sr[1])};
+        rects[0] = (embi_rectf){(float)(sr[0] + sx), (float)(sr[1] + sy), (float)(sr[2] - sr[0]), (float)(sr[3] - sr[1])};
         n = 1;
     }
     double *d = (double *)embi_bind_alloc(c, (size_t)n * 4 * sizeof *d + 8);
     for (uint32_t i = 0; i < n; i++) {
-        d[i * 4 + 0] = (double)rects[i].x - c->scroll_x;
-        d[i * 4 + 1] = (double)rects[i].y - c->scroll_y;
+        d[i * 4 + 0] = (double)rects[i].x - sx;
+        d[i * 4 + 1] = (double)rects[i].y - sy;
         d[i * 4 + 2] = (double)rects[i].w;
         d[i * 4 + 3] = (double)rects[i].h;
     }
@@ -579,7 +581,7 @@ embi_js_value embi_impl_Element_getBoundingClientRect(embi_bind_ctx *c, embi_nod
 {
     embi_layout_engine *e = layout_ready(c);
     embi_rectf r = {0, 0, 0, 0};
-    if (!e || !embi_layout_border_box_xf(e, el_of(self), &r)) {
+    if (!e || !embi_layout_painted_box_xf(e, el_of(self), &r)) {
         double sr[4];
         if (embi_impl_svg_client_bbox(c, self, sr)) {
             return embi_impl_rect_new(c, sr[0], sr[1], sr[2] - sr[0], sr[3] - sr[1]);
@@ -587,22 +589,27 @@ embi_js_value embi_impl_Element_getBoundingClientRect(embi_bind_ctx *c, embi_nod
         r = (embi_rectf){0, 0, 0, 0};
         return embi_impl_rect_new(c, 0, 0, 0, 0);
     }
-    return embi_impl_rect_new(c, (double)r.x - c->scroll_x, (double)r.y - c->scroll_y, (double)r.w, (double)r.h);
+    double sx = 0.0, sy = 0.0;
+    embi_impl_root_offset(c, &sx, &sy);
+    return embi_impl_rect_new(c, (double)r.x - sx, (double)r.y - sy, (double)r.w, (double)r.h);
 }
 
+/* CSSOM View: scrollIntoView(arg). A boolean is block start (true) or end (false) with inline nearest; a dictionary gives
+ * block (default start) and inline (default nearest); behavior is not animated (impl_scroll.c). */
 void embi_impl_Element_scrollIntoView(embi_bind_ctx *c, embi_node *self, embi_bind_union a0)
 {
-    /* Scrolls the viewport so that the element's top is at the top (block "start" by default). */
-    (void)a0;
-    embi_layout_engine *e = layout_ready(c);
-    embi_rectf r;
-    if (!e || !embi_layout_border_box(e, el_of(self), &r)) {
+    int block = EMBI_ENUM_ScrollLogicalPosition_start, inl = EMBI_ENUM_ScrollLogicalPosition_nearest;
+    if (a0.kind == 1) {
+        block = a0.u.b ? EMBI_ENUM_ScrollLogicalPosition_start : EMBI_ENUM_ScrollLogicalPosition_end;
+    } else if (a0.kind == 2 && a0.u.ptr != nullptr) {
+        const embi_dict_ScrollIntoViewOptions *o = a0.u.ptr;
+        block = o->block;
+        inl = o->inline_;
+    }
+    if (self == nullptr || self->type != EMBI_NODE_ELEMENT) {
         return;
     }
-    c->scroll_y = (double)r.y;
-    if (c->host.scroll) {
-        c->host.scroll(c->host.user, c->scroll_x, c->scroll_y);
-    }
+    embi_impl_scroll_into_view(c, el_of(self), block, inl);
 }
 
 static bool is_scrolling_element(embi_bind_ctx *c, embi_node *self)
@@ -624,22 +631,24 @@ static bool el_scroll(embi_bind_ctx *c, embi_node *self, bool set, double *x, do
 double embi_impl_Element_get_scrollTop(embi_bind_ctx *c, embi_node *self)
 {
     double x = 0.0, y = 0.0;
-    if (!is_scrolling_element(c, self) && el_scroll(c, self, false, &x, &y)) {
+    if (is_scrolling_element(c, self)) {
+        embi_impl_root_offset(c, &x, &y);
         return y;
     }
-    return is_scrolling_element(c, self) ? c->scroll_y : 0.0;
+    if (el_scroll(c, self, false, &x, &y)) {
+        return y;
+    }
+    return 0.0;
 }
 
 void embi_impl_Element_set_scrollTop(embi_bind_ctx *c, embi_node *self, double a0)
 {
+    double x = 0.0, y = 0.0;
     if (is_scrolling_element(c, self)) {
-        c->scroll_y = (a0 != a0 || a0 < 0) ? 0 : a0;
-        if (c->host.scroll) {
-            c->host.scroll(c->host.user, c->scroll_x, c->scroll_y);
-        }
+        embi_impl_root_offset(c, &x, &y);
+        embi_impl_scroll_root_to(c, x, a0);
         return;
     }
-    double x = 0.0, y = 0.0;
     if (el_scroll(c, self, false, &x, &y)) {
         y = (a0 != a0 || a0 < 0) ? 0 : a0;
         (void)el_scroll(c, self, true, &x, &y);
@@ -649,22 +658,24 @@ void embi_impl_Element_set_scrollTop(embi_bind_ctx *c, embi_node *self, double a
 double embi_impl_Element_get_scrollLeft(embi_bind_ctx *c, embi_node *self)
 {
     double x = 0.0, y = 0.0;
-    if (!is_scrolling_element(c, self) && el_scroll(c, self, false, &x, &y)) {
+    if (is_scrolling_element(c, self)) {
+        embi_impl_root_offset(c, &x, &y);
         return x;
     }
-    return is_scrolling_element(c, self) ? c->scroll_x : 0.0;
+    if (el_scroll(c, self, false, &x, &y)) {
+        return x;
+    }
+    return 0.0;
 }
 
 void embi_impl_Element_set_scrollLeft(embi_bind_ctx *c, embi_node *self, double a0)
 {
+    double x = 0.0, y = 0.0;
     if (is_scrolling_element(c, self)) {
-        c->scroll_x = (a0 != a0 || a0 < 0) ? 0 : a0;
-        if (c->host.scroll) {
-            c->host.scroll(c->host.user, c->scroll_x, c->scroll_y);
-        }
+        embi_impl_root_offset(c, &x, &y);
+        embi_impl_scroll_root_to(c, a0, y);
         return;
     }
-    double x = 0.0, y = 0.0;
     if (el_scroll(c, self, false, &x, &y)) {
         x = (a0 != a0 || a0 < 0) ? 0 : a0;
         (void)el_scroll(c, self, true, &x, &y);

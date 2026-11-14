@@ -459,6 +459,18 @@ static void child_origin(embi_pst *p, const embi_frag *k, float ox, float oy, fl
     *ky = oy + k->y + dy;
 }
 
+/* A fixed box of the viewport (a stacking context, a child of root) is placed in the root's box, outside the root's scroll
+ * offset (CSS Position 3 section 2.2): its origin and transform are the root context's before the scroll (vp_x, vp_y,
+ * vp_xf), so its items are not moved when the viewport scrolls (a pure scroll patches only the root's scroll transform). */
+static void vp_fixed_origin(const embi_pst *p, const embi_frag *k, float *kx, float *ky, uint32_t *xf)
+{
+    if (k->parent == p->root && embi_lay_frag_vp_fixed(k)) {
+        *kx = p->vp_x + k->x;
+        *ky = p->vp_y + k->y;
+        *xf = p->vp_xf;
+    }
+}
+
 /* Whether the style includes paint containment (contain: paint, strict or content). */
 static bool contains_paint(const embi_style *s)
 {
@@ -1255,6 +1267,7 @@ static void gather_child(embi_pst *p, const embi_frag *k, float ox, float oy, ui
     child_origin(p, k, ox, oy, &kx, &ky);
     if (is_stacking(p, k)) {
         if (embi_frag_z_index(k) == 0) {
+            vp_fixed_origin(p, k, &kx, &ky, &xf);
             push_unit(p, k, kx, ky, xf, clip);
         }
         return;
@@ -1650,6 +1663,7 @@ static void collect_child(embi_pst *p, const embi_frag *k, float ox, float oy, u
     if (is_stacking(p, k)) {
         int32_t z = embi_frag_z_index(k);
         if (z != 0) {
+            vp_fixed_origin(p, k, &kx, &ky, &xf);
             embi_pent e;
             e.f = k;
             e.ox = kx;
@@ -1853,6 +1867,11 @@ void embi_pb_paint_body(embi_pst *p, const embi_frag *f, float kx, float ky, con
         }
     }
 
+    if (f == p->root) {
+        p->vp_x = kx;
+        p->vp_y = ky;
+        p->vp_xf = xf;
+    }
     float cx, cy;
     uint32_t cclip, cxf;
     enter(p, f, kx, ky, xf, clip_parent, &cx, &cy, &cclip, &cxf);

@@ -56,6 +56,9 @@ void embi_renderer_warm_wait(embi_renderer *r);
  * included. A frame that fits the warmed buffers does not raise it. */
 [[nodiscard]] uint32_t embi_renderer_buffer_creates(const embi_renderer *r);
 
+/* Number of outline blobs (glyphs and paths) in the renderer's blob cache (tests and tuning). */
+[[nodiscard]] uint32_t embi_renderer_outline_blobs(const embi_renderer *r);
+
 /* Begins a frame of width_px x height_px device px. Only one frame may be open per renderer.
  * Returns nullptr for an empty size. */
 [[nodiscard]] embi_frame *embi_frame_begin(embi_renderer *r, uint32_t width_px, uint32_t height_px,
@@ -212,6 +215,10 @@ static inline embi_paint embi_paint_solid(uint32_t rgba)
 void embi_frame_fill_quads(embi_frame *f, uint64_t key, const embi_qcurve *curves, uint32_t n,
                            const float to_local[6], const embi_paint *paint, embi_fill_rule rule,
                            uint32_t xform, uint32_t clip);
+/* embi_frame_fill_quads for an outline whose blob is cached under key, without its curves: returns false, recording
+ * nothing, when the cache has no blob for key (the caller then makes the curves and calls embi_frame_fill_quads). */
+bool embi_frame_fill_cached(embi_frame *f, uint64_t key, const float to_local[6], const embi_paint *paint,
+                            embi_fill_rule rule, uint32_t xform, uint32_t clip);
 
 /* Text antialiasing (W4h). GRAY is plain coverage. LCD_RGB and LCD_BGR sample three horizontal
  * positions per pixel and write each color channel from its own coverage (three draws of the text

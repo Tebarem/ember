@@ -142,4 +142,25 @@ EMB_TEST(msgport_registry_visits_ports_and_frees_queued_messages)
     embi_mports_free(r);
 }
 
+/* IF1: a registry shared by the realms of several frames: each port names the context it belongs to, and the registry
+ * lives until the last reference goes (the leak checker sees the free). */
+EMB_TEST(msgport_shared_registry_owner_and_refs)
+{
+    embi_mports *r = embi_mports_new();
+    embi_mport *b = nullptr;
+    embi_mport *a = embi_mp_channel(r, &b);
+    int x = 0, y = 0;
+    EMB_CHECK(embi_mp_owner(a) == nullptr && embi_mp_owner(b) == nullptr);
+    embi_mp_set_owner(a, &x);
+    embi_mp_set_owner(b, &y);
+    EMB_CHECK(embi_mp_owner(a) == &x && embi_mp_owner(b) == &y);
+    embi_mports_retain(r);
+    embi_mports_retain(r);
+    embi_mports_unref(r);
+    embi_mports_unref(r);
+    EMB_CHECK(embi_mp_find(r, embi_mp_id(a)) == a); /* one reference left: still there */
+    embi_mports_unref(r);
+    embi_mports_unref(nullptr);
+}
+
 LOADER_TEST_MAIN()

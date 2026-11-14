@@ -8,6 +8,7 @@
  * (doc.h, gfx.h) and the display list types, so the headers of the different worlds never meet in one unit.
  */
 #include <ember/ember.h>
+#include <ember/ember_script.h>
 
 #include "base/base.h"
 #include "embed/doc.h"
@@ -67,6 +68,7 @@ struct emb_view {
     emb_view_mode mode;
     emb_color_scheme scheme;
     emb_text_aa text_aa;
+    bool transparent; /* offscreen: the canvas clears to transparent (emb_view_desc.transparent) */
     /* The device: the host's (offscreen) or Ember's own (windowed). */
     embi_gpu *gpu;
     bool gpu_owned;
@@ -87,9 +89,12 @@ struct emb_view {
     uint32_t cur;
     uint32_t content_len[2];   /* scroll60: the items of each list that are the page (the scrollbars follow them) */
     bool have_prev;            /* dl[cur] is the list on screen and its runs are valid */
+    uint64_t prev_serial;      /* the layout serial (embi_doc_layout_serial) dl[cur] was built at */
+    uint64_t prev_runs;        /* the run epoch (embi_doc_run_epoch) dl[cur] was built at */
     embi_damage damage;
     bool paint_dirty, force_full, need_present, closed;
     bool scroll_dirty;         /* scroll60: a scroll offset changed since the last paint (no other reason is implied) */
+    bool sbar_dirty;           /* the hover of a styled scrollbar's thumb changed: its bars are made again */
     bool style_paint;          /* W6b: the last update changed only paint properties (no other reason to repaint) */
     bool failed;               /* windowed: the loop stopped on an error (the GPU kept failing) */
     bool shown;                /* windowed: the window was shown (it stays hidden until the first frame is presented) */
@@ -115,6 +120,15 @@ struct emb_view {
     /* The document came from the network (a navigation the view's netload finished), not from the embedder: it alone is
      * kept from local schemes and has cookies. net_doc_next is raised just for the load that nav_done makes. */
     bool net_doc, net_doc_next;
+
+    /* HX1: the host channel (emb_view_set_host_channel). The name is for the documents loaded from now on: a realm keeps the
+     * name it was given (script.c). fn and user are read at each call, so a new set_host_channel replaces them at once. */
+    bool host_channel;
+    char host_name[64];
+    emb_host_message_fn host_fn;
+    void *host_user;
+    /* IF1: the view's frames (its iframes' child views) and, for a child view, its place under its parent (frames.c). */
+    struct embi_frames *frames;
 };
 
 /* ------------------------------------------------------------------ runtime (runtime.c) */
@@ -169,8 +183,8 @@ void embi_view_note_scroll(emb_view *v, const void *key);
 bool embi_view_animating(const emb_view *v);
 /* Sets the window title from the document, or the descriptor's title. */
 void embi_view_apply_title(emb_view *v);
-/* Scrolls the viewport or a container under a point (windowed input). */
-void embi_view_wheel(emb_view *v, float x, float y, float dx, float dy);
+/* Scrolls the viewport or a container under a point (windowed input). Returns true when something scrolled. */
+bool embi_view_wheel(emb_view *v, float x, float y, float dx, float dy);
 /* Loads a document given as the bytes a transport delivered (the encoding is sniffed from the BOM, the Content-Type in mime
  * (may be nullptr) and the meta tags; UTF-8 otherwise) with base_url as its URL. */
 /* Whether the view's document is half built and waiting for the network (N1f): it has no layout, so input is ignored. */
@@ -185,6 +199,17 @@ bool embi_view_load_bytes(emb_view *v, const uint8_t *bytes, size_t len, const e
 void embi_view_scroll_root(emb_view *v, float dx, float dy);
 /* Reads the window's sizes (logical and pixel) into the view and asks for a present; windowed mode only. */
 void embi_view_window_reflow(emb_view *v);
+/* IF1: a child view for an iframe of parent: offscreen, sharing the root view's device and renderer, drawing into a texture
+ * of its own (made once the renderer exists). Its document is created empty. */
+emb_view *embi_view_new_child(emb_view *parent);
+/* IF1: gives a child view the root's renderer (a windowed root makes it at its first frame) and its texture. */
+void embi_view_child_gfx(emb_view *v);
+/* IF1: sets a child view's viewport (CSS px; its scale is the root's). */
+void embi_view_set_child_size(emb_view *v, uint32_t css_w, uint32_t css_h);
+/* Draws the damage of the last update into the view's texture (changed: that update changed the picture). Returns changed. */
+bool embi_view_draw(emb_view *v, SDL_GPUCommandBuffer *cmd, bool changed);
+/* IF1: the texture of an iframe's frame below the root view user (the renderer's "ember-frame:" lookup). */
+SDL_GPUTexture *embi_frames_texture(void *user, const void *key, uint32_t *w, uint32_t *h);
 
 /* ------------------------------------------------------------------ window (window.c) */
 

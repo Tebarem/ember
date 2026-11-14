@@ -708,10 +708,14 @@ static bool replaced_for(embi_lctx *c, embi_box *b, embi_element *el)
             }
         }
         set_control(b, w, h);
+        if (text_field) {
+            b->tflags |= EMBI_TF_CTLBASE;
+        }
         return true;
     }
     if (is_lit(name, "select") && ctl_intrinsic_keyword(b)) {
         set_control(b, SELECT_W, SELECT_H);
+        b->tflags |= EMBI_TF_CTLBASE;
         return true;
     }
     if (is_lit(name, "select")) {
@@ -729,6 +733,7 @@ static bool replaced_for(embi_lctx *c, embi_box *b, embi_element *el)
         } else {
             float h = ctl_line_px(fs) + 4.0f;
             set_control(b, ceilf(tw) + SELECT_W, h > SELECT_H ? h : SELECT_H);
+            b->tflags |= EMBI_TF_CTLBASE;
         }
         return true;
     }

@@ -31,6 +31,7 @@ struct ldr_state {
     uint32_t xhr;        /* persistent handle of the XMLHttpRequest source's exports, plus one (impl_xhr.c) */
     uint32_t xhr_host;   /* persistent handle of the globals captured for that source, plus one (impl_xhr.c) */
     embi_mports *ports;  /* MessagePort registry (impl_msgport.c) */
+    bool ports_shared;   /* IF1: ports is the registry of the view's frames (a reference of this context) */
     void *net_reg;       /* WebSocket and EventSource registry (impl_websocket.c) */
 };
 
@@ -102,6 +103,17 @@ uint32_t *ldr_xhr_host_slot(embi_bind_ctx *c)
 uint32_t *ldr_prelude_slot(embi_bind_ctx *c)
 {
     return &ldr_state_of(c)->prelude;
+}
+
+void embi_loader_share_ports(embi_bind_ctx *c, embi_mports *shared)
+{
+    ldr_state *s = ldr_state_of(c);
+    if (s->ports != nullptr || shared == nullptr) {
+        return; /* a context that made ports already keeps its own registry */
+    }
+    embi_mports_retain(shared);
+    s->ports = shared;
+    s->ports_shared = true;
 }
 
 embi_mports *ldr_ports(embi_bind_ctx *c)
@@ -271,7 +283,11 @@ void embi_loader_detach(embi_bind_ctx *c)
         return;
     }
     ldr_jobs_abort_all(s);
-    ldr_msg_release(c, s->ports);
+    if (s->ports_shared) {
+        ldr_msg_release_owned(c, s->ports);
+    } else {
+        ldr_msg_release(c, s->ports);
+    }
     embi_impl_net_release(c, s->net_reg);
     ldr_prelude_release(c, s->prelude);
     ldr_xhr_release(c, s->xhr);

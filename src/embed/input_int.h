@@ -40,6 +40,17 @@ void embi_window_text_input(emb_view *v, bool on, float x, float y, float w, flo
  * wheel event at the element under the point and scrolls (embi_view_wheel) unless a listener canceled it. emb_view_wheel
  * calls it. */
 void embi_input_wheel_at(emb_view *v, float x, float y, float dx, float dy);
+/* IF1: when v's focus has left the iframe of the frame that had the keyboard, that frame (and the frames below it) lose it
+ * now. The frames' update calls it. */
+void embi_input_frame_focus_sync(emb_view *v);
+/* The last text input request a view made of a window (start or stop, and the caret rectangle in that window's view): a
+ * frame's go to its root's window. For the tests. */
+typedef struct embi_text_area_call {
+    emb_view *window;
+    bool on;
+    float rect[4];
+} embi_text_area_call;
+embi_text_area_call embi_input_last_text_area(void);
 /* Called by the document once its parse is over: registers the insertion observer that spots autofocus elements and queues
  * the autofocus processing when the page has one. The processing runs on the view's event loop (after the load events were
  * queued): the first autofocus element in tree order takes the focus unless something has it already or the user acted. */

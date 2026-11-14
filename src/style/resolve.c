@@ -175,11 +175,36 @@ static const embi_style *compute_pseudo(embi_style_engine *e, embi_docstate *ds,
     return s;
 }
 
+/* Whether the computed style makes a scroll container whose scrollbars the ::-webkit-scrollbar styles apply to: auto or scroll
+ * overflow on an axis, and no scrollbar-width or scrollbar-color of its own (the standard properties win over the WebKit
+ * pseudo-elements, as in Chromium). */
+static bool shows_scrollbars(const embi_style *style)
+{
+    const embi_value *sw = embi_style_value(style, EMBI_PROP_scrollbar_width);
+    if (sw != nullptr && sw->kind == EMBI_V_KEYWORD && sw->kw != EMBI_KW_auto) {
+        return false;
+    }
+    const embi_value *sc = embi_style_value(style, EMBI_PROP_scrollbar_color);
+    if (sc != nullptr && sc->kind != EMBI_V_KEYWORD) {
+        return false;
+    }
+    static const embi_prop_id axes[2] = {EMBI_PROP_overflow_x, EMBI_PROP_overflow_y};
+    for (int i = 0; i < 2; i++) {
+        const embi_value *v = embi_style_value(style, axes[i]);
+        if (v != nullptr && v->kind == EMBI_V_KEYWORD && (v->kw == EMBI_KW_auto || v->kw == EMBI_KW_scroll)) {
+            return true;
+        }
+    }
+    return false;
+}
+
 static void generate_pseudos(embi_style_engine *e, embi_docstate *ds, embi_element *el,
                              const embi_style *style)
 {
-    static const embi_sel_pseudo gen_list[] = {EMBI_PE_BEFORE, EMBI_PE_AFTER, EMBI_PE_MARKER, EMBI_PE_FIRST_LETTER,
-                                                  EMBI_PE_FIRST_LINE};
+    static const embi_sel_pseudo gen_list[] = {EMBI_PE_BEFORE,          EMBI_PE_AFTER,        EMBI_PE_MARKER,
+                                               EMBI_PE_FIRST_LETTER,    EMBI_PE_FIRST_LINE,   EMBI_PE_SLIDER_TRACK,
+                                               EMBI_PE_SLIDER_THUMB,    EMBI_PE_SCROLLBAR,    EMBI_PE_SCROLLBAR_THUMB,
+                                               EMBI_PE_SCROLLBAR_TRACK, EMBI_PE_SCROLLBAR_CORNER};
     embi_style_ua_ensure(e);
     uint32_t any = e->ua.pe_mask | e->user.pe_mask | ds->author.pe_mask;
     /* With no pseudo-element style stored in this pass, there is no old entry to replace. */
@@ -198,6 +223,11 @@ static void generate_pseudos(embi_style_engine *e, embi_docstate *ds, embi_eleme
                       (disp->kw == EMBI_KW_list_item || disp->kw == EMBI_KW__internal_inline_list_item ||
                        disp->kw == EMBI_KW__internal_flow_root_list_item ||
                        disp->kw == EMBI_KW__internal_inline_flow_root_list_item);
+            }
+            if (pe == EMBI_PE_SLIDER_TRACK || pe == EMBI_PE_SLIDER_THUMB) {
+                gen = el->base.name == EMBI_ATOM_input; /* the parts of a range input */
+            } else if (pe >= EMBI_PE_SCROLLBAR && pe <= EMBI_PE_SCROLLBAR_CORNER) {
+                gen = shows_scrollbars(style); /* the scrollbars of a scroll container */
             }
             if (gen) {
                 ps = compute_pseudo(e, ds, el, style, pe);
@@ -219,6 +249,11 @@ static void generate_pseudos(embi_style_engine *e, embi_docstate *ds, embi_eleme
                         (pe == EMBI_PE_BEFORE || pe == EMBI_PE_AFTER || pe == EMBI_PE_MARKER)) {
                         k = embi_style_classify(o, ps);
                         k = k < EMBI_SCH_REFRESH ? (uint8_t)EMBI_SCH_REFRESH : k;
+                    } else if (o != nullptr && ps != nullptr && pe >= EMBI_PE_SLIDER_TRACK) {
+                        /* the parts of a range and the scrollbars have no boxes: the painter reads their styles, so a change
+                         * of what only paint reads repaints the element and any other one lays it out again */
+                        k = embi_style_classify(o, ps);
+                        k = k < EMBI_SCH_PAINT ? (uint8_t)EMBI_SCH_PAINT : k;
                     }
                     ds->pseudo_cls = k > ds->pseudo_cls ? k : ds->pseudo_cls;
                 }
@@ -510,27 +545,13 @@ bool embi_style_has_generated(embi_style_engine *e, const embi_document *doc)
     return ds == nullptr || embi_hashmap_len(&ds->pseudo) > 0;
 }
 
-const embi_style *embi_style_get(embi_style_engine *e, embi_element *el, embi_sel_pseudo pe)
+/* The style of the pseudo-element pe of el computed now, with el's ancestors in the bloom and the state hooks given
+ * (nullptr: none). Owned by the caller; nullptr when the pseudo-element has no style. */
+static const embi_style *compute_pseudo_chain(embi_style_engine *e, embi_docstate *ds, embi_element *el, embi_sel_pseudo pe,
+                                              const embi_sel_hooks *hooks)
 {
-    if (pe == EMBI_PE_NONE) {
-        return el->style;
-    }
-    if (el->style == nullptr) {
-        return nullptr;
-    }
-    embi_document *doc = el->base.doc;
-    embi_docstate *ds = embi_style_ds_find(e, doc);
-    uint64_t key = ((uint64_t)(uintptr_t)el << 4) | pe;
-    uint64_t v = 0;
-    if (ds != nullptr && embi_hashmap_get(&ds->pseudo, key, &v)) {
-        return (const embi_style *)(uintptr_t)v;
-    }
-    if (ds == nullptr) {
-        return nullptr; /* the document is not attached: nothing owns a new style */
-    }
-    /* Not generated during the walk: compute it now, with the element's ancestors in the bloom. */
     embi_bloom_clear(&e->bloom);
-    embi_sel_ctx_init(&e->selctx, nullptr, e->hooks.state != nullptr ? &e->hooks : nullptr);
+    embi_sel_ctx_init(&e->selctx, nullptr, hooks);
     uint32_t depth = 0;
     for (embi_node *p = el->base.parent; p != nullptr; p = p->parent) {
         if (p->type == EMBI_NODE_ELEMENT) {
@@ -555,10 +576,83 @@ const embi_style *embi_style_get(embi_style_engine *e, embi_element *el, embi_se
         embi_free(chain, sizeof(embi_element *) * depth);
     }
     embi_sel_ctx_free(&e->selctx);
+    return ps;
+}
+
+bool embi_style_uses_pseudo(embi_style_engine *e, const embi_document *doc, embi_sel_pseudo pe)
+{
+    embi_docstate *ds = embi_style_ds_find(e, (embi_document *)(uintptr_t)doc);
+    embi_style_ua_ensure(e);
+    uint32_t any = e->ua.pe_mask | e->user.pe_mask | (ds != nullptr ? ds->author.pe_mask : 0u);
+    return pe < 32 && (any & (1u << pe)) != 0;
+}
+
+const embi_style *embi_style_get(embi_style_engine *e, embi_element *el, embi_sel_pseudo pe)
+{
+    if (pe == EMBI_PE_NONE) {
+        return el->style;
+    }
+    if (el->style == nullptr) {
+        return nullptr;
+    }
+    embi_document *doc = el->base.doc;
+    embi_docstate *ds = embi_style_ds_find(e, doc);
+    uint64_t key = ((uint64_t)(uintptr_t)el << 4) | pe;
+    uint64_t v = 0;
+    if (ds != nullptr && embi_hashmap_get(&ds->pseudo, key, &v)) {
+        return (const embi_style *)(uintptr_t)v;
+    }
+    if (ds == nullptr) {
+        return nullptr; /* the document is not attached: nothing owns a new style */
+    }
+    /* Not generated during the walk: compute it now, with the element's ancestors in the bloom. */
+    const embi_style *ps = compute_pseudo_chain(e, ds, el, pe, e->hooks.state != nullptr ? &e->hooks : nullptr);
     if (ps != nullptr) {
         embi_hashmap_put(&ds->pseudo, key, (uint64_t)(uintptr_t)ps);
     }
     return ps;
+}
+
+/* The selector state of a hovered pseudo-element: el answers :hover whatever the pointer says, the rest is the hook's. */
+typedef struct hover_hooks {
+    embi_sel_hooks h;
+    const embi_sel_hooks *base;
+    const embi_element *target;
+} hover_hooks;
+
+static bool hover_state(void *user, embi_element *el, embi_sel_pc pc)
+{
+    hover_hooks *hh = user;
+    if (pc == EMBI_PC_HOVER && el == hh->target) {
+        return true;
+    }
+    if (hh->base != nullptr && hh->base->state != nullptr) {
+        return hh->base->state(hh->base->user, el, pc);
+    }
+    return false;
+}
+
+/* Never call this during a style walk (a restyle or a resolve): the selector matching it runs shares the engine's bloom filter and
+ * selector context (e->bloom, e->selctx) with the walk and would overwrite what the walk has set up. Paint-time use only. */
+const embi_style *embi_style_pseudo_hovered(embi_style_engine *e, embi_element *el, embi_sel_pseudo pe)
+{
+    if (pe == EMBI_PE_NONE || el->style == nullptr) {
+        return nullptr;
+    }
+    embi_docstate *ds = embi_style_ds_find(e, el->base.doc);
+    if (ds == nullptr) {
+        return nullptr;
+    }
+    hover_hooks hh = {{nullptr, hover_state}, e->hooks.state != nullptr ? &e->hooks : nullptr, el};
+    hh.h.user = &hh;
+    return compute_pseudo_chain(e, ds, el, pe, &hh.h);
+}
+
+void embi_style_pseudo_release(embi_style_engine *e, const embi_style *s)
+{
+    if (s != nullptr) {
+        embi_style_unref(e, s);
+    }
 }
 
 /* ------------------------------------------------------------------ releasing styles */

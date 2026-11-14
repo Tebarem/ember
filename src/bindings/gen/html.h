@@ -62,6 +62,8 @@ embi_js_value embi_impl_HTMLElement_get_style(embi_bind_ctx *c, embi_node * self
 /* HTMLHtmlElement */
 
 /* HTMLIFrameElement */
+embi_js_value embi_impl_HTMLIFrameElement_get_contentWindow(embi_bind_ctx *c, embi_node * self);
+embi_js_value embi_impl_HTMLIFrameElement_get_contentDocument(embi_bind_ctx *c, embi_node * self);
 
 /* HTMLImageElement */
 uint32_t embi_impl_HTMLImageElement_get_naturalWidth(embi_bind_ctx *c, embi_node * self);

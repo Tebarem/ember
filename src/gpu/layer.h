@@ -22,6 +22,11 @@
  * whenever the pool owns more bytes than its budget the oldest idle textures are freed. A texture
  * in use is never freed, so an acquire may exceed the budget when everything is in use.
  *
+ * Keeping. Creating a texture costs about a millisecond for a view-sized layer (the driver
+ * allocates and clears it), so the idle textures are kept from frame to frame, and
+ * embi_layer_pool_trim_unused frees the ones that have not been used for a while (a page that
+ * stops changing gives its layers back).
+ *
  * Composite. embi_frame_layer draws the layer as an image of its own texture, so it batches with
  * the other image prims (a layer on a different texture starts a new batch). Its opacity is the
  * tint, quantized to 1/255.
@@ -66,6 +71,8 @@ void embi_layer_pool_destroy(embi_layer_pool *p);
 void embi_layer_release(embi_layer_pool *p, embi_layer *l);
 /* Frees every idle texture. */
 void embi_layer_pool_trim(embi_layer_pool *p);
+/* Frees the idle textures released keep_ms or more before now_ms (SDL_GetTicks time). */
+void embi_layer_pool_trim_unused(embi_layer_pool *p, uint64_t now_ms, uint64_t keep_ms);
 /* Bytes of every texture the pool owns (idle and in use). */
 [[nodiscard]] size_t embi_layer_pool_bytes(const embi_layer_pool *p);
 /* Number of idle textures. */

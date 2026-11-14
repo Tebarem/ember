@@ -37,6 +37,11 @@ void embi_scroll_max(const embi_frag *f, float *max_x, float *max_y)
     float bottom = f->h - embi_frag_bdr(f, 3) - embi_frag_scr(f, 1);
     *max_x = fmaxf(0.0f, ov[2] - right);
     *max_y = fmaxf(0.0f, ov[3] - bottom);
+    if (ov[2] <= f->w - embi_frag_bdr(f, 2)) {
+        /* the overflow rectangle starts as the whole padding box, the gutter of a vertical bar included: content that fits
+         * the client box does not scroll sideways */
+        *max_x = 0.0f;
+    }
 }
 
 void embi_scroll_max_root(const embi_frag *root, float vw, float vh, float *max_x, float *max_y)
@@ -471,7 +476,7 @@ uint32_t embi_sb_emit(embi_dl *d, const embi_frag *f, float x, float y, const em
     float bottom = f->h - embi_frag_bdr(f, 3) - embi_frag_scr(f, 1);
     uint32_t n = 0;
     float max_y = fmaxf(0.0f, ov[3] - bottom);
-    float max_x = fmaxf(0.0f, ov[2] - right);
+    float max_x = ov[2] <= f->w - embi_frag_bdr(f, 2) ? 0.0f : fmaxf(0.0f, ov[2] - right);
     bool vert = max_y > 0.0f, horz = max_x > 0.0f;
     /* With both bars showing, each track stops short of the other bar (the corner square stays empty). The thumb ratio
      * still uses the full client size, so its end position matches the offset clamp. */
@@ -491,6 +496,238 @@ uint32_t embi_sb_emit(embi_dl *d, const embi_frag *f, float x, float y, const em
         float content = ov[2] - embi_frag_bdr(f, 0);
         float track = fmaxf(0.0f, client - corner);
         n += emit_bar(d, false, hx, hy, st->width, track, client, content, embi_frag_sx(f), st, alpha);
+    }
+    return n;
+}
+
+/* ------------------------------------------------------------------ styled (classic) scrollbars */
+
+embi_sb_pe_kind embi_sb_pe_from(embi_style_engine *se, embi_element *el, int hover_axis, embi_sb_pe *out)
+{
+    memset(out, 0, sizeof *out);
+    if (se == nullptr || el == nullptr) {
+        return EMBI_SBPE_NONE;
+    }
+    const embi_style *bar = embi_style_generated(se, el, EMBI_PE_SCROLLBAR);
+    if (bar == nullptr) {
+        return EMBI_SBPE_NONE;
+    }
+    float v = 0.0f, h = 0.0f;
+    embi_style_scrollbar_thickness(bar, &v, &h);
+    if (v < 0.0f || h < 0.0f) {
+        return EMBI_SBPE_HIDDEN;
+    }
+    out->vert = v;
+    out->horz = h;
+    out->bar = bar;
+    out->track = embi_style_generated(se, el, EMBI_PE_SCROLLBAR_TRACK);
+    out->corner = embi_style_generated(se, el, EMBI_PE_SCROLLBAR_CORNER);
+    out->thumb = embi_style_generated(se, el, EMBI_PE_SCROLLBAR_THUMB);
+    if (hover_axis != 0) {
+        out->thumb_hover = embi_style_pseudo_hovered(se, el, EMBI_PE_SCROLLBAR_THUMB);
+        out->hover_axis = out->thumb_hover != nullptr ? hover_axis : 0;
+    }
+    out->vbar_left = embi_sb_style_from((const embi_style *)el->style).vbar_left;
+    return EMBI_SBPE_STYLED;
+}
+
+void embi_sb_pe_free(embi_style_engine *se, embi_sb_pe *pe)
+{
+    if (pe->thumb_hover != nullptr) {
+        embi_style_pseudo_release(se, pe->thumb_hover);
+    }
+    memset(pe, 0, sizeof *pe);
+}
+
+bool embi_sb_geometry(const embi_frag *f, float x, float y, const embi_sb_pe *pe, embi_sb_geo *g)
+{
+    memset(g, 0, sizeof *g);
+    if (f == nullptr || f->kind != EMBI_FK_BOX) {
+        return false;
+    }
+    float ov[4];
+    embi_frag_ov(f, ov);
+    float right = f->w - embi_frag_bdr(f, 2) - embi_frag_scr(f, 0);
+    float bottom = f->h - embi_frag_bdr(f, 3) - embi_frag_scr(f, 1);
+    float max_x = fmaxf(0.0f, ov[2] - right), max_y = fmaxf(0.0f, ov[3] - bottom);
+    if (ov[2] <= f->w - embi_frag_bdr(f, 2)) {
+        max_x = 0.0f; /* as embi_scroll_max: the padding box's own gutter is not overflow */
+    }
+    float vt = pe->vert, ht = pe->horz;
+    g->vert = vt > 0.0f && max_y > 0.0f;
+    g->horz = ht > 0.0f && max_x > 0.0f;
+    g->vmax = max_y;
+    g->hmax = max_x;
+    float bl = embi_frag_bdr(f, 0), bt = embi_frag_bdr(f, 1), br = embi_frag_bdr(f, 2), bb = embi_frag_bdr(f, 3);
+    float pw = f->w - bl - br, ph = f->h - bt - bb;
+    float vx = pe->vbar_left ? x + bl : x + f->w - br - vt;
+    float hy = y + f->h - bb - ht;
+    if (g->vert) {
+        float len = fmaxf(0.0f, ph - (g->horz ? ht : 0.0f));
+        g->v[0] = vx;
+        g->v[1] = y + bt;
+        g->v[2] = vt;
+        g->v[3] = len;
+        g->vtrack = len;
+        float client = bottom - bt, content = ov[3] - bt;
+        if (embi_sb_thumb(len, client, content, embi_frag_sy(f), &g->vstart, &g->vlen)) {
+            g->vthumb[0] = vx;
+            g->vthumb[1] = g->v[1] + g->vstart;
+            g->vthumb[2] = vt;
+            g->vthumb[3] = g->vlen;
+        }
+    }
+    if (g->horz) {
+        float len = fmaxf(0.0f, pw - (g->vert ? vt : 0.0f));
+        float hx = x + bl + (pe->vbar_left && g->vert ? vt : 0.0f);
+        g->h[0] = hx;
+        g->h[1] = hy;
+        g->h[2] = len;
+        g->h[3] = ht;
+        g->htrack = len;
+        float client = right - bl, content = ov[2] - bl;
+        if (embi_sb_thumb(len, client, content, embi_frag_sx(f), &g->hstart, &g->hlen)) {
+            g->hthumb[0] = hx + g->hstart;
+            g->hthumb[1] = hy;
+            g->hthumb[2] = g->hlen;
+            g->hthumb[3] = ht;
+        }
+    }
+    if (g->vert && g->horz) {
+        g->has_corner = true;
+        g->corner[0] = vx;
+        g->corner[1] = hy;
+        g->corner[2] = vt;
+        g->corner[3] = ht;
+    }
+    return g->vert || g->horz;
+}
+
+/* Reduces radii so that no side is shorter than the two radii on it (CSS Backgrounds 3 section 5.5). */
+static void fit_radii(float w, float h, float r[4])
+{
+    float f = 1.0f;
+    const float sides[4][2] = {{r[0], r[1]}, {r[1], r[2]}, {r[2], r[3]}, {r[3], r[0]}};
+    const float lens[4] = {w, h, w, h};
+    for (int i = 0; i < 4; i++) {
+        float sum = sides[i][0] + sides[i][1];
+        if (sum > lens[i] && sum > 0.0f && lens[i] / sum < f) {
+            f = lens[i] / sum;
+        }
+    }
+    for (int i = 0; i < 4; i++) {
+        r[i] *= f;
+    }
+}
+
+/* One part (a bar, its track, its thumb or the corner) with the style s in the rectangle r, cut by the visible rectangle clip
+ * (x0, y0, x1, y1): the background color in the area of background-clip with the radii of that area, then the border. */
+static uint32_t emit_part(embi_dl *d, const embi_style *s, const float r[4], const float clip[4])
+{
+    if (s == nullptr || !(r[2] > 0.0f) || !(r[3] > 0.0f) || embi_pb_hidden(s)) {
+        return 0;
+    }
+    /* A part that the clip cuts is cut square: the clip is the visible window of a scroll container around it. */
+    float x0 = fmaxf(r[0], clip[0]), y0 = fmaxf(r[1], clip[1]);
+    float x1 = fminf(r[0] + r[2], clip[2]), y1 = fminf(r[1] + r[3], clip[3]);
+    if (!(x1 > x0) || !(y1 > y0)) {
+        return 0;
+    }
+    bool cut = x0 != r[0] || y0 != r[1] || x1 != r[0] + r[2] || y1 != r[1] + r[3];
+    float bw[4];
+    for (int i = 0; i < 4; i++) {
+        bw[i] = embi_pb_part_border(s, i);
+    }
+    float rad[4];
+    embi_pb_radii(nullptr, s, r[2], r[3], embi_pb_fontsize(s), rad);
+    uint32_t n = 0;
+    uint32_t bg = 0;
+    if (embi_pb_color(s, embi_style_value(s, EMBI_PROP_background_color), &bg) && (bg >> 24) != 0) {
+        uint16_t clp = embi_pb_kw(s, EMBI_PROP_background_clip);
+        float area[4] = {r[0], r[1], r[2], r[3]};
+        float arad[4] = {rad[0], rad[1], rad[2], rad[3]};
+        if (clp == EMBI_KW_padding_box || clp == EMBI_KW_content_box) {
+            area[0] += bw[0];
+            area[1] += bw[1];
+            area[2] -= bw[0] + bw[2];
+            area[3] -= bw[1] + bw[3];
+            embi_pb_inner_radii(rad, bw, arad);
+            fit_radii(area[2], area[3], arad);
+        }
+        if (cut) {
+            float cx0 = fmaxf(area[0], x0), cy0 = fmaxf(area[1], y0);
+            float cx1 = fminf(area[0] + area[2], x1), cy1 = fminf(area[1] + area[3], y1);
+            area[0] = cx0;
+            area[1] = cy0;
+            area[2] = cx1 - cx0;
+            area[3] = cy1 - cy0;
+            memset(arad, 0, sizeof arad);
+        }
+        if (area[2] > 0.0f && area[3] > 0.0f) {
+            embi_ditem it;
+            memset(&it, 0, sizeof it);
+            it.kind = EMBI_DI_FILL;
+            memcpy(it.rect, area, sizeof it.rect);
+            memcpy(it.radii, arad, sizeof it.radii);
+            it.colors[0] = bg;
+            embi_vec_push(&d->items, it);
+            n++;
+        }
+    }
+    if (bw[0] > 0.0f || bw[1] > 0.0f || bw[2] > 0.0f || bw[3] > 0.0f) {
+        static const embi_prop_id cp[4] = {EMBI_PROP_border_top_color, EMBI_PROP_border_right_color,
+                                           EMBI_PROP_border_bottom_color, EMBI_PROP_border_left_color};
+        static const embi_prop_id sp[4] = {EMBI_PROP_border_top_style, EMBI_PROP_border_right_style,
+                                           EMBI_PROP_border_bottom_style, EMBI_PROP_border_left_style};
+        static const int idx[4] = {1, 2, 3, 0}; /* the side order of an item: top, right, bottom, left */
+        embi_ditem it;
+        memset(&it, 0, sizeof it);
+        it.kind = EMBI_DI_BORDER;
+        bool any = false;
+        for (int i = 0; i < 4; i++) {
+            uint32_t c = 0xFF000000u;
+            if (!embi_pb_color(s, embi_style_value(s, cp[i]), &c)) {
+                c = 0xFF000000u;
+            }
+            it.colors[i] = c;
+            uint16_t st = embi_pb_kw(s, sp[i]);
+            it.styles[i] = st == EMBI_KW_dashed ? EMBI_DS_DASHED : (st == EMBI_KW_dotted ? EMBI_DS_DOTTED : EMBI_DS_SOLID);
+            it.widths[i] = bw[idx[i]];
+            any = any || (it.widths[i] > 0.0f && (c >> 24) != 0);
+        }
+        if (any && !cut) {
+            memcpy(it.rect, r, sizeof it.rect);
+            memcpy(it.radii, rad, sizeof it.radii);
+            embi_vec_push(&d->items, it);
+            n++;
+        }
+    }
+    return n;
+}
+
+uint32_t embi_sb_emit_styled(embi_dl *d, const embi_frag *f, float x, float y, const embi_sb_pe *pe, const float clip[4])
+{
+    embi_sb_geo g;
+    if (!embi_sb_geometry(f, x, y, pe, &g)) {
+        return 0;
+    }
+    uint32_t n = 0;
+    if (g.vert) {
+        n += emit_part(d, pe->bar, g.v, clip);
+        n += emit_part(d, pe->track, g.v, clip);
+    }
+    if (g.horz) {
+        n += emit_part(d, pe->bar, g.h, clip);
+        n += emit_part(d, pe->track, g.h, clip);
+    }
+    if (g.has_corner) {
+        n += emit_part(d, pe->corner, g.corner, clip);
+    }
+    if (g.vert && g.vlen > 0.0f) {
+        n += emit_part(d, pe->hover_axis == 1 ? pe->thumb_hover : pe->thumb, g.vthumb, clip);
+    }
+    if (g.horz && g.hlen > 0.0f) {
+        n += emit_part(d, pe->hover_axis == 2 ? pe->thumb_hover : pe->thumb, g.hthumb, clip);
     }
     return n;
 }

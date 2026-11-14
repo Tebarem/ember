@@ -4,6 +4,8 @@
 
 #include "gpu/atlas.h"
 
+#include <SDL3/SDL_timer.h>
+
 /* Textures are 4 bytes per texel (RGBA8 or BGRA8, the only formats the renderer draws to). */
 #define EMBI_LAYER_BPP 4u
 #define EMBI_LAYER_MIN_CLASS 64u
@@ -12,6 +14,7 @@ typedef struct embi_layer_idle {
     SDL_GPUTexture *tex;
     uint32_t tw;
     uint32_t th;
+    uint64_t released_ms; /* SDL_GetTicks when it was released */
 } embi_layer_idle;
 
 struct embi_layer_pool {
@@ -146,7 +149,7 @@ void embi_layer_release(embi_layer_pool *p, embi_layer *l)
         *l = (embi_layer){0};
         return;
     }
-    const embi_layer_idle e = {.tex = l->tex, .tw = l->tex_w, .th = l->tex_h};
+    const embi_layer_idle e = {.tex = l->tex, .tw = l->tex_w, .th = l->tex_h, .released_ms = SDL_GetTicks()};
     embi_vec_push(&p->idle, e);
     if (p->live > 0) {
         p->live--;
@@ -164,6 +167,17 @@ void embi_layer_pool_trim(embi_layer_pool *p)
     }
     while (p->idle.len > 0) {
         embi_layer_free_idle_at(p, p->idle.len - 1);
+    }
+}
+
+void embi_layer_pool_trim_unused(embi_layer_pool *p, uint64_t now_ms, uint64_t keep_ms)
+{
+    if (p == nullptr) {
+        return;
+    }
+    /* The list is in release order, so the textures unused the longest come first. */
+    while (p->idle.len > 0 && embi_vec_at(&p->idle, 0).released_ms + keep_ms <= now_ms) {
+        embi_layer_free_idle_at(p, 0);
     }
 }
 

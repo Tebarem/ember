@@ -1729,6 +1729,29 @@ void embi_pb_replaced(embi_pst *p, const embi_frag *f, const embi_box *b, const 
     if (b->el == nullptr) {
         return;
     }
+    if (b->el->base.extra != EMBI_NS_SVG && embi_pb_named(b->el, "iframe")) {
+        /* IF1: the frame's document fills the content box (its viewport), clipped to it and to its curved corners. The
+         * renderer draws it from the frame's texture, found by the element in the name. */
+        float pb[4], cb[4];
+        embi_pb_boxes(f, bb, pb, cb);
+        if (!(cb[2] > 0.0f) || !(cb[3] > 0.0f)) {
+            return;
+        }
+        char name[48];
+        int n = SDL_snprintf(name, sizeof name, "ember-frame:%p", (const void *)b->el);
+        float crad[4];
+        radii_of(p, s, f, bb, EMBI_KW_content_box, crad);
+        uint32_t lclip = clip;
+        if (crad[0] > 0.0f || crad[1] > 0.0f || crad[2] > 0.0f || crad[3] > 0.0f) {
+            lclip = area_clip(p, cb, crad, xf, clip);
+        } else {
+            float zero[4] = {0, 0, 0, 0};
+            lclip = embi_pb_clip(p, cb, zero, xf, clip);
+        }
+        float uv[4] = {0.0f, 0.0f, 1.0f, 1.0f};
+        embi_pb_image(p, (embi_str){name, (uint32_t)n}, cb, uv, WHITE_RGBA, false, xf, lclip);
+        return;
+    }
     embi_image cimg;
     bool from_content = replaced_content_image(b, s, &cimg);
     if (from_content && cimg.kind == EMBI_IMG_GRADIENT) {

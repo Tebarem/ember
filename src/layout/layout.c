@@ -112,6 +112,7 @@ static embi_lay_doc *doc_state(embi_layout_engine *e, const embi_document *doc, 
     embi_hashmap_init(&ld->rebanc);
     embi_arena_init(&ld->ra, 16 * 1024);
     ld->scratch = e->scratch;
+    ld->run_epoch = embi_lay_next_run_epoch();
     if (!embi_hashmap_put(e->docs, doc_key(doc), (uint64_t)(uintptr_t)ld)) {
         doc_destroy(ld);
         return nullptr;
@@ -267,6 +268,7 @@ static void doc_destroy(embi_lay_doc *ld)
     embi_arena_free(&ld->ba);
     embi_arena_free(&ld->fa);
     embi_lay_incr_records_free(ld);
+    embi_lay_lc_free(ld);
     embi_free(ld, sizeof *ld);
 }
 
@@ -443,6 +445,11 @@ void embi_layout_cold_stats_get(const embi_layout_engine *e, const embi_document
     if (embi_hashmap_get(e->docs, doc_key(doc), &v)) {
         *out = ((const embi_lay_doc *)(uintptr_t)v)->cold;
     }
+}
+
+uint64_t embi_layout_calls(const embi_layout_engine *e)
+{
+    return e != nullptr ? e->prof.calls : 0;
 }
 
 uint32_t embi_layout_tree_builds(const embi_layout_engine *e, const embi_document *doc)
@@ -634,7 +641,9 @@ static bool layout_run(embi_layout_engine *e, embi_document *doc, uint32_t max_d
     embi_style_resolve_document(e->style, doc);
     uint64_t epoch = embi_style_document_epoch(e->style, doc);
     /* W6b: what the style engine changed since the last layout decides what is rebuilt (incr.c). */
+    uint64_t pt0 = SDL_GetPerformanceCounter();
     int ukind = embi_lay_incr_plan(e, ld, doc);
+    e->prof.plan_ticks += SDL_GetPerformanceCounter() - pt0;
     ld->last_kind = (uint8_t)ukind;
     ld->last_partial = false;
     if (ukind == EMBI_LU_NONE || ukind == EMBI_LU_PAINT) {
@@ -685,6 +694,7 @@ static bool layout_run(embi_layout_engine *e, embi_document *doc, uint32_t max_d
     }
     ld->doc = doc;
     ld->last_partial = false;
+    embi_lay_lc_begin(ld, true); /* the layout cache of this run (lcache.c) */
 
     embi_lctx c;
     memset(&c, 0, sizeof c);
@@ -707,6 +717,7 @@ static bool layout_run(embi_layout_engine *e, embi_document *doc, uint32_t max_d
     embi_frag *icb = embi_lay_new_frag(&c, nullptr, EMBI_FK_BOX);
     if (icb == nullptr) {
         embi_table_models_free(&c);
+        embi_lay_lc_free(ld);
         return false;
     }
     embi_lay_frag_set_size(icb, e->vw, e->vh);
@@ -717,6 +728,7 @@ static bool layout_run(embi_layout_engine *e, embi_document *doc, uint32_t max_d
         embi_lay_position_finish(&c, icb);
         embi_ctr_free(&c.ctr);
         embi_table_models_free(&c);
+        embi_lay_lc_free(ld);
         if (!reuse) {
             embi_lay_tcache_sweep(ld, false);
             embi_lay_incr_built(e, ld, doc);
@@ -769,6 +781,7 @@ static bool layout_run(embi_layout_engine *e, embi_document *doc, uint32_t max_d
     }
     /* The out-of-flow boxes are placed once the whole tree has its positions (position.c). */
     embi_lay_position_finish(&c, icb);
+    embi_lay_lc_free(ld); /* the cache is for one run: its entries point into arenas the next run rewinds */
     embi_ctr_free(&c.ctr);
     embi_table_models_free(&c);
     if (!reuse) {
@@ -900,8 +913,9 @@ static bool layout_document_run(embi_layout_engine *e, embi_document *doc);
 static void verify_against_full(embi_layout_engine *e, embi_document *doc)
 {
     embi_lay_doc *ld = doc_state(e, doc, false);
-    if (ld == nullptr || ld->icb == nullptr || ld->last_kind == EMBI_LU_FULL || ld->last_kind == EMBI_LU_ABORT) {
-        return;
+    if (ld == nullptr || ld->icb == nullptr || ld->last_kind == EMBI_LU_ABORT ||
+        (ld->last_kind == EMBI_LU_FULL && ld->lc_hits == 0)) {
+        return; /* a full build that the layout cache (lcache.c) gave nothing to is what the reference does */
     }
     uint8_t kind = ld->last_kind;
     bool partial = ld->last_partial;
@@ -933,7 +947,8 @@ static void verify_against_full(embi_layout_engine *e, embi_document *doc)
                 embi_incr_verify_fail(kind == EMBI_LU_SURGERY
                                           ? (partial ? "layout: a partial relayout differs from a full build"
                                                      : "layout: a surgery update differs from a full build")
-                                          : "layout: a paint-only update differs from a full build");
+                                          : kind == EMBI_LU_FULL ? "layout: a full build with the layout cache differs from one without"
+                                                                 : "layout: a paint-only update differs from a full build");
             }
             embi_lay_snapshot_free(a);
             embi_lay_snapshot_free(b);
@@ -949,6 +964,7 @@ static void verify_against_full(embi_layout_engine *e, embi_document *doc)
 
 bool embi_layout_document(embi_layout_engine *e, embi_document *doc)
 {
+    uint64_t t0 = SDL_GetPerformanceCounter();
     lay_keeps keep = {nullptr, 0, 0};
     embi_lay_doc *old = doc_state(e, doc, false);
     bool was_scrolled = old != nullptr && old->scrolled;
@@ -974,6 +990,26 @@ bool embi_layout_document(embi_layout_engine *e, embi_document *doc)
             keeps_apply(e, doc, ld, &keep, ld->icb, true);
         }
     }
+    embi_lay_doc *pld = doc_state(e, doc, false);
+    if (pld != nullptr) {
+        uint64_t dt = SDL_GetPerformanceCounter() - t0;
+        uint32_t k = ok ? pld->last_kind : EMBI_LU_ABORT;
+        if (k == EMBI_LU_SURGERY && pld->last_partial) {
+            k = EMBI_LAYOUT_PROF_PARTIAL;
+        }
+        if (k < EMBI_LAYOUT_PROF_KINDS) {
+            e->prof.kinds[k]++;
+            e->prof.kind_ticks[k] += dt;
+        }
+        e->prof.calls++;
+        e->prof.ticks += dt;
+        if (ok && (pld->last_kind == EMBI_LU_SURGERY || pld->last_kind == EMBI_LU_FULL)) {
+            e->prof.boxes += pld->frag_allocs;
+            if (!pld->last_partial) {
+                e->prof.reused += pld->lc_hits;
+            }
+        }
+    }
     if (ok && embi_incr_verify_mode() != 0) {
         verify_against_full(e, doc);
     }
@@ -985,7 +1021,9 @@ static bool layout_document_run(embi_layout_engine *e, embi_document *doc)
 {
     /* The DOM depth only changes with the DOM, which changes the style epoch: walk the 10k elements of a big
      * page once per epoch, not on every layout. */
+    uint64_t st0 = SDL_GetPerformanceCounter();
     embi_style_resolve_document(e->style, doc);
+    e->prof.style_ticks += SDL_GetPerformanceCounter() - st0;
     uint64_t epoch = embi_style_document_epoch(e->style, doc);
     embi_lay_doc *ld = epoch != 0 ? doc_state(e, doc, true) : nullptr;
     bool deep;
@@ -1021,4 +1059,9 @@ static bool layout_document_run(embi_layout_engine *e, embi_document *doc)
     }
     SDL_WaitThread(t, nullptr);
     return job.ok;
+}
+
+void embi_layout_prof_get(const embi_layout_engine *e, embi_layout_prof *out)
+{
+    *out = e->prof;
 }

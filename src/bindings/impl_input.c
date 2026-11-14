@@ -119,6 +119,84 @@ bool embi_impl_input_pointer(embi_bind_ctx *c, embi_node *target, bool pointer, 
     return ok;
 }
 
+/* Chrome's legacy keyCode (Windows, US layout) of a key: by code for the layout-independent keys, by key for a letter
+ * (the virtual key follows the layout). 0 when unknown. */
+static uint32_t legacy_key_code(const char *key, const char *code)
+{
+    static const struct {
+        const char *code;
+        uint16_t vk;
+    } tab[] = {
+        {"Backspace", 8}, {"Tab", 9}, {"Enter", 13}, {"NumpadEnter", 13}, {"ShiftLeft", 16}, {"ShiftRight", 16},
+        {"ControlLeft", 17}, {"ControlRight", 17}, {"AltLeft", 18}, {"AltRight", 18}, {"Pause", 19}, {"CapsLock", 20}, {"PrintScreen", 44},
+        {"Escape", 27}, {"Space", 32}, {"PageUp", 33}, {"PageDown", 34}, {"End", 35}, {"Home", 36}, {"ArrowLeft", 37},
+        {"ArrowUp", 38}, {"ArrowRight", 39}, {"ArrowDown", 40}, {"Insert", 45}, {"Delete", 46}, {"MetaLeft", 91},
+        {"MetaRight", 92}, {"ContextMenu", 93}, {"NumpadMultiply", 106}, {"NumpadAdd", 107}, {"NumpadSubtract", 109},
+        {"NumpadDecimal", 110}, {"NumpadDivide", 111}, {"NumLock", 144}, {"ScrollLock", 145}, {"Semicolon", 186},
+        {"Equal", 187}, {"Comma", 188}, {"Minus", 189}, {"Period", 190}, {"Slash", 191}, {"Backquote", 192},
+        {"BracketLeft", 219}, {"Backslash", 220}, {"BracketRight", 221}, {"Quote", 222}, {"IntlBackslash", 226},
+    };
+    if (key != nullptr && key[0] != '\0' && key[1] == '\0') {
+        char ch = key[0];
+        if (ch >= 'a' && ch <= 'z') {
+            return (uint32_t)(ch - 'a' + 'A');
+        }
+        if (ch >= 'A' && ch <= 'Z') {
+            return (uint32_t)ch;
+        }
+    }
+    if (code == nullptr || code[0] == '\0') {
+        return 0;
+    }
+    size_t n = strlen(code);
+    if (n == 6 && strncmp(code, "Digit", 5) == 0 && code[5] >= '0' && code[5] <= '9') {
+        return (uint32_t)(48 + code[5] - '0');
+    }
+    if (n == 4 && strncmp(code, "Key", 3) == 0 && code[3] >= 'A' && code[3] <= 'Z') {
+        return (uint32_t)code[3];
+    }
+    if (n == 7 && strncmp(code, "Numpad", 6) == 0 && code[6] >= '0' && code[6] <= '9') {
+        return (uint32_t)(96 + code[6] - '0');
+    }
+    if (code[0] == 'F' && n >= 2 && n <= 3 && code[1] >= '1' && code[1] <= '9') {
+        unsigned f = (unsigned)(code[1] - '0');
+        if (n == 3) {
+            if (code[2] < '0' || code[2] > '9') {
+                return 0;
+            }
+            f = f * 10 + (unsigned)(code[2] - '0');
+        }
+        return f >= 1 && f <= 24 ? 111 + f : 0;
+    }
+    for (size_t i = 0; i < sizeof tab / sizeof tab[0]; i++) {
+        if (strcmp(tab[i].code, code) == 0) {
+            return tab[i].vk;
+        }
+    }
+    return 0;
+}
+
+/* The first code point of a UTF-8 string (0 for an empty or malformed one). */
+static uint32_t first_code_point(const char *s)
+{
+    const unsigned char *u = (const unsigned char *)s;
+    if (u[0] < 0x80) {
+        return u[0];
+    }
+    int extra = u[0] >= 0xF0 ? 3 : u[0] >= 0xE0 ? 2 : u[0] >= 0xC0 ? 1 : -1;
+    if (extra < 0) {
+        return 0;
+    }
+    uint32_t cp = u[0] & (0x3Fu >> extra);
+    for (int i = 1; i <= extra; i++) {
+        if ((u[i] & 0xC0u) != 0x80u) {
+            return 0;
+        }
+        cp = (cp << 6) | (u[i] & 0x3Fu);
+    }
+    return cp;
+}
+
 bool embi_impl_input_key(embi_bind_ctx *c, embi_node *target, const char *type, const embi_input_key *k)
 {
     embi_bind_scope sc = embi_bind_enter(c);
@@ -131,6 +209,19 @@ bool embi_impl_input_key(embi_bind_ctx *c, embi_node *target, const char *type, 
     put(c, pl, "repeat", embi_js_from_bool(k->repeat));
     put(c, pl, "isComposing", embi_js_from_bool(k->isComposing));
     put_mods(c, pl, k->mods);
+    /* The legacy codes: keydown and keyup carry the virtual key and no char code; keypress carries the character in
+     * both (Enter is 13). */
+    uint32_t kc;
+    uint32_t cc = 0;
+    if (strcmp(type, "keypress") == 0) {
+        const char *kk = k->key != nullptr ? k->key : "";
+        kc = cc = strcmp(kk, "Enter") == 0 ? 13u : first_code_point(kk);
+    } else {
+        kc = legacy_key_code(k->key, k->code);
+    }
+    put(c, pl, "keyCode", num(kc));
+    put(c, pl, "charCode", num(cc));
+    put(c, pl, "which", num(kc));
     embi_js_value ev = make(c, EMBI_IF_KeyboardEvent, type, flags, pl);
     bool ok = dispatch(c, target, ev);
     embi_bind_leave(sc, EMBI_JS_UNDEFINED);
@@ -281,6 +372,15 @@ void embi_impl_input_focus(embi_bind_ctx *c, embi_node *node)
         }
         focus_event(c, node, "focusin", true, old);
     }
+}
+
+void embi_impl_input_pre_remove(void *ctx, embi_node *node)
+{
+    embi_bind_ctx *c = ctx;
+    if (c->moving || c->freed || !connected(c->active) || !connected(node) || !embi_contains(node, c->active)) {
+        return;
+    }
+    embi_impl_input_focus(c, nullptr);
 }
 
 embi_node *embi_impl_input_focused(embi_bind_ctx *c)

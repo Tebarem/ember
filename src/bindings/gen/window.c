@@ -508,6 +508,7 @@ static const embi_bind_member gen_Window_m[] = {
     {.name = "atob", .impl = (embi_gen_fn)embi_impl_Window_atob, .fn = embi_shape_92909240, .iface = EMBI_IF_Window, .kind = EMBI_MEMBER_OP, .len = 1},
     {.name = "btoa", .impl = (embi_gen_fn)embi_impl_Window_btoa, .fn = embi_shape_92909240, .iface = EMBI_IF_Window, .kind = EMBI_MEMBER_OP, .len = 1},
     {.name = "fetch", .impl = (embi_gen_fn)embi_impl_Window_fetch, .fn = embi_shape_4e04556c, .iface = EMBI_IF_Window, .kind = EMBI_MEMBER_OP, .len = 1},
+    {.name = "frameElement", .impl = (embi_gen_fn)embi_impl_Window_get_frameElement, .set = embi_shape_2914a8dc, .fn = embi_shape_079f7734, .iface = EMBI_IF_Window, .kind = EMBI_MEMBER_ATTR},
     {.name = "postMessage", .impl = (embi_gen_fn)embi_impl_Window_postMessage, .fn = embi_shape_e06180db, .iface = EMBI_IF_Window, .kind = EMBI_MEMBER_OP, .len = 1},
     {.name = "structuredClone", .impl = (embi_gen_fn)embi_impl_Window_structuredClone, .fn = embi_shape_07a7a37a, .iface = EMBI_IF_Window, .kind = EMBI_MEMBER_OP, .len = 1},
     {.name = "localStorage", .impl = (embi_gen_fn)embi_impl_Window_get_localStorage, .fn = embi_shape_8a2b959b, .iface = EMBI_IF_Window, .kind = EMBI_MEMBER_ATTR},

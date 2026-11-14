@@ -44,3 +44,7 @@ void embi_loader_attach(embi_bind_ctx *c, const embi_loader_env *env);
 /* Aborts the context's pending fetches (their promises are left pending: the realm is going away), forgets the
  * context's sessionStorage area and runs the environment's release hook. Call it before embi_bind_free. */
 void embi_loader_detach(embi_bind_ctx *c);
+/* IF1: the context's MessagePorts live in shared (the registry of the view's frames, all on one thread), so a port can be
+ * transferred to another frame and keep its peer. Takes a reference; no effect once the context has made ports. */
+struct embi_mports;
+void embi_loader_share_ports(embi_bind_ctx *c, struct embi_mports *shared);

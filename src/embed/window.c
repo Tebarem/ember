@@ -8,6 +8,7 @@
  * (the view update and the frame) is covered by the offscreen tests.
  */
 #include "embed_int.h"
+#include "embed/frames.h"
 #include "embed/input_int.h"
 #include "embed/script_int.h"
 
@@ -16,6 +17,7 @@
 
 #include <ember/ember_input.h>
 
+#include <math.h>
 #include <string.h>
 
 #include <SDL3/SDL_events.h>
@@ -194,8 +196,8 @@ void embi_view_window_reflow(emb_view *v)
     v->need_present = true;
 }
 
-/* One notch of a wheel, in CSS px (the same as Chromium's). */
-static void wheel(emb_view *v, const SDL_MouseWheelEvent *w)
+/* One notch of a wheel, in CSS px (the same as Chromium's). The deltas are CSS px already; the position maps like a pointer's. */
+static void wheel(emb_view *v, const SDL_MouseWheelEvent *w, float ox, float oy, float scale)
 {
     if (w->which == SDL_TOUCH_MOUSEID) {
         return; /* a touch scroll is a pointer gesture of its own (not a wheel) */
@@ -205,7 +207,7 @@ static void wheel(emb_view *v, const SDL_MouseWheelEvent *w)
      * moves down, so the offset decreases. */
     float dx = w->x * EMBI_VIEW_WHEEL_PX;
     float dy = -w->y * EMBI_VIEW_WHEEL_PX;
-    emb_view_wheel(v, w->mouse_x, w->mouse_y, dx, dy); /* a cancelable wheel event first (input.c) */
+    emb_view_wheel(v, (w->mouse_x - ox) * scale, (w->mouse_y - oy) * scale, dx, dy); /* a cancelable wheel event first (input.c) */
 }
 
 /* The EMB_MOD_* bits of the SDL modifier state. */
@@ -264,6 +266,75 @@ static void key(emb_view *v, const SDL_KeyboardEvent *k)
     emb_view_key(v, &ev);
 }
 
+/* Translates an SDL event of the kinds the view takes (keys, text and IME, mouse motion, buttons and wheel, and the window's
+ * mouse leave and focus) into the input API. win is the window whose events the view takes; 0 takes the events of any
+ * window (an offscreen host passes the events it wants). Pointer positions map from event units to CSS px as
+ * ((x - ox) * scale, (y - oy) * scale); a windowed view passes 0, 0 and 1. Returns true when ev is one of these kinds. */
+static bool input_event(emb_view *v, const SDL_Event *ev, SDL_WindowID win, float ox, float oy, float scale)
+{
+    switch (ev->type) {
+    case SDL_EVENT_MOUSE_WHEEL:
+        /* Events of the host's other windows do not scroll this view. */
+        if (win == 0 || ev->wheel.windowID == win) {
+            wheel(v, &ev->wheel, ox, oy, scale);
+        }
+        return true;
+    case SDL_EVENT_KEY_DOWN:
+    case SDL_EVENT_KEY_UP:
+        if (win == 0 || ev->key.windowID == win) {
+            key(v, &ev->key);
+        }
+        return true;
+    case SDL_EVENT_MOUSE_MOTION:
+        /* Mouse events synthesized from touches are dropped: the touch is a pointer event of its own (below). */
+        if ((win == 0 || ev->motion.windowID == win) && ev->motion.which != SDL_TOUCH_MOUSEID) {
+            emb_view_mouse_move(v, (ev->motion.x - ox) * scale, (ev->motion.y - oy) * scale, mods_of(SDL_GetModState()));
+        }
+        return true;
+    case SDL_EVENT_MOUSE_BUTTON_DOWN:
+    case SDL_EVENT_MOUSE_BUTTON_UP:
+        if ((win == 0 || ev->button.windowID == win) && ev->button.which != SDL_TOUCH_MOUSEID) {
+            emb_view_mouse_button_clicks(v, (ev->button.x - ox) * scale, (ev->button.y - oy) * scale,
+                                         button_of(ev->button.button), ev->type == SDL_EVENT_MOUSE_BUTTON_DOWN,
+                                         mods_of(SDL_GetModState()), ev->button.clicks);
+        }
+        return true;
+    case SDL_EVENT_TEXT_INPUT:
+        if ((win == 0 || ev->text.windowID == win) && ev->text.text != nullptr) {
+            emb_view_text_input(v, ev->text.text, strlen(ev->text.text));
+        }
+        return true;
+    case SDL_EVENT_TEXT_EDITING:
+        if (win == 0 || ev->edit.windowID == win) {
+            emb_text_editing te = {
+                .size = sizeof(emb_text_editing),
+                .text = ev->edit.text != nullptr ? ev->edit.text : "",
+                .cursor = ev->edit.start,
+                .sel_len = ev->edit.length,
+            };
+            emb_view_text_editing(v, &te);
+        }
+        return true;
+    case SDL_EVENT_WINDOW_MOUSE_LEAVE:
+        if (win == 0 || ev->window.windowID == win) {
+            emb_view_mouse_leave(v); /* out/leave events, and :hover must not stay on the last element */
+        }
+        return true;
+    case SDL_EVENT_WINDOW_FOCUS_GAINED:
+        if (win == 0 || ev->window.windowID == win) {
+            emb_view_focus(v, true);
+        }
+        return true;
+    case SDL_EVENT_WINDOW_FOCUS_LOST:
+        if (win == 0 || ev->window.windowID == win) {
+            emb_view_focus(v, false);
+        }
+        return true;
+    default:
+        return false;
+    }
+}
+
 bool embi_window_event(emb_view *v, const SDL_Event *ev)
 {
     switch (ev->type) {
@@ -283,62 +354,6 @@ bool embi_window_event(emb_view *v, const SDL_Event *ev)
     case SDL_EVENT_WINDOW_RESTORED:
         v->need_present = true;
         break;
-    case SDL_EVENT_MOUSE_WHEEL:
-        /* Events of the host's other windows do not scroll this view. */
-        if (ev->wheel.windowID == SDL_GetWindowID(v->window)) {
-            wheel(v, &ev->wheel);
-        }
-        break;
-    case SDL_EVENT_KEY_DOWN:
-    case SDL_EVENT_KEY_UP:
-        if (ev->key.windowID == SDL_GetWindowID(v->window)) {
-            key(v, &ev->key);
-        }
-        break;
-    case SDL_EVENT_MOUSE_MOTION:
-        /* Mouse events synthesized from touches are dropped: the touch is a pointer event of its own (below). */
-        if (ev->motion.windowID == SDL_GetWindowID(v->window) && ev->motion.which != SDL_TOUCH_MOUSEID) {
-            emb_view_mouse_move(v, ev->motion.x, ev->motion.y, mods_of(SDL_GetModState()));
-        }
-        break;
-    case SDL_EVENT_MOUSE_BUTTON_DOWN:
-    case SDL_EVENT_MOUSE_BUTTON_UP:
-        if (ev->button.windowID == SDL_GetWindowID(v->window) && ev->button.which != SDL_TOUCH_MOUSEID) {
-            emb_view_mouse_button(v, ev->button.x, ev->button.y, button_of(ev->button.button),
-                                  ev->type == SDL_EVENT_MOUSE_BUTTON_DOWN, mods_of(SDL_GetModState()));
-        }
-        break;
-    case SDL_EVENT_TEXT_INPUT:
-        if (ev->text.windowID == SDL_GetWindowID(v->window) && ev->text.text != nullptr) {
-            emb_view_text_input(v, ev->text.text, strlen(ev->text.text));
-        }
-        break;
-    case SDL_EVENT_TEXT_EDITING:
-        if (ev->edit.windowID == SDL_GetWindowID(v->window)) {
-            emb_text_editing te = {
-                .size = sizeof(emb_text_editing),
-                .text = ev->edit.text != nullptr ? ev->edit.text : "",
-                .cursor = ev->edit.start,
-                .sel_len = ev->edit.length,
-            };
-            emb_view_text_editing(v, &te);
-        }
-        break;
-    case SDL_EVENT_WINDOW_MOUSE_LEAVE:
-        if (ev->window.windowID == SDL_GetWindowID(v->window)) {
-            emb_view_mouse_leave(v); /* out/leave events, and :hover must not stay on the last element */
-        }
-        break;
-    case SDL_EVENT_WINDOW_FOCUS_GAINED:
-        if (ev->window.windowID == SDL_GetWindowID(v->window)) {
-            emb_view_focus(v, true);
-        }
-        break;
-    case SDL_EVENT_WINDOW_FOCUS_LOST:
-        if (ev->window.windowID == SDL_GetWindowID(v->window)) {
-            emb_view_focus(v, false);
-        }
-        break;
     case SDL_EVENT_FINGER_DOWN:
     case SDL_EVENT_FINGER_MOTION:
     case SDL_EVENT_FINGER_UP:
@@ -353,9 +368,18 @@ bool embi_window_event(emb_view *v, const SDL_Event *ev)
         break;
     }
     default:
+        (void)input_event(v, ev, SDL_GetWindowID(v->window), 0.0f, 0.0f, 1.0f);
         break;
     }
     return true;
+}
+
+bool emb_view_sdl_event(emb_view *view, const SDL_Event *event, float origin_x, float origin_y, float scale)
+{
+    if (view == nullptr || event == nullptr || !(scale > 0.0f) || !isfinite(scale)) {
+        return false;
+    }
+    return input_event(view, event, 0, origin_x, origin_y, scale);
 }
 
 bool emb_view_pump(emb_view *v)
@@ -372,12 +396,18 @@ bool emb_view_pump(emb_view *v)
      * that is due already means there is work: no wait. */
     int32_t wait_ms = (int32_t)EMBI_WIN_IDLE_MS;
     double due = 0;
-    if (script != nullptr && embi_script_next_due(script, &due)) {
+    double fdue = 0;
+    bool has_due = script != nullptr && embi_script_next_due(script, &due);
+    if (embi_frames_next_due(v, &fdue) && (!has_due || fdue < due)) {
+        due = fdue; /* IF1: the frames' timers */
+        has_due = true;
+    }
+    if (has_due) {
         double left = due - embi_clock_ms();
         wait_ms = left <= 0 ? 0 : (left < (double)EMBI_WIN_IDLE_MS ? (int32_t)left + 1 : (int32_t)EMBI_WIN_IDLE_MS);
     }
     bool idle = !embi_view_animating(v) && !v->paint_dirty && !v->need_present && wait_ms > 0 &&
-                (script == nullptr || !embi_script_has_tasks(script));
+                (script == nullptr || !embi_script_has_tasks(script)) && !embi_frames_has_tasks(v);
     SDL_Event ev;
     bool keep = true;
     if (idle && SDL_WaitEventTimeout(&ev, wait_ms)) {

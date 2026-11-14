@@ -91,6 +91,10 @@ typedef struct embi_pst {
                                    * html form one stacking context (CSS 2.1 9.9.1: the root element's context) */
     embi_pctx_vec *rec;           /* W6b: records the stacking contexts (nullptr: not recorded) */
     uint32_t rec_xf_parent, rec_clip_parent; /* W6b: the parent state paint_ctx gave the context being recorded */
+    /* The root context's box origin and transform before its scroll offset (set when its body is painted): a fixed box of
+     * the viewport is placed with them, so the viewport's scroll does not move it (embi_lay_frag_vp_fixed). */
+    float vp_x, vp_y;
+    uint32_t vp_xf;
     EMBI_VEC(embi_pers) pers;     /* the boxes with a perspective whose content is being painted (a stack) */
     struct embi_p3ctx *c3;        /* the 3D rendering context being painted (plane3d.c), or nullptr */
     const embi_frag *bg_src;      /* R3b: the canvas background (root or body) is painted inside the root context's group when it has one */
@@ -200,6 +204,11 @@ void embi_pb_control_pre(embi_pst *p, const embi_frag *f, const embi_box *b, con
 void embi_pb_control(embi_pst *p, const embi_frag *f, const embi_box *b, const embi_style *s, const float bb[4], uint32_t xform,
                      uint32_t clip);
 void embi_pb_control_popup(embi_pst *p);
+/* The used width of side i (left, top, right, bottom) of the border and the padding of a part that has no box (the style of a
+ * pseudo-element such as ::-webkit-slider-thumb or ::-webkit-scrollbar-thumb): a side whose style is none has no border, a
+ * width snaps to whole px as the layout's borders do. */
+float embi_pb_part_border(const embi_style *s, int i);
+float embi_pb_part_padding(const embi_style *s, int i);
 /* The collapsed borders of a table fragment (border-collapse: collapse) from the W3 per-edge winners, drawn
  * at the table's border-box origin (ox, oy). Nothing for a table with separate borders. */
 void embi_pb_collapsed(embi_pst *p, const embi_frag *t, float ox, float oy, uint32_t xf, uint32_t clip);

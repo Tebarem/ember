@@ -68,6 +68,15 @@ typedef struct embi_path_subpath_info {
 bool embi_path_subpath(const embi_path *p, uint32_t k, embi_path_subpath_info *out);
 
 /* Fills the path with paint: its region under rule, in local space, transformed by xform. The
- * path is not const: it may rebuild its fill outline (closing its open subpaths). */
+ * path is not const: it may rebuild its fill outline (closing its open subpaths). The outline's
+ * blob is cached under a hash of its curves, so paths with the same outline share it: the display
+ * list is built again on each paint with new path objects, and a key of the path object made every
+ * paint build every SVG shape's blob again. */
 void embi_frame_fill_path(embi_frame *f, embi_path *p, embi_fill_rule rule,
                           const embi_paint *paint, uint32_t xform, uint32_t clip);
+/* embi_frame_fill_path with the blob cached under key (bit 63 set) instead of the hash of the
+ * path's outline: key must stand for the same outline whenever it is given. */
+void embi_frame_fill_path_keyed(embi_frame *f, embi_path *p, uint64_t key, embi_fill_rule rule,
+                                const embi_paint *paint, uint32_t xform, uint32_t clip);
+/* A hash of the path's segments and subpaths (what a stroke of it is made from). */
+[[nodiscard]] uint64_t embi_path_hash(const embi_path *p);

@@ -25,6 +25,9 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /* One request of an asynchronous handler. Opaque: it lives until emb_resource_complete. */
 typedef struct emb_request emb_request;
@@ -106,3 +109,7 @@ EMB_API bool emb_runtime_set_storage_dir(emb_runtime *rt, const char *dir);
  * replaces a handler the embedder registered for it. Returns false for a bad scheme or host, for file, data and blob, or
  * when the directory is empty or too long. The runtime holds its own copy of the strings. */
 EMB_API bool emb_runtime_mount_dir(emb_runtime *rt, const char *scheme, const char *host, const char *dir);
+
+#ifdef __cplusplus
+}
+#endif

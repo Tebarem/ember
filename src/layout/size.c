@@ -1335,6 +1335,14 @@ void embi_lay_replaced(embi_lctx *c, embi_box *b, const embi_cs *cs, embi_lres *
     embi_fo(f)->ov[3] = f->h;
     f->bl_first = NAN;
     embi_fl(f)->bl_last = NAN;
+    if ((b->tflags & EMBI_TF_CTLBASE) != 0 && b->style != nullptr) {
+        /* The baseline of a text field or a drop-down select is its text's: one line, centred in the content box. */
+        float la, ld;
+        embi_lay_line_metrics(c, b->style, &la, &ld);
+        float bl = bdr.t + pad.t + (h - (la + ld)) * 0.5f + la;
+        f->bl_first = bl;
+        embi_fl(f)->bl_last = bl;
+    }
     if (b->first != nullptr) {
         svg_fo_layout(c, b, f, bdr.l + pad.l, bdr.t + pad.t, w, h);
     }

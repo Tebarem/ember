@@ -608,6 +608,19 @@ void embi_lay_abspos_at(embi_lctx *c, embi_box *k, embi_box *sbox, float sx, flo
     (void)embi_hashmap_put(&p->last, (uint64_t)(uintptr_t)k, idx);
 }
 
+void embi_lay_pos_replay(embi_lctx *c, uint32_t from, uint32_t to) {
+    struct embi_pos *p = c->pos;
+    if (p == nullptr || to > p->recs.len) {
+        return;
+    }
+    for (uint32_t i = from; i < to; i++) {
+        embi_pos_rec r = p->recs.data[i];
+        uint32_t idx = p->recs.len;
+        embi_vec_push(&p->recs, r);
+        (void)embi_hashmap_put(&p->last, (uint64_t)(uintptr_t)r.box, idx);
+    }
+}
+
 void embi_lay_abspos_flex(embi_lctx *c, embi_box *k, embi_box *sbox, const float cont[4],
                           const float frac[2], const bool flip[2]) {
     embi_lay_abspos_at(c, k, sbox, 0.0f, 0.0f, nullptr);
@@ -882,6 +895,15 @@ void embi_lay_sticky_offset(const embi_frag *f, float *dx, float *dy) {
                       s->cont[1], s->cont[3], s->mg[0], s->mg[2]);
     *dx = sticky_axis(x, x + f->w, s->inset[3], s->inset[1], s->view[0] + sx, s->view[2] + sx,
                       s->cont[0], s->cont[2], s->mg[3], s->mg[1]);
+}
+
+bool embi_lay_frag_vp_fixed(const embi_frag *f) {
+    if (f == nullptr || f->kind != EMBI_FK_BOX || f->box == nullptr || f->box->style == nullptr ||
+        f->parent == nullptr || f->parent->parent != nullptr || (f->box->flags & EMBI_BF_ROOT) != 0) {
+        return false; /* the root element's box is painted with the viewport's context, whatever its position */
+    }
+    const embi_value *v = embi_style_value(f->box->style, EMBI_PROP_position);
+    return v != nullptr && v->kind == EMBI_V_KEYWORD && v->kw == EMBI_KW_fixed;
 }
 
 /* ------------------------------------------------------------------ stacking flags */
@@ -1408,6 +1430,7 @@ static void place_one(embi_lctx *c, const embi_pos_rec *r, embi_frag *icb) {
 
 void embi_lay_position_finish(embi_lctx *c, embi_frag *icb) {
     struct embi_pos *p = c->pos;
+    c->ld->lc_on = false; /* the fragments change in place from here on: nothing is given back from the layout cache */
     /* The flow's relative offsets and stacking flags come first: the static positions and
      * containing blocks that the placement reads are then in their final frames. */
     prep_node(c, icb);
