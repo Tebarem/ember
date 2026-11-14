@@ -23,7 +23,7 @@
  *
  * Fragment budget. A box that crosses N columns becomes N fragments, and with column-width: 1px a wide container has up to
  * 1024 columns: nested boxes would multiply that. At most MC_MAXPIECES (4096) extra fragments are made per container; past
- * that no box is cut any more and the rest of the content is placed, uncut, in the last column (it overflows it). Memory and
+ * that no box is cut any more: each box stays whole in the column it starts in and overflows it downwards. Memory and
  * time stay bounded, layout always finishes.
  *
  * Not done: floats and clear do not look at the column they fall in (a float is a tall box of the one-column flow and is
@@ -540,9 +540,13 @@ static void mc_dist(mc_ctx *m, embi_frag *g, float gy, const mc_par *par, uint32
     float gb = gy + g->h;
     uint32_t c0 = mc_col_of(m, gy);
     uint32_t c1 = g->h > MC_EPS ? mc_col_end(m, gb) : c0;
-    if (m->pieces + (c1 - c0) > MC_MAXPIECES && c1 > c0) {
-        /* The budget of fragments is spent: the box stays in one piece, in the last column. */
-        c0 = c1 = m->ncol - 1u;
+    bool cuttable = g->kind == EMBI_FK_BOX && !mc_mono(g);
+    bool spent = false;
+    if (cuttable && c1 > c0 && m->pieces + (c1 - c0) > MC_MAXPIECES) {
+        /* The budget of fragments is spent: the box stays in one piece, in the column it starts in, and overflows it
+           downwards. */
+        c1 = c0;
+        spent = true;
     }
     /* A float may stick out of its parent, into columns where the parent has no piece: its pieces there go to the container. */
     bool ext = g->kind == EMBI_FK_BOX && mc_is_float(g) && (c0 < lo || c1 > hi);
@@ -560,9 +564,8 @@ static void mc_dist(mc_ctx *m, embi_frag *g, float gy, const mc_par *par, uint32
             c1 = hi;
         }
     }
-    bool cuttable = g->kind == EMBI_FK_BOX && !mc_mono(g);
     /* A box that stays in one column can hold a float that reaches into the next ones. */
-    bool deep = cuttable && c1 == c0 && c0 + 1u < m->ncol && g->inl == 0 && gy + g->ov[3] > m->brk[c0 + 1u] + MC_EPS &&
+    bool deep = cuttable && !spent && c1 == c0 && c0 + 1u < m->ncol && g->inl == 0 && gy + g->ov[3] > m->brk[c0 + 1u] + MC_EPS &&
                 !(c0 < lo || c0 > hi);
     bool split = (c1 > c0 && cuttable) || deep;
     if (!split) {
