@@ -2,3 +2,4 @@ css/compositing/mix-blend-mode/mix-blend-mode-paragraph.html paint text in a lay
 css/compositing/mix-blend-mode/mix-blend-mode-parent-with-text.html paint text in a layer is gray antialiased, the reference draws it with LCD antialiasing in the page (max 18 levels, fuzzy allows 8)
 css/compositing/mix-blend-mode/mix-blend-mode-root-element-group.html layout an absolutely positioned descendant of a stacking context that is not its containing block is painted in the scope of its containing block, outside the context group (the same with opacity)
 css/compositing/mix-blend-mode/mix-blend-mode-rotated-clip.html paint the antialiased edge of a rotated clip differs by up to 53 levels over 116 px (fuzzy allows 30 px)
+css/compositing/background-blending/background-blend-mode-gradient-image.html platform passes on D3D12 hardware, Vulkan and Metal; on the GitHub Windows runner (D3D12 without a GPU, WARP) blend results differ by a few levels

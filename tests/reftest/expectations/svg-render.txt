@@ -1,0 +1,1 @@
+svg/render/reftests/blending-001.svg platform passes on D3D12 hardware, Vulkan and Metal; on the GitHub Windows runner (D3D12 without a GPU, WARP) blend results differ by a few levels (max 9)
