@@ -316,6 +316,7 @@ void embi_doc_destroy(embi_doc *d)
     d->anim = nullptr;
     embi_paint_cache_free(d->pcache);
     d->pcache = nullptr;
+    scrollers_cache_free(d);
     embi_layout_engine_destroy(d->eng);
     d->eng = nullptr;
     if (d->dom != nullptr) {
