@@ -243,6 +243,23 @@ static void set_texture_size(emb_view *v, uint32_t dw, uint32_t dh)
     }
     embi_gfx_texture_destroy(v->gfx, v->tex);
     v->tex = embi_gfx_texture_create(v->gfx, dw, dh);
+    if (v->tex != nullptr && v->dev != nullptr && embi_frames_parent(v) != nullptr) {
+        /* A frame is sampled by its parent before its own document has painted (a load in flight): the new texture is
+         * undefined memory on some GPUs (Metal), so it starts out transparent. */
+        SDL_GPUCommandBuffer *cb = SDL_AcquireGPUCommandBuffer(v->dev);
+        if (cb != nullptr) {
+            SDL_GPUColorTargetInfo ct;
+            memset(&ct, 0, sizeof ct);
+            ct.texture = v->tex;
+            ct.load_op = SDL_GPU_LOADOP_CLEAR;
+            ct.store_op = SDL_GPU_STOREOP_STORE;
+            SDL_GPURenderPass *rp = SDL_BeginGPURenderPass(cb, &ct, 1, nullptr);
+            if (rp != nullptr) {
+                SDL_EndGPURenderPass(rp);
+            }
+            (void)SDL_SubmitGPUCommandBuffer(cb);
+        }
+    }
     v->dev_w = dw;
     v->dev_h = dh;
     v->force_full = true;
