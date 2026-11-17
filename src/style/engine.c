@@ -386,6 +386,7 @@ void embi_style_forget_document(embi_style_engine *e, embi_document *doc)
         embi_free(ds->sheets, sizeof(embi_css_sheet *) * (ds->nsheets > 0 ? ds->nsheets : 1));
     }
     embi_hashmap_free(&ds->pseudo);
+    embi_hashmap_free(&ds->pmatch);
     embi_inval_ds_free(e, ds);
     embi_free(ds, sizeof *ds);
 }

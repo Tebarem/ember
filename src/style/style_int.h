@@ -273,6 +273,8 @@ typedef struct embi_docstate {
     uint64_t epoch;       /* counts the resolves that did work (embi_style_document_epoch) */
     double root_px;
     embi_hashmap pseudo;  /* (element << 4 | pseudo) -> embi_style* (or nullptr: not generated) */
+    embi_hashmap pmatch;  /* element -> its pseudo-elements (1 << pe) that a custom property change alone could change, as
+                            of its last cascade: the generated ones, and those whose values read var() (none: absent) */
     /* ---- W6b (inval.c, inval_walk.c): incremental restyle and change tracking ---- */
     bool full;                  /* the next resolve restyles every element */
     bool track;                 /* a layout engine consumes the change set (embi_style_track) */

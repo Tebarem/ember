@@ -480,7 +480,8 @@ static const char *k_cpage =
 static const char *k_ccss =
     ":root{--lw:100px;--rw:50px;--c:red} .shell{display:grid;grid-template-columns:var(--lw) 1fr var(--rw)} "
     ".panel{color:var(--c)} .uses{width:var(--lw)} .derive{--x:calc(var(--rw) + 1px)} .usesx{margin-left:var(--x)} "
-    "p{padding:1px} li + li{margin-top:2px} .hot{--c:blue} li::before{content:'-';margin-left:var(--rw)}";
+    "p{padding:1px} li + li{margin-top:2px} .hot{--c:blue} li::before{content:'-';margin-left:var(--rw)} "
+    "*::before,*::after{box-sizing:border-box} p::after{content:var(--icon, none)}";
 
 static uint32_t drag_resolve(fx *f)
 {
@@ -509,6 +510,14 @@ EMB_TEST(custom_property_drag_restyles_only_the_readers)
         custom_only += drag_resolve(&f);
     }
     EMB_CHECK(custom_only >= 12u * 5u); /* body, the panels, the paragraph and the items that read nothing, every step */
+    /* A custom property a pseudo-element's content reads: the paragraphs' ::after appear, though the paragraphs themselves
+     * read nothing that changed (their pseudo-elements are computed again), and go again. */
+    set_attr(&f, root, "style", "--lw:120px;--icon:'*'");
+    EMB_CHECK(drag_resolve(&f) > 0);
+    EMB_CHECK(embi_style_generated(f.eng, by_id(&f, "p1"), EMBI_PE_AFTER) != nullptr);
+    set_attr(&f, root, "style", "--lw:121px");
+    (void)drag_resolve(&f);
+    EMB_CHECK(embi_style_generated(f.eng, by_id(&f, "p1"), EMBI_PE_AFTER) == nullptr);
     set_attr(&f, by_id(&f, "right"), "class", "panel hot"); /* a name the panel's children read: they are restyled too */
     (void)drag_resolve(&f);
     EMB_CHECK(embi_incr_verify_failures() == base_fail);
