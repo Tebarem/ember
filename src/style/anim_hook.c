@@ -96,6 +96,9 @@ void embi_style_anim_important(embi_style_engine *e, const embi_prop_id *props, 
     uint32_t keep_gen = sc->gen;
     sc->ncands = 0;
     sc->unsafe = false;
+    sc->sflags = 0;
+    sc->vrefs = 0;
+    sc->custom_passthrough = false;
     embi_style_gather_all(e, sc, el, EMBI_PE_NONE, &e->bloom);
     embi_style_gather_hints(e, sc, el);
     embi_style_gather_attr(e, sc, el);

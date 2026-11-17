@@ -198,7 +198,7 @@ EMB_TEST(a_child_style_that_inherited_an_animated_value_keeps_its_block)
     fx f;
     fx_init(&f, "<div id=p><div id=c></div></div>");
     anim_fx a = {true, by_id(f.doc, "p")};
-    embi_style_anim_hooks h = {&a, apply, gone};
+    embi_style_anim_hooks h = {.user = &a, .apply = apply, .gone = gone};
     embi_style_set_anim_hooks(f.eng, &h);
     embi_style_resolve_document(f.eng, f.doc);
     embi_element *c = by_id(f.doc, "c");

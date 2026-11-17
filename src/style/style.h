@@ -261,6 +261,7 @@ uint32_t embi_style_restyled_count(const embi_style_engine *e, const embi_docume
 
 typedef struct embi_style_restyle_stats {
     uint32_t last_restyled;        /* elements restyled by the last resolve */
+    uint32_t last_custom_only;     /* ... of which only took their parent's new custom properties (no cascade) */
     uint64_t total_restyled;       /* since the document was attached */
     uint64_t partial_passes, full_passes;
     uint64_t skipped;              /* resolves that found nothing to do for a marked document */
@@ -275,6 +276,10 @@ uint8_t embi_style_classify(const embi_style *old_style, const embi_style *new_s
  * layout redoes in place. */
 #define EMBI_INPLACE_OPACITY 1u
 #define EMBI_INPLACE_TRANSFORM 2u
+/* The sizing properties the box tree does not depend on (the grid templates and gaps, the box alignment, the flex factors,
+ * width, height and their limits, margins and padding): a change of only these keeps the element's boxes, and the kept tree
+ * is laid out again (incr.c). */
+#define EMBI_INPLACE_SIZING 4u
 uint8_t embi_style_classify_in_place(const embi_style *old_style, const embi_style *new_style, uint32_t in_place);
 
 /* The verification mode (EMBER_VERIFY_INCREMENTAL): 0 off, 1 on (a mismatch logs and aborts), 2 on (a mismatch is only
@@ -298,6 +303,9 @@ typedef struct embi_style_anim_hooks {
     const embi_style *(*apply)(void *user, embi_style_engine *e, embi_element *el, const embi_style *old_slot,
                                const embi_style *base, const embi_style *parent, bool is_root);
     void (*gone)(void *user, embi_element *el);
+    /* Optional: true when el has no animation state (no animation or transition of its own, nothing held for it), so its
+     * slot holds the base style the cascade gave it (embi_style_enter_custom_only). */
+    bool (*idle)(void *user, const embi_element *el);
 } embi_style_anim_hooks;
 /* Installs (or, with nullptr, removes) the hooks of the engine. The engine restyles everything on the next resolve. */
 void embi_style_set_anim_hooks(embi_style_engine *e, const embi_style_anim_hooks *h);

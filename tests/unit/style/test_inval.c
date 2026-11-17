@@ -470,6 +470,83 @@ EMB_TEST(descendant_rules_restyle_only_the_elements_they_can_select)
     embi_incr_set_verify(0);
 }
 
+/* A splitter drag sets custom properties on the root element. An element that reads none of the changed names takes its
+ * parent's new custom properties without a cascade; the ones that read them, directly or through a custom property defined
+ * from them (--x below), are restyled; a full resolve gives the same styles (the verification of the engine). */
+static const char *k_cpage =
+    "<html><body><div id=shell class=shell><div id=left class=panel><p id=p1>a</p><p id=p2 class=uses>b</p></div>"
+    "<div id=right class=panel><div id=inner class=derive><span id=s1 class=usesx>c</span><span id=s2>d</span></div>"
+    "<ul id=list><li>one</li><li class=uses>two</li><li>three</li></ul></div></div></body></html>";
+static const char *k_ccss =
+    ":root{--lw:100px;--rw:50px;--c:red} .shell{display:grid;grid-template-columns:var(--lw) 1fr var(--rw)} "
+    ".panel{color:var(--c)} .uses{width:var(--lw)} .derive{--x:calc(var(--rw) + 1px)} .usesx{margin-left:var(--x)} "
+    "p{padding:1px} li + li{margin-top:2px} .hot{--c:blue} li::before{content:'-';margin-left:var(--rw)}";
+
+static uint32_t drag_resolve(fx *f)
+{
+    embi_style_resolve_document(f->eng, f->doc);
+    embi_style_restyle_stats st;
+    embi_style_restyle_stats_get(f->eng, f->doc, &st);
+    embi_style_delta d;
+    embi_style_take_delta(f->eng, f->doc, &d);
+    embi_style_release_grave(f->eng, f->doc);
+    return st.last_custom_only;
+}
+
+EMB_TEST(custom_property_drag_restyles_only_the_readers)
+{
+    embi_incr_set_verify(2);
+    uint32_t base_fail = embi_incr_verify_failures();
+    fx f = make(k_cpage, k_ccss);
+    embi_style_track(f.eng, f.doc, true);
+    (void)drag_resolve(&f);
+    embi_element *root = embi_document_element(f.doc);
+    char st[64];
+    uint32_t custom_only = 0;
+    for (int i = 0; i < 12; i++) {
+        SDL_snprintf(st, sizeof st, "--lw:%dpx;--rw:%dpx", 100 + i, i % 2 == 0 ? 50 : 60);
+        set_attr(&f, root, "style", st);
+        custom_only += drag_resolve(&f);
+    }
+    EMB_CHECK(custom_only >= 12u * 5u); /* body, the panels, the paragraph and the items that read nothing, every step */
+    set_attr(&f, by_id(&f, "right"), "class", "panel hot"); /* a name the panel's children read: they are restyled too */
+    (void)drag_resolve(&f);
+    EMB_CHECK(embi_incr_verify_failures() == base_fail);
+    destroy(&f);
+    embi_incr_set_verify(0);
+}
+
+/* Random custom property and class changes on random elements, each resolve checked against a full one. */
+EMB_TEST(fuzz_custom_property_changes_equal_full)
+{
+    embi_incr_set_verify(2);
+    uint32_t base_fail = embi_incr_verify_failures();
+    fx f = make(k_cpage, k_ccss);
+    embi_style_track(f.eng, f.doc, true);
+    (void)drag_resolve(&f);
+    static const char *styles[] = {"", "--lw:3px", "--rw:7px", "--c:blue", "--x:2px", "--lw:9px;--c:green",
+                                   "--rw:var(--lw)", "--x:var(--c)", "width:var(--rw)", "--lw:4px;--rw:5px"};
+    static const char *classes[] = {"", "uses", "usesx", "derive", "panel", "shell", "hot", "panel hot", "derive usesx"};
+    rng_state = 4242;
+    uint32_t custom_only = 0;
+    for (int it = 0; it < 800; it++) {
+        embi_element *els[64];
+        uint32_t n = 0;
+        collect(&embi_document_element(f.doc)->base, els, &n, 64);
+        embi_element *el = rnd(3) == 0 ? embi_document_element(f.doc) : els[rnd(n)];
+        if (rnd(3) == 0) {
+            set_attr(&f, el, "class", classes[rnd(sizeof classes / sizeof classes[0])]);
+        } else {
+            set_attr(&f, el, "style", styles[rnd(sizeof styles / sizeof styles[0])]);
+        }
+        custom_only += drag_resolve(&f);
+    }
+    EMB_CHECK(custom_only > 0);
+    EMB_CHECK(embi_incr_verify_failures() == base_fail);
+    destroy(&f);
+    embi_incr_set_verify(0);
+}
+
 /* A restyle that computes the same custom properties again gives the same custom property map, so a child that only
  * inherits keeps its style object. */
 EMB_TEST(equal_custom_properties_keep_the_style_objects)

@@ -91,5 +91,12 @@ uint64_t embi_style_mix(uint64_t h, uint64_t v);
 uint64_t embi_style_identity_hash(embi_element *el);
 const embi_style *embi_style_enter_element(embi_style_engine *e, embi_docstate *ds, embi_element *el,
                                            const embi_style *parent, bool is_root, uint64_t anc, uint64_t ident);
+/* The restyle of el under a parent whose style changed in its custom properties only (changed: a bloom of their names,
+ * embi_style_vbit), when el's own inputs are as before (no mark of its own: its rules match as they did) and its style
+ * passes the parent's custom properties on and reads none of the changed ones (EMBI_STYLEF_CUSTOM_PASS): its values stay
+ * and its custom map becomes the parent's, without a cascade. nullptr when that does not apply (the caller restyles el in
+ * full). */
+const embi_style *embi_style_enter_custom_only(embi_style_engine *e, embi_docstate *ds, embi_element *el,
+                                               const embi_style *parent, uint64_t changed);
 void embi_style_full_resolve(embi_style_engine *e, embi_docstate *ds, embi_document *doc);
 double embi_style_root_font_px(embi_document *doc);

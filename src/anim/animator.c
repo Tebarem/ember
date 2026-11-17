@@ -641,6 +641,7 @@ bool embi_an_keyframe_at(const embi_an *a, uint32_t i, double *offset, embi_prop
 static void hook_gone(void *user, embi_element *el);
 static const embi_style *hook_apply(void *user, embi_style_engine *e, embi_element *el, const embi_style *old_slot,
                                     const embi_style *base, const embi_style *parent, bool is_root);
+static bool hook_idle(void *user, const embi_element *el);
 
 embi_animator *embi_animator_new(embi_style_engine *se, const embi_animator_host *host)
 {
@@ -657,7 +658,7 @@ embi_animator *embi_animator_new(embi_style_engine *se, const embi_animator_host
     embi_hashmap_init(&an->pstyle);
     embi_arena_init(&an->scratch, 4096);
     embi_arena_init(&an->kfar, 4096);
-    embi_style_anim_hooks h = {.user = an, .apply = hook_apply, .gone = hook_gone};
+    embi_style_anim_hooks h = {.user = an, .apply = hook_apply, .gone = hook_gone, .idle = hook_idle};
     embi_style_set_anim_hooks(se, &h);
     return an;
 }
@@ -1579,6 +1580,12 @@ static void debug_poison_check(embi_animator *an, const el_state *st, const embi
     }
     an->debug_poison_reads += k;
     embi_arena_debug_poison_note(k);
+}
+
+/* No state: hook_apply gave the element its base style back the last time (a state is made when it overlays anything). */
+static bool hook_idle(void *user, const embi_element *el)
+{
+    return st_find((const embi_animator *)user, el) == nullptr;
 }
 
 static const embi_style *hook_apply(void *user, embi_style_engine *e, embi_element *el, const embi_style *old_slot,

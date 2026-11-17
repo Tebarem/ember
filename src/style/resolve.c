@@ -80,6 +80,9 @@ void embi_style_sc_setup(embi_style_engine *e, const embi_docstate *ds, const em
     sc->ncands = 0;
     sc->ncw = 0;
     sc->unsafe = false;
+    sc->sflags = 0;
+    sc->vrefs = 0;
+    sc->custom_passthrough = false;
     sc->nsets = 3;
     embi_style_ua_ensure(e);
     sc->sets[0] = &e->ua;
@@ -276,6 +279,9 @@ static void generate_pseudos(embi_style_engine *e, embi_docstate *ds, embi_eleme
 
 /* Computes the style of one element (the bloom holds its ancestors) and stores it in the element's
  * style slot. anc is the ancestor identity chain. Returns the borrowed style (owned by the slot). */
+static const embi_style *enter_tail(embi_style_engine *e, embi_docstate *ds, embi_element *el, const embi_style *parent,
+                                    bool is_root, const embi_style *style);
+
 const embi_style *embi_style_enter_element(embi_style_engine *e, embi_docstate *ds, embi_element *el,
                                        const embi_style *parent, bool is_root, uint64_t anc,
                                        uint64_t ident)
@@ -310,6 +316,14 @@ const embi_style *embi_style_enter_element(embi_style_engine *e, embi_docstate *
             e->cache[slot].s = owned;
         }
     }
+    return enter_tail(e, ds, el, parent, is_root, style);
+}
+
+/* The rest of an element's restyle once its base style is known (owned): the animations, the change record, the slot and
+ * the pseudo-elements. */
+static const embi_style *enter_tail(embi_style_engine *e, embi_docstate *ds, embi_element *el, const embi_style *parent,
+                                    bool is_root, const embi_style *style)
+{
     ds->restyled++;
     if (embi_arena_debug_poison_on()) {
         /* WPTASAN test hook: the styles this restyle reads (the old slot, the parent) must not point into memory given back */
@@ -331,6 +345,31 @@ const embi_style *embi_style_enter_element(embi_style_engine *e, embi_docstate *
         embi_style_note_pseudo(ds, el, ds->pseudo_cls);
     }
     return style;
+}
+
+const embi_style *embi_style_enter_custom_only(embi_style_engine *e, embi_docstate *ds, embi_element *el,
+                                               const embi_style *parent, uint64_t changed)
+{
+    const embi_style *old = (const embi_style *)el->style;
+    if (old == nullptr || parent == nullptr || (old->flags & EMBI_STYLEF_CUSTOM_PASS) == 0 ||
+        (old->vrefs & changed) != 0) {
+        return nullptr;
+    }
+    /* With animations about, the slot must hold the element's base style (an animated element's slot holds the animated
+     * values): the hook says whether it has any animation state. */
+    if (e->anim.apply != nullptr && (e->anim.idle == nullptr || !e->anim.idle(e->anim.user, el))) {
+        return nullptr;
+    }
+    const embi_layout *L = embi_layout_get();
+    const embi_style_group *groups[EMBI_STYLE_MAX_GROUPS];
+    for (uint32_t g = 0; g < L->ngroups; g++) {
+        embi_style_group *x = (embi_style_group *)old->groups[g];
+        x->refs++; /* the intern takes one reference per group */
+        groups[g] = x;
+    }
+    const embi_style *style = embi_style_intern_flags(e, groups, parent->custom, old->flags, old->vrefs);
+    ds->restyled_custom++;
+    return enter_tail(e, ds, el, parent, false, style);
 }
 
 static void clear_pseudos(embi_style_engine *e, embi_docstate *ds)
@@ -464,6 +503,7 @@ void embi_style_resolve_document(embi_style_engine *e, embi_document *doc)
         return;
     }
     ds->restyled = 0;
+    ds->restyled_custom = 0;
     bool partial = false;
     if (ds->resolved && !ds->full) {
         /* W6b: only the marked paths. The pass leaves ds->full set when it needs the full procedure (the rem base moved). */

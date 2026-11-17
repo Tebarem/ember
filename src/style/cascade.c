@@ -327,7 +327,8 @@ static void build_custom(embi_sctx *sc)
             }
         }
     }
-    if (sc->ncw == 0 && !non_inherit_regs) {
+    sc->custom_passthrough = sc->ncw == 0 && !non_inherit_regs;
+    if (sc->custom_passthrough) {
         sc->ccustom = sc->pcustom;
         sc->custom_ready = true;
         return;
@@ -445,6 +446,14 @@ static void stamp_pass(embi_sctx *sc, bool only_wm_dir)
     }
 }
 
+/* EMBI_STYLEF_CUSTOM_PASS: the element's custom map is its parent's as it is, and only the var()s that looked names up
+ * (sc->vrefs) read it. (Its other inputs, sc->unsafe ones too, change with a mark of its own, which takes the full
+ * restyle.) */
+static bool custom_pass(const embi_sctx *sc)
+{
+    return !sc->is_root && sc->parent != nullptr && sc->custom_passthrough;
+}
+
 /* Builds the element's style from the computed values. Clean groups are shared with the parent
  * (inherited groups) or with the initial style (reset groups). */
 embi_style *embi_style_finish_groups(embi_style_engine *e, embi_sctx *sc)
@@ -496,7 +505,8 @@ embi_style *embi_style_finish_groups(embi_style_engine *e, embi_sctx *sc)
             groups[g] = shared;
         }
     }
-    return embi_style_intern(e, groups, sc->ccustom);
+    return embi_style_intern_flags(e, groups, sc->ccustom, sc->sflags,
+                                   (sc->sflags & EMBI_STYLEF_CUSTOM_PASS) != 0 ? sc->vrefs : 0);
 }
 
 /* The cascade and computation of one element. The caller gathered the candidates (and the
@@ -548,5 +558,6 @@ embi_style *embi_style_cascade_finish(embi_style_engine *e, embi_sctx *sc)
     embi_style_fix_display(sc);
     embi_style_fix_widths(sc);
     embi_style_fix_text_align(sc);
+    sc->sflags = custom_pass(sc) ? EMBI_STYLEF_CUSTOM_PASS : 0u;
     return embi_style_finish_groups(e, sc);
 }

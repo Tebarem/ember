@@ -948,8 +948,12 @@ static bool var_lookup(void *user, embi_str name, embi_css_slice *value)
     embi_sctx *sc = user;
     embi_atom a = embi_atom_find(name.ptr, name.len);
     if (a == 0) {
+        /* A name no map holds yet (an inline style may declare it later): EMBI_STYLEF_CUSTOM_PASS can't name it, so every
+         * change of the parent's custom properties restyles the element. */
+        sc->vrefs = ~0ull;
         return false;
     }
+    sc->vrefs |= embi_style_vbit(a); /* EMBI_STYLEF_CUSTOM_PASS: the names the style's values read */
     if (sc->custom_ready) {
         /* The element's computed custom properties: registered resets and validated values. */
         if (sc->ccustom != nullptr) {

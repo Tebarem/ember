@@ -120,6 +120,9 @@ static void build_initial(embi_style_engine *e)
     sc->ncands = 0;
     sc->ncw = 0;
     sc->unsafe = false;
+    sc->sflags = 0;
+    sc->vrefs = 0;
+    sc->custom_passthrough = false;
     sc->nsets = 0;
     sc->dark = false;
     sc->gen++;
@@ -477,6 +480,8 @@ void embi_style_engine_destroy(embi_style_engine *e)
     embi_hashmap_free(&e->gtab);
     embi_hashmap_free(&e->stab);
     embi_hashmap_free(&e->ctab);
+    embi_hashmap_free(&e->cvtab);
+    embi_hashmap_free(&e->cvown);
     embi_sel_ctx_free(&e->selctx);
     embi_hashmap_free(&e->iv.names);
     embi_hashmap_free(&e->iv.dfeat);

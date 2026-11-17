@@ -237,35 +237,71 @@ static const embi_css_cv *cvs_own(embi_style_engine *e, const embi_css_cv *p, ui
     return d;
 }
 
-const embi_custom_map *embi_style_custom_intern(embi_style_engine *e, const embi_cust_entry *ents, uint32_t n)
+/* The canonical copy of the token list v: one copy per content in the engine's arena (a hash collision leaves a second
+ * copy, which only costs the pointer compares below a miss). An entry a map passes on from its parent is canonical
+ * already and found by its address, without hashing its tokens; so is the same value in the next map built from the same
+ * declarations. Equal pointers then mean equal values, which lets maps (here, CF1) and restyles (embi_style_diff, the
+ * custom-only walk) compare entries without serializing them. */
+static embi_css_slice cust_canon(embi_style_engine *e, embi_css_slice v)
 {
-    uint64_t h = embi_hash64(0x63757374u ^ n);
-    for (uint32_t i = 0; i < n; i++) {
-        h = embi_hash64(h ^ ents[i].name ^ ((uint64_t)ents[i].val.n << 32));
-        h = cvs_hash(ents[i].val.p, ents[i].val.n, h);
+    if (v.n == 0) {
+        return (embi_css_slice){nullptr, 0};
     }
     uint64_t found = 0;
+    if (embi_hashmap_get(&e->cvown, (uint64_t)(uintptr_t)v.p, &found) && found == v.n) {
+        return v;
+    }
+    uint64_t h = cvs_hash(v.p, v.n, embi_hash64(0x6376u ^ v.n));
+    if (embi_hashmap_get(&e->cvtab, h, &found)) {
+        const embi_css_slice *c = (const embi_css_slice *)(uintptr_t)found;
+        if (c->n == v.n && cvs_same(c->p, v.p, v.n)) {
+            return *c;
+        }
+    }
+    embi_css_slice *c = embi_arena_alloc(&e->arena, sizeof *c, 8);
+    c->n = v.n;
+    c->p = cvs_own(e, v.p, v.n);
+    if (found == 0) {
+        embi_hashmap_put(&e->cvtab, h, (uint64_t)(uintptr_t)c);
+    }
+    embi_hashmap_put(&e->cvown, (uint64_t)(uintptr_t)c->p, v.n);
+    return *c;
+}
+
+const embi_custom_map *embi_style_custom_intern(embi_style_engine *e, const embi_cust_entry *ents, uint32_t n)
+{
+    embi_cust_entry stack[64];
+    embi_cust_entry *c = n <= 64 ? stack : embi_alloc(sizeof(embi_cust_entry) * n);
+    uint64_t h = embi_hash64(0x63757374u ^ n);
+    for (uint32_t i = 0; i < n; i++) {
+        c[i].name = ents[i].name;
+        c[i].val = cust_canon(e, ents[i].val);
+        h = embi_hash64(h ^ c[i].name ^ ((uint64_t)c[i].val.n << 32) ^ embi_hash64((uint64_t)(uintptr_t)c[i].val.p));
+    }
+    uint64_t found = 0;
+    const embi_custom_map *res = nullptr;
     if (embi_hashmap_get(&e->ctab, h, &found)) {
         const embi_custom_map *m = (const embi_custom_map *)(uintptr_t)found;
         bool same = m->n == n;
         for (uint32_t i = 0; same && i < n; i++) {
-            same = m->e[i].name == ents[i].name && m->e[i].val.n == ents[i].val.n &&
-                   cvs_same(m->e[i].val.p, ents[i].val.p, ents[i].val.n);
+            same = m->e[i].name == c[i].name && m->e[i].val.n == c[i].val.n && m->e[i].val.p == c[i].val.p;
         }
         if (same) {
-            return m;
+            res = m;
         }
     }
-    embi_custom_map *m = embi_style_custom_alloc(e, n);
-    for (uint32_t i = 0; i < n; i++) {
-        m->e[i].name = ents[i].name;
-        m->e[i].val.n = ents[i].val.n;
-        m->e[i].val.p = cvs_own(e, ents[i].val.p, ents[i].val.n);
+    if (res == nullptr) {
+        embi_custom_map *m = embi_style_custom_alloc(e, n);
+        memcpy(m->e, c, sizeof(embi_cust_entry) * n);
+        if (found == 0) {
+            embi_hashmap_put(&e->ctab, h, (uint64_t)(uintptr_t)m);
+        }
+        res = m;
     }
-    if (found == 0) {
-        embi_hashmap_put(&e->ctab, h, (uint64_t)(uintptr_t)m);
+    if (c != stack) {
+        embi_free(c, sizeof(embi_cust_entry) * n);
     }
-    return m;
+    return res;
 }
 
 /* ------------------------------------------------------------------ groups */
@@ -342,9 +378,9 @@ static void group_free(embi_style_engine *e, embi_style_group *g)
 /* ------------------------------------------------------------------ styles */
 
 static uint64_t style_hash(const embi_style_group *const *groups, uint32_t ng,
-                           const embi_custom_map *custom)
+                           const embi_custom_map *custom, uint32_t flags, uint64_t vrefs)
 {
-    uint64_t h = embi_hash64(0x7374u ^ (uint64_t)(uintptr_t)custom);
+    uint64_t h = embi_hash64(0x7374u ^ (uint64_t)(uintptr_t)custom ^ ((uint64_t)flags << 56) ^ embi_hash64(vrefs));
     for (uint32_t i = 0; i < ng; i++) {
         h = embi_hash64(h ^ (uint64_t)(uintptr_t)groups[i]);
     }
@@ -354,13 +390,19 @@ static uint64_t style_hash(const embi_style_group *const *groups, uint32_t ng,
 embi_style *embi_style_intern(embi_style_engine *e, const embi_style_group *const *groups,
                               const embi_custom_map *custom)
 {
+    return embi_style_intern_flags(e, groups, custom, 0, 0);
+}
+
+embi_style *embi_style_intern_flags(embi_style_engine *e, const embi_style_group *const *groups,
+                                    const embi_custom_map *custom, uint32_t flags, uint64_t vrefs)
+{
     uint32_t ng = embi_layout_get()->ngroups;
-    uint64_t h = style_hash(groups, ng, custom);
+    uint64_t h = style_hash(groups, ng, custom, flags, vrefs);
     uint64_t found = 0;
     bool taken = embi_hashmap_get(&e->stab, h, &found);
     if (taken) {
         embi_style *s = (embi_style *)(uintptr_t)found;
-        bool same = s->custom == custom;
+        bool same = s->custom == custom && s->flags == flags && s->vrefs == vrefs;
         for (uint32_t i = 0; same && i < ng; i++) {
             same = s->groups[i] == groups[i];
         }
@@ -382,6 +424,8 @@ embi_style *embi_style_intern(embi_style_engine *e, const embi_style_group *cons
     s->refs = 1;
     s->hash = (uint32_t)(h ^ (h >> 32));
     s->custom = custom;
+    s->flags = flags;
+    s->vrefs = vrefs;
     for (uint32_t i = 0; i < ng; i++) {
         s->groups[i] = groups[i];
     }
@@ -411,7 +455,7 @@ void embi_style_unref(embi_style_engine *e, const embi_style *s)
         return;
     }
     uint32_t ng = embi_layout_get()->ngroups;
-    uint64_t h = style_hash(s->groups, ng, s->custom);
+    uint64_t h = style_hash(s->groups, ng, s->custom, s->flags, s->vrefs);
     (void)embi_hashmap_remove_if(&e->stab, h, (uint64_t)(uintptr_t)s);
     for (uint32_t i = 0; i < ng; i++) {
         embi_style_group *g = (embi_style_group *)s->groups[i];

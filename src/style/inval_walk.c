@@ -103,9 +103,49 @@ static uint8_t prop_class(uint16_t p, const embi_value *a, const embi_value *b, 
         return (in_place & EMBI_INPLACE_TRANSFORM) != 0 || is_none_v(a) == is_none_v(b) ? EMBI_SCH_PAINT : EMBI_SCH_LAYOUT;
     case EMBI_PROP_visibility:
         return vis_ok(a) && vis_ok(b) ? EMBI_SCH_PAINT : EMBI_SCH_LAYOUT;
+    case EMBI_PROP_grid_template_columns:
+    case EMBI_PROP_grid_template_rows:
+    case EMBI_PROP_row_gap:
+    case EMBI_PROP_column_gap:
+    case EMBI_PROP_justify_content:
+    case EMBI_PROP_align_content:
+    case EMBI_PROP_justify_items:
+    case EMBI_PROP_align_items:
+    case EMBI_PROP_justify_self:
+    case EMBI_PROP_align_self:
+    case EMBI_PROP_flex_grow:
+    case EMBI_PROP_flex_shrink:
+    case EMBI_PROP_flex_basis:
+    case EMBI_PROP_width:
+    case EMBI_PROP_height:
+    case EMBI_PROP_min_width:
+    case EMBI_PROP_min_height:
+    case EMBI_PROP_max_width:
+    case EMBI_PROP_max_height:
+    case EMBI_PROP_margin_top:
+    case EMBI_PROP_margin_right:
+    case EMBI_PROP_margin_bottom:
+    case EMBI_PROP_margin_left:
+    case EMBI_PROP_padding_top:
+    case EMBI_PROP_padding_right:
+    case EMBI_PROP_padding_bottom:
+    case EMBI_PROP_padding_left:
+        return (in_place & EMBI_INPLACE_SIZING) != 0 ? EMBI_SCH_PAINT : EMBI_SCH_LAYOUT;
     default:
         return EMBI_SCH_LAYOUT;
     }
+}
+
+/* The custom property name has the same text in a and b. */
+static bool entry_same(const embi_style *a, const embi_style *b, embi_atom name)
+{
+    embi_sb p = {0}, q = {0};
+    embi_style_custom_text(a, name, &p);
+    embi_style_custom_text(b, name, &q);
+    bool same = p.len == q.len && (p.len == 0 || memcmp(p.data, q.data, p.len) == 0);
+    embi_sb_free(&p);
+    embi_sb_free(&q);
+    return same;
 }
 
 static bool custom_same(const embi_style *a, const embi_style *b)
@@ -122,13 +162,10 @@ static bool custom_same(const embi_style *a, const embi_style *b)
         if (x->e[i].name != y->e[i].name) {
             return false;
         }
-        embi_sb p = {0}, q = {0};
-        embi_style_custom_text(a, x->e[i].name, &p);
-        embi_style_custom_text(b, x->e[i].name, &q);
-        bool same = p.len == q.len && (p.len == 0 || memcmp(p.data, q.data, p.len) == 0);
-        embi_sb_free(&p);
-        embi_sb_free(&q);
-        if (!same) {
+        if (x->e[i].val.p == y->e[i].val.p && x->e[i].val.n == y->e[i].val.n) {
+            continue; /* the same tokens (an inherited entry): no need to serialize them */
+        }
+        if (!entry_same(a, b, x->e[i].name)) {
             return false;
         }
     }
@@ -278,6 +315,8 @@ typedef struct pframe {
     bool kids_force; /* restyle every child */
     bool kids_all;   /* ... and everything below them */
     bool kids_inval; /* WPTASAN: kids_force for an invalidation (not only because this element's style changed) */
+    bool kids_custom; /* this element's restyle changed its custom properties and nothing else ... */
+    uint64_t cmask;   /* ... those named in this bloom (embi_style_vbit) */
     bool sib_force;  /* the siblings after a SIB-marked child */
     bool sib_deep;
     bool next_force; /* the next child (after a NEXT-marked one) */
@@ -292,7 +331,7 @@ typedef struct pwalk {
 } pwalk;
 
 static void push_frame(pwalk *w, embi_element *el, const embi_style *style, uint64_t child_anc, bool kids_force,
-                       bool kids_all, bool kids_inval)
+                       bool kids_all, bool kids_inval, bool kids_custom, uint64_t cmask)
 {
     if (w->n == w->cap) {
         uint32_t ncap = w->cap * 2u;
@@ -307,11 +346,48 @@ static void push_frame(pwalk *w, embi_element *el, const embi_style *style, uint
     f->kids_force = kids_force;
     f->kids_all = kids_all;
     f->kids_inval = kids_inval;
+    f->kids_custom = kids_custom;
+    f->cmask = cmask;
     f->sib_force = false;
     f->sib_deep = false;
     f->next_force = false;
     f->next_deep = false;
     embi_bloom_push(&w->e->bloom, el);
+}
+
+/* True when the restyle from a to b (both set, different objects) changed the custom properties and nothing else; *mask
+ * gets a bloom (embi_style_vbit) of the names whose entries differ (added, removed, or other tokens). */
+static bool custom_only(const embi_style *a, const embi_style *b, uint64_t *mask)
+{
+    *mask = 0;
+    if (a == nullptr || b == nullptr || a == b || a->custom == b->custom) {
+        return false;
+    }
+    const embi_layout *L = embi_layout_get();
+    for (uint32_t g = 0; g < L->ngroups; g++) {
+        if (a->groups[g] != b->groups[g]) {
+            return false;
+        }
+    }
+    /* The maps are sorted by name: merge them. */
+    const embi_custom_map *x = a->custom, *y = b->custom;
+    uint32_t nx = x != nullptr ? x->n : 0, ny = y != nullptr ? y->n : 0, i = 0, j = 0;
+    uint64_t m = 0;
+    while (i < nx || j < ny) {
+        if (j >= ny || (i < nx && x->e[i].name < y->e[j].name)) {
+            m |= embi_style_vbit(x->e[i++].name);
+        } else if (i >= nx || y->e[j].name < x->e[i].name) {
+            m |= embi_style_vbit(y->e[j++].name);
+        } else {
+            if ((x->e[i].val.p != y->e[j].val.p || x->e[i].val.n != y->e[j].val.n) && !entry_same(a, b, x->e[i].name)) {
+                m |= embi_style_vbit(x->e[i].name);
+            }
+            i++;
+            j++;
+        }
+    }
+    *mask = m;
+    return true;
 }
 
 static void walk_root(pwalk *w, embi_element *root)
@@ -326,13 +402,19 @@ static void walk_root(pwalk *w, embi_element *root)
     }
     uint64_t ident = embi_style_identity_hash(root);
     const embi_style *rs = (const embi_style *)root->style;
-    bool changed = false;
+    bool changed = false, rcustom = false;
+    uint64_t rmask = 0;
     if (force) {
         const embi_style *old = rs;
+        if (old != nullptr) {
+            embi_style_ref(old); /* kept for the compare below (the restyle releases the slot's reference) */
+        }
         e->own_change = own ? EMBI_OWN_SELF : EMBI_OWN_NONE;
         rs = embi_style_enter_element(e, ds, root, e->init, true, 0, ident);
         e->own_change = EMBI_OWN_ALL;
         changed = rs != old;
+        rcustom = changed && custom_only(old, rs, &rmask);
+        embi_style_unref(e, old);
     }
     bool all = (fl & (EMBI_IVD_DESC | EMBI_IVD_KIDSDEEP)) != 0;
     bool kinval = all || (fl & (EMBI_IVD_KIDS | EMBI_IVD_KIDSDEEP)) != 0;
@@ -341,7 +423,7 @@ static void walk_root(pwalk *w, embi_element *root)
         return;
     }
     w->n = 0;
-    push_frame(w, root, rs, embi_style_mix(0, ident), kids, all, kinval);
+    push_frame(w, root, rs, embi_style_mix(0, ident), kids, all, kinval, rcustom, rmask);
     while (w->n > 0) {
         pframe *top = &w->st[w->n - 1];
         embi_node *c = top->next;
@@ -380,20 +462,36 @@ static void walk_root(pwalk *w, embi_element *root)
         uint64_t anc = top->child_anc;
         uint64_t cident = embi_style_identity_hash(ce);
         const embi_style *cs = (const embi_style *)ce->style;
-        bool cchanged = false;
+        bool cchanged = false, ccustom = false;
+        uint64_t cmask = 0;
         if (cforce) {
             const embi_style *old = cs;
+            if (old != nullptr) {
+                embi_style_ref(old); /* kept for the compare below (the restyle releases the slot's reference) */
+            }
             e->own_change = cown ? EMBI_OWN_SELF : EMBI_OWN_NONE;
-            cs = embi_style_enter_element(e, ds, ce, parent, false, anc, cident);
+            /* Restyled only because some custom properties of the parent changed, and it reads none of them: its values
+             * stay, and its children see the same change. */
+            const embi_style *kept = !cown && top->kids_custom && (cf & EMBI_IVD_ANIM) == 0
+                                         ? embi_style_enter_custom_only(e, ds, ce, parent, top->cmask)
+                                         : nullptr;
+            cs = kept != nullptr ? kept : embi_style_enter_element(e, ds, ce, parent, false, anc, cident);
             e->own_change = EMBI_OWN_ALL;
             cchanged = cs != old;
+            if (kept != nullptr) {
+                ccustom = cchanged;
+                cmask = top->cmask;
+            } else {
+                ccustom = cchanged && custom_only(old, cs, &cmask);
+            }
+            embi_style_unref(e, old);
         }
         bool ckinval = call || (cf & (EMBI_IVD_KIDS | EMBI_IVD_KIDSDEEP)) != 0;
         bool ckids = cchanged || ckinval;
         if (!ckids && (cf & EMBI_IVD_SUB) == 0) {
             continue; /* restyled, nothing changed for its children and nothing below is marked */
         }
-        push_frame(w, ce, cs, embi_style_mix(anc, cident), ckids, call, ckinval);
+        push_frame(w, ce, cs, embi_style_mix(anc, cident), ckids, call, ckinval, ccustom, cmask);
     }
 }
 
@@ -426,11 +524,12 @@ void embi_style_partial_pass(embi_style_engine *e, embi_docstate *ds, embi_docum
 
 void embi_style_verify_pass(embi_style_engine *e, embi_docstate *ds, embi_document *doc)
 {
-    uint32_t saved = ds->restyled;
+    uint32_t saved = ds->restyled, saved_custom = ds->restyled_custom;
     ds->verifying = true;
     embi_style_full_resolve(e, ds, doc);
     ds->verifying = false;
     ds->restyled = saved;
+    ds->restyled_custom = saved_custom;
 }
 
 /* ------------------------------------------------------------------ the public API */
@@ -508,6 +607,7 @@ void embi_style_restyle_stats_get(const embi_style_engine *e, const embi_documen
         return;
     }
     out->last_restyled = ds->restyled;
+    out->last_custom_only = ds->restyled_custom;
     out->total_restyled = ds->total_restyled;
     out->partial_passes = ds->partial_passes;
     out->full_passes = ds->full_passes;

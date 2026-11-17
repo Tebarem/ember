@@ -148,8 +148,21 @@ struct embi_style {
     uint32_t refs;
     uint32_t hash;
     const embi_custom_map *custom;
+    uint32_t flags; /* EMBI_STYLEF_*: a part of the interned identity (two styles with other flags are two objects) */
+    uint64_t vrefs; /* with EMBI_STYLEF_CUSTOM_PASS: a bloom (embi_style_vbit) of the custom properties its var()s read; a
+                     * part of the identity too */
     const embi_style_group *groups[];
 };
+
+/* EMBI_STYLEF_CUSTOM_PASS: the element declares no custom property and no registered property resets one (its custom map
+ * is its parent's as it is), nothing but var() reads the map (no attr(), which makes a style unsafe), and vrefs holds the
+ * names its var()s looked up. A restyle that changes only custom properties of the parent that none of them reads keeps
+ * the element's values (embi_style_enter_custom_only). */
+enum { EMBI_STYLEF_CUSTOM_PASS = 1u };
+static inline uint64_t embi_style_vbit(embi_atom name)
+{
+    return 1ull << (((uint64_t)name * 0x9E3779B97F4A7C15ull) >> 58);
+}
 
 /* ------------------------------------------------------------------ cascade scratch */
 
@@ -183,6 +196,9 @@ typedef struct embi_sctx {
     const embi_custom_map *pcustom; /* the parent's custom properties */
     const embi_custom_map *ccustom; /* the element's custom properties (computed) */
     bool custom_ready;              /* ccustom is final: var() reads it */
+    bool custom_passthrough;        /* build_custom took the parent's map as it is (nothing declared or reset) */
+    uint32_t sflags;                /* EMBI_STYLEF_* of the style being built */
+    uint64_t vrefs;                 /* the custom properties var() looked up for it (embi_style_vbit) */
     double root_px;                 /* computed font size of the root element */
     bool is_root;
     uint32_t gen;
@@ -274,6 +290,7 @@ typedef struct embi_docstate {
     bool lost;                  /* tracking was dropped (too many changes, or a full restyle without a consumer) */
     uint64_t from_epoch;        /* the epoch at the last take */
     uint32_t restyled;          /* elements restyled by the last resolve */
+    uint32_t restyled_custom;   /* ... of which by embi_style_enter_custom_only (their values kept) */
     uint64_t total_restyled, partial_passes, full_passes, skipped_resolves;
     uint32_t cls_layout, cls_paint, cls_refresh;  /* classes of the last delta */
 } embi_docstate;
@@ -328,6 +345,8 @@ struct embi_style_engine {
     embi_hashmap gtab;           /* group hash -> group */
     embi_hashmap stab;           /* style hash -> style */
     embi_hashmap ctab;           /* CF1: content hash -> custom property map (embi_style_custom_intern) */
+    embi_hashmap cvtab;          /* token list hash -> its canonical copy (embi_cust_canon), the value of map entries */
+    embi_hashmap cvown;          /* the canonical copies' addresses -> their lengths */
     embi_hashmap hints;          /* declaration cache: hash -> embi_style_declrec */
     embi_hashmap rcache;         /* flatten cache: rule/nest hash -> embi_rcache_rec (sheets are immutable) */
     const embi_value *w_med;     /* the used initial border/outline width (medium, 3px) */
@@ -392,6 +411,8 @@ const embi_style_group *embi_style_group_intern(embi_style_engine *e, uint32_t g
  * tokens, else a new one in the engine arena. Equal maps are one object, so a restyle that computes the same custom
  * properties again gives the same style (and the descendants that inherit them are not restyled). */
 const embi_custom_map *embi_style_custom_intern(embi_style_engine *e, const embi_cust_entry *ents, uint32_t n);
+embi_style *embi_style_intern_flags(embi_style_engine *e, const embi_style_group *const *groups,
+                                    const embi_custom_map *custom, uint32_t flags, uint64_t vrefs);
 embi_style *embi_style_intern(embi_style_engine *e, const embi_style_group *const *groups,
                               const embi_custom_map *custom);
 void embi_style_ref(const embi_style *s);
