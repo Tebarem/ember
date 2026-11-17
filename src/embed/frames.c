@@ -663,8 +663,10 @@ bool embi_frames_update(emb_view *v)
             uint32_t w = (uint32_t)SDL_lroundf(cw), h = (uint32_t)SDL_lroundf(ch);
             w = w > 0 ? w : 1;
             h = h > 0 ? h : 1;
-            if (w != kf->vw || h != kf->vh || kid->scale != root->scale || kid->raster != root->raster || kid->scheme != root->scheme) {
-                /* the size, or the root's scale or colour scheme (emb_view_set_scale, a DPI change, the system theme) */
+            if (w != kf->vw || h != kf->vh || kid->scale != root->scale || kid->raster != root->raster || kid->scheme != root->scheme ||
+                kid->text_hinting != root->text_hinting) {
+                /* the size, or the root's scale, colour scheme or text hinting (emb_view_set_scale, a DPI change, the
+                 * system theme, emb_view_set_text_hinting) */
                 bool resized = kf->vw != 0 && kf->loaded && (w != kf->vw || h != kf->vh);
                 kf->vw = w;
                 kf->vh = h;

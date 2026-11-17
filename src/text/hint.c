@@ -1,5 +1,6 @@
 /*
- * Vertical glyph hinting (see hint.h): blue zones, horizontal stems and interpolation of the remaining points.
+ * Glyph hinting (see hint.h): blue zones, horizontal stems and interpolation of the remaining points; vertical stems in x for
+ * the sharp mode; detection and snapping of pixel-art glyphs.
  *
  * The glyph is a list of quadratic curves in font units, y up, device px per unit s. The horizontal edges are found first (flat
  * segments and the tangents at curve extrema), each classed as a top edge (ink below it) or a bottom edge (ink above it).
@@ -411,8 +412,8 @@ uint32_t embi_hint_glyph(const embi_hint_zones *zones, float upem, float s, cons
     return embi_hint_glyph_map(zones, upem, s, in, n, out, nullptr);
 }
 
-uint32_t embi_hint_glyph_map(const embi_hint_zones *zones, float upem, float s, const embi_qcurve *in, uint32_t n,
-                             embi_qcurve *out, uint32_t *map)
+static uint32_t hint_y(const embi_hint_zones *zones, float upem, float s, const embi_qcurve *in, uint32_t n,
+                       embi_qcurve *out, uint32_t *map)
 {
     if (n == 0 || n > HINT_MAX_QUADS || !(s > 0.0f) || !(upem > 0.0f) || !embi_hint_zones_usable(zones)) {
         return 0;
@@ -602,4 +603,360 @@ uint32_t embi_hint_glyph_map(const embi_hint_zones *zones, float upem, float s, 
     embi_free(e, sizeof *e * n);
     embi_free(ct, cbytes);
     return written;
+}
+
+uint32_t embi_hint_glyph_map(const embi_hint_zones *zones, float upem, float s, const embi_qcurve *in, uint32_t n,
+                             embi_qcurve *out, uint32_t *map)
+{
+    return hint_y(zones, upem, s, in, n, out, map);
+}
+
+/* ------------------------------------------------------------------ x fitting */
+
+/* Fits the vertical stems of the n curves. The curves are swapped (x for y) so that the edge finder of the horizontal case
+ * serves: a left edge of the glyph is then a bottom edge, a right edge a top edge. out has room for 2 * n curves, map for n + 1
+ * entries. Returns the number of curves written, or 0 when no stem was fitted. */
+static uint32_t hint_x(float upem, float s, const embi_qcurve *in, uint32_t n, embi_qcurve *out, uint32_t *map)
+{
+    const float tol = upem / 256.0f;
+    double area = 0.0;
+    for (uint32_t i = 0; i < n; i++) {
+        const embi_qcurve *q = &in[i];
+        area += (double)q->x0 * q->cy - (double)q->cx * q->y0 + (double)q->cx * q->y1 - (double)q->x1 * q->cy;
+    }
+    if (area == 0.0) {
+        return 0;
+    }
+    const bool cw = area < 0.0;
+
+    const size_t bytes = (sizeof(embi_qcurve) + sizeof(hint_edge) + sizeof(uint32_t)) * n + sizeof(hint_contour);
+    embi_qcurve *sw = embi_alloc(bytes);
+    hint_edge *e = (hint_edge *)(sw + n);
+    uint32_t *cid = (uint32_t *)(e + n);
+    hint_contour *ct = (hint_contour *)(cid + n);
+    SDL_memset(cid, 0, sizeof(uint32_t) * n);
+    SDL_memset(ct, 0, sizeof *ct);
+    for (uint32_t i = 0; i < n; i++) {
+        sw[i] = (embi_qcurve){in[i].y0, in[i].x0, in[i].cy, in[i].cx, in[i].y1, in[i].x1};
+    }
+    /* Swapping the axes reverses the orientation. */
+    const uint32_t ne = collect_edges(sw, n, tol, !cw, cid, ct, e);
+
+    const size_t abytes = sizeof(float) * (ne + 1u) * 3u;
+    float *ay = embi_alloc(abytes);
+    float *at = ay + ne + 1u, *ap = at + ne + 1u;
+    uint32_t na = 0;
+    float last_orig = -1e30f, last_target = -1e30f;
+    for (uint32_t i = 0; i < ne; i++) {
+        if (e[i].top) {
+            continue;
+        }
+        int pair = -1;
+        for (uint32_t j = i + 1; j < ne; j++) {
+            if (!e[j].top || e[j].y - e[i].y <= tol) {
+                continue;
+            }
+            if (e[j].y - e[i].y > HINT_STEM_MAX_EM * upem) {
+                break;
+            }
+            if (overlap_frac(&e[i], &e[j], tol) >= 0.3f) {
+                pair = (int)j;
+                break;
+            }
+        }
+        if (pair < 0) {
+            continue;
+        }
+        const hint_edge *l = &e[i], *r = &e[pair];
+        /* A stem inside the previous one (the dot of i beside its stem) or touching it is left to the interpolation. */
+        if (l->y - last_orig < tol) {
+            continue;
+        }
+        const float w = (r->y - l->y) * s;
+        float W = rnd(w);
+        W = W < 1.0f ? 1.0f : W;
+        const float centre = 0.5f * (l->y + r->y) * s;
+        /* The integer left column that moves the centre least; a tie goes left. */
+        const float lo = SDL_floorf(centre - 0.5f * W);
+        const float c0 = SDL_fabsf(lo + 0.5f * W - centre), c1 = SDL_fabsf(lo + 1.0f + 0.5f * W - centre);
+        float lt = c1 < c0 ? lo + 1.0f : lo;
+        /* The gap to the previous stem stays a gap (one px when it was half a px or more). */
+        if (na > 0) {
+            const float gap_px = (l->y - last_orig) * s;
+            const float need = last_target + (gap_px >= 0.5f ? 1.0f : 0.0f);
+            lt = lt < need ? need : lt;
+        }
+        if (SDL_fabsf(lt - l->y * s) > 1.0f || SDL_fabsf(lt + W - r->y * s) > 1.0f) {
+            continue;
+        }
+        ay[na] = l->y;
+        at[na++] = lt;
+        ay[na] = r->y;
+        at[na++] = lt + W;
+        last_orig = r->y;
+        last_target = lt + W;
+    }
+    if (na == 0) {
+        embi_free(ay, abytes);
+        embi_free(sw, bytes);
+        return 0;
+    }
+    for (uint32_t i = 0; i < na; i++) {
+        float gap = 1e30f;
+        if (i > 0) {
+            gap = ay[i] - ay[i - 1];
+        }
+        if (i + 1 < na && ay[i + 1] - ay[i] < gap) {
+            gap = ay[i + 1] - ay[i];
+        }
+        ap[i] = 0.45f * gap < tol ? 0.45f * gap : tol;
+    }
+
+    const float inv = 1.0f / s;
+    uint32_t written = 0;
+    for (uint32_t i = 0; i < n; i++) {
+        const embi_qcurve *q = &in[i];
+        const uint32_t first = written;
+        map[i] = written;
+        float den = q->x0 - 2.0f * q->cx + q->x1;
+        float t = SDL_fabsf(den) > 1e-9f ? (q->x0 - q->cx) / den : -1.0f;
+        if (t > 1e-4f && t < 1.0f - 1e-4f) {
+            float ya = q->y0 + t * (q->cy - q->y0), yb = q->cy + t * (q->y1 - q->cy);
+            float ym = ya + t * (yb - ya);
+            float u = 1.0f - t;
+            float xm = u * u * q->x0 + 2.0f * u * t * q->cx + t * t * q->x1;
+            out[written++] = (embi_qcurve){q->x0, q->y0, xm, ya, xm, ym};
+            out[written++] = (embi_qcurve){xm, ym, xm, yb, q->x1, q->y1};
+        } else {
+            out[written++] = *q;
+        }
+        for (uint32_t w = first; w < written; w++) {
+            float *xs[3] = {&out[w].x0, &out[w].cx, &out[w].x1};
+            for (int k = 0; k < 3; k++) {
+                const float x = *xs[k];
+                float px;
+                uint32_t a = 0;
+                bool on = false;
+                for (; a < na; a++) {
+                    if (SDL_fabsf(x - ay[a]) <= ap[a]) {
+                        on = true;
+                        break;
+                    }
+                }
+                if (on) {
+                    px = at[a];
+                } else if (x < ay[0]) {
+                    px = at[0] + (x - ay[0]) * s;
+                } else if (x > ay[na - 1]) {
+                    px = at[na - 1] + (x - ay[na - 1]) * s;
+                } else {
+                    uint32_t j = 0;
+                    while (j + 2 < na && x > ay[j + 1]) {
+                        j++;
+                    }
+                    px = at[j] + (x - ay[j]) * (at[j + 1] - at[j]) / (ay[j + 1] - ay[j]);
+                }
+                *xs[k] = px * inv;
+            }
+        }
+    }
+    map[n] = written;
+    embi_free(ay, abytes);
+    embi_free(sw, bytes);
+    return written;
+}
+
+uint32_t embi_hint_glyph_fit(const embi_hint_zones *zones, float upem, float s, const embi_qcurve *in, uint32_t n,
+                             embi_qcurve *out, uint32_t *map, bool fit_x)
+{
+    if (!fit_x) {
+        return zones != nullptr ? hint_y(zones, upem, s, in, n, out, map) : 0;
+    }
+    if (n == 0 || n > HINT_MAX_QUADS || !(s > 0.0f) || !(upem > 0.0f)) {
+        return 0;
+    }
+    const size_t mbytes = sizeof(uint32_t) * (n + 1u);
+    uint32_t *map1 = embi_alloc(mbytes);
+    /* The y fit goes first; x then works on its curves (or on the plain ones when y fitted nothing). */
+    const uint32_t my = zones != nullptr ? hint_y(zones, upem, s, in, n, out, map1) : 0;
+    uint32_t m = my;
+    if (my == 0) {
+        SDL_memcpy(out, in, sizeof *in * n);
+        for (uint32_t i = 0; i <= n; i++) {
+            map1[i] = i;
+        }
+        m = n;
+    }
+    const size_t obytes = sizeof(embi_qcurve) * 2u * m + sizeof(uint32_t) * (m + 1u);
+    embi_qcurve *tmp = embi_alloc(obytes);
+    uint32_t *map2 = (uint32_t *)(tmp + 2u * m);
+    const uint32_t mx = hint_x(upem, s, out, m, tmp, map2);
+    uint32_t result = my;
+    if (mx != 0) {
+        SDL_memcpy(out, tmp, sizeof *tmp * mx);
+        result = mx;
+        for (uint32_t i = 0; map != nullptr && i <= n; i++) {
+            map[i] = map2[map1[i]];
+        }
+    } else if (map != nullptr && my != 0) {
+        SDL_memcpy(map, map1, mbytes);
+    }
+    embi_free(tmp, obytes);
+    embi_free(map1, mbytes);
+    return result;
+}
+
+/* ------------------------------------------------------------------ pixel-art glyphs */
+
+/* The tolerance of the grid, font units. */
+#define PIXEL_TOL (1.0 / 64.0)
+/* The most steps a glyph may span, per axis: a finer grid is a text face that happens to have straight outlines. */
+#define PIXEL_MAX_STEPS 64.0
+
+/* The step common to a and b (both positive), by Euclid with remainders under PIXEL_TOL taken as zero. */
+static double grid_gcd(double a, double b)
+{
+    if (a < b) {
+        const double t = a;
+        a = b;
+        b = t;
+    }
+    while (b > PIXEL_TOL) {
+        double r = SDL_fmod(a, b);
+        r = r > 0.5 * b ? b - r : r;
+        a = b;
+        b = r;
+    }
+    return a;
+}
+
+bool embi_hint_pixel_grid(const embi_qcurve *c, uint32_t n, float *unit)
+{
+    if (n == 0) {
+        return false;
+    }
+    const float tolf = (float)PIXEL_TOL;
+    for (uint32_t i = 0; i < n; i++) {
+        const bool horiz = SDL_fabsf(c[i].y0 - c[i].y1) <= tolf && SDL_fabsf(c[i].cy - c[i].y0) <= tolf;
+        const bool vert = SDL_fabsf(c[i].x0 - c[i].x1) <= tolf && SDL_fabsf(c[i].cx - c[i].x0) <= tolf;
+        if (!horiz && !vert) {
+            return false;
+        }
+    }
+    /* The step: the common divisor of the distances of every end point from the first, per axis. */
+    const double rx = c[0].x0, ry = c[0].y0;
+    double g = 0.0, span = 0.0;
+    for (uint32_t i = 0; i < n; i++) {
+        const double d[4] = {SDL_fabs(c[i].x0 - rx), SDL_fabs(c[i].x1 - rx), SDL_fabs(c[i].y0 - ry), SDL_fabs(c[i].y1 - ry)};
+        for (int k = 0; k < 4; k++) {
+            span = d[k] > span ? d[k] : span;
+            if (d[k] > PIXEL_TOL) {
+                g = g == 0.0 ? d[k] : grid_gcd(g, d[k]);
+            }
+        }
+    }
+    if (g < 1.0 || span / g > PIXEL_MAX_STEPS) {
+        return false;
+    }
+    /* Every distance is a whole multiple of the step found. */
+    for (uint32_t i = 0; i < n; i++) {
+        const double d[4] = {SDL_fabs(c[i].x0 - rx), SDL_fabs(c[i].x1 - rx), SDL_fabs(c[i].y0 - ry), SDL_fabs(c[i].y1 - ry)};
+        for (int k = 0; k < 4; k++) {
+            const double q = d[k] / g;
+            if (SDL_fabs(q - SDL_floor(q + 0.5)) * g > PIXEL_TOL * 2.0) {
+                return false;
+            }
+        }
+    }
+    if (unit != nullptr) {
+        *unit = (float)g;
+    }
+    return true;
+}
+
+float embi_hint_pixel_scale(float unit, float scale, bool sharp)
+{
+    if (!(unit > 0.0f) || !(scale > 0.0f)) {
+        return 0.0f;
+    }
+    const float px = unit * scale;
+    float k = rnd(px);
+    if (sharp) {
+        if (px < 0.5f) {
+            return 0.0f;
+        }
+        k = k < 1.0f ? 1.0f : k;
+    } else if (k < 1.0f || SDL_fabsf(px - k) > 0.02f) {
+        return 0.0f;
+    }
+    return k / unit;
+}
+
+void embi_hint_pixel_snap(const embi_qcurve *in, uint32_t n, float s, embi_qcurve *out)
+{
+    const float inv = 1.0f / s;
+    for (uint32_t i = 0; i < n; i++) {
+        const embi_qcurve *q = &in[i];
+        embi_qcurve o = {rnd(q->x0 * s) * inv, rnd(q->y0 * s) * inv, 0.0f, 0.0f, rnd(q->x1 * s) * inv, rnd(q->y1 * s) * inv};
+        /* The control point stays on its segment: the shared coordinate of the end points, the middle of the other. */
+        const bool vert = SDL_fabsf(q->x0 - q->x1) <= (float)PIXEL_TOL && SDL_fabsf(q->cx - q->x0) <= (float)PIXEL_TOL;
+        o.cx = vert ? o.x0 : 0.5f * (o.x0 + o.x1);
+        o.cy = vert ? 0.5f * (o.y0 + o.y1) : o.y0;
+        out[i] = o;
+    }
+}
+
+bool embi_hint_pixel_on_grid(const embi_qcurve *c, uint32_t n, float unit)
+{
+    if (n == 0 || !(unit >= 1.0f)) {
+        return false;
+    }
+    const float tolf = (float)PIXEL_TOL;
+    const double rx = c[0].x0, ry = c[0].y0;
+    for (uint32_t i = 0; i < n; i++) {
+        const bool horiz = SDL_fabsf(c[i].y0 - c[i].y1) <= tolf && SDL_fabsf(c[i].cy - c[i].y0) <= tolf;
+        const bool vert = SDL_fabsf(c[i].x0 - c[i].x1) <= tolf && SDL_fabsf(c[i].cx - c[i].x0) <= tolf;
+        if (!horiz && !vert) {
+            return false;
+        }
+        const double d[4] = {SDL_fabs(c[i].x0 - rx), SDL_fabs(c[i].x1 - rx), SDL_fabs(c[i].y0 - ry), SDL_fabs(c[i].y1 - ry)};
+        for (int k = 0; k < 4; k++) {
+            const double q = d[k] / unit;
+            if (SDL_fabs(q - SDL_floor(q + 0.5)) * unit > PIXEL_TOL * 2.0) {
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
+bool embi_hint_pixel_face(const embi_qcurve *const *glyphs, const uint32_t *counts, uint32_t ng, float upem, float *unit)
+{
+    double g = 0.0;
+    for (uint32_t i = 0; i < ng; i++) {
+        float u;
+        if (counts[i] == 0) {
+            continue;
+        }
+        if (!embi_hint_pixel_grid(glyphs[i], counts[i], &u)) {
+            return false;
+        }
+        g = g == 0.0 ? (double)u : grid_gcd(g, (double)u);
+    }
+    if (g < 1.0) {
+        return false;
+    }
+    for (uint32_t i = 0; i < ng; i++) {
+        if (counts[i] != 0 && !embi_hint_pixel_on_grid(glyphs[i], counts[i], (float)g)) {
+            return false;
+        }
+    }
+    const double steps = (double)upem / g;
+    if (steps < 5.0 - 1e-3 || steps > 64.0 + 1e-3) {
+        return false;
+    }
+    if (unit != nullptr) {
+        *unit = (float)g;
+    }
+    return true;
 }

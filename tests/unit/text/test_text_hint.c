@@ -508,6 +508,424 @@ EMB_TEST(hint_rendered_bars_sourcesans)
     check_rendered("tests/fonts/SourceSans3-Regular.otf", "Source Test");
 }
 
+/* ------------------------------------------------------------------ natural output is unchanged */
+
+static uint64_t fnv(uint64_t h, const void *p, size_t n)
+{
+    const uint8_t *b = p;
+    for (size_t i = 0; i < n; i++) {
+        h = (h ^ b[i]) * 1099511628211ull;
+    }
+    return h;
+}
+
+static uint64_t natural_hash(const char *rel)
+{
+    face f;
+    if (!face_open(&f, rel)) {
+        return 0;
+    }
+    const float upem = (float)f.font.metrics.units_per_em;
+    embi_hint_zones z;
+    embi_hint_zones_measure(&z, upem, (float)f.font.metrics.x_height, extent_cb, &f);
+    uint64_t h = 14695981039346656037ull;
+    for (int size = 9; size <= 36; size++) {
+        const float s = (float)size / upem;
+        for (const char *g = "Hezxopdtlmnig"; *g != 0; g++) {
+            uint32_t n;
+            embi_qcurve *in = face_curves(&f, (uint32_t)*g, &n);
+            if (in == nullptr) {
+                continue;
+            }
+            embi_qcurve *out = SDL_malloc(sizeof *out * 4u * n);
+            uint32_t *map = SDL_malloc(sizeof *map * (n + 1u));
+            const uint32_t m = embi_hint_glyph_fit(&z, upem, s, in, n, out, map, false);
+            h = fnv(h, &m, sizeof m);
+            h = fnv(h, out, sizeof *out * m);
+            h = fnv(h, map, sizeof *map * (m > 0 ? n + 1u : 0u));
+            SDL_free(in);
+            SDL_free(out);
+            SDL_free(map);
+        }
+    }
+    face_close(&f);
+    return h;
+}
+
+EMB_TEST(hint_natural_unchanged)
+{
+    /* The y fitting without x fitting is what it was before the sharp mode: the hash of its output over a set of glyphs. */
+    EMB_CHECK(natural_hash("tests/fonts/NotoSans-Regular.ttf") == 0x5fe65012925f767cull);
+    EMB_CHECK(natural_hash("tests/fonts/SourceSans3-Regular.otf") == 0x6566eb1f0bb7883dull);
+}
+
+/* ------------------------------------------------------------------ x fitting */
+
+/* The distinct x (device px) of the vertical segments at least 1 px tall, ascending. */
+static uint32_t vedges(const embi_qcurve *c, uint32_t n, float s, float *xs, uint32_t max)
+{
+    uint32_t k = 0;
+    for (uint32_t i = 0; i < n; i++) {
+        if (SDL_fabsf(c[i].x0 - c[i].x1) > 0.01f || SDL_fabsf(c[i].cx - c[i].x0) > 0.01f ||
+            SDL_fabsf(c[i].y0 - c[i].y1) * s < 1.0f) {
+            continue;
+        }
+        const float x = c[i].x0 * s;
+        uint32_t j = 0;
+        while (j < k && SDL_fabsf(xs[j] - x) > 0.05f) {
+            j++;
+        }
+        if (j == k && k < max) {
+            xs[k++] = x;
+        }
+    }
+    for (uint32_t a = 1; a < k; a++) {
+        for (uint32_t b = a; b > 0 && xs[b - 1] > xs[b]; b--) {
+            const float t = xs[b];
+            xs[b] = xs[b - 1];
+            xs[b - 1] = t;
+        }
+    }
+    return k;
+}
+
+/* The stems of the vertical edges of g fitted at size px: the edges are on columns, the stems at least 1 px wide and their
+ * centres within half a px of where they were. stems: the number expected. */
+static void check_stems(const face *f, const embi_hint_zones *z, char g, int px, uint32_t stems, bool with_zones)
+{
+    const float upem = (float)f->font.metrics.units_per_em;
+    const float s = (float)px / upem;
+    uint32_t n;
+    embi_qcurve *in = face_curves(f, (uint32_t)g, &n);
+    EMB_REQUIRE(in != nullptr);
+    embi_qcurve *out = SDL_malloc(sizeof *out * 4u * n);
+    const uint32_t m = embi_hint_glyph_fit(with_zones ? z : nullptr, upem, s, in, n, out, nullptr, true);
+    EMB_CHECK(m > 0u);
+    float a[16], b[16];
+    const uint32_t ka = vedges(in, n, s, a, 16), kb = vedges(out, m, s, b, 16);
+    EMB_CHECK(ka == 2u * stems);
+    EMB_CHECK(kb == ka);
+    for (uint32_t i = 0; i + 1 < kb && i + 1 < ka; i += 2) {
+        EMB_CHECK(frac_off(b[i]) < 1.0f / 64.0f);
+        EMB_CHECK(frac_off(b[i + 1]) < 1.0f / 64.0f);
+        EMB_CHECK(b[i + 1] - b[i] >= 1.0f - 1.0f / 64.0f);
+        EMB_CHECK(SDL_fabsf(0.5f * (b[i] + b[i + 1]) - 0.5f * (a[i] + a[i + 1])) <= 0.5f + 1.0f / 64.0f);
+        EMB_CHECK(SDL_fabsf((b[i + 1] - b[i]) - (a[i + 1] - a[i])) <= 0.5f + 1.0f / 64.0f);
+    }
+    SDL_free(in);
+    SDL_free(out);
+}
+
+EMB_TEST(hint_x_stems_whole_columns)
+{
+    face f;
+    EMB_REQUIRE(face_open(&f, "tests/fonts/NotoSans-Regular.ttf"));
+    embi_hint_zones z;
+    embi_hint_zones_measure(&z, (float)f.font.metrics.units_per_em, (float)f.font.metrics.x_height, extent_cb, &f);
+    for (int px = 9; px <= 36; px++) {
+        check_stems(&f, &z, 'l', px, 1, true);
+        check_stems(&f, &z, 'H', px, 2, true);
+        check_stems(&f, &z, 'l', px, 1, false);
+        check_stems(&f, &z, 'H', px, 2, false);
+    }
+    face_close(&f);
+    EMB_REQUIRE(face_open(&f, "tests/fonts/SourceSans3-Regular.otf"));
+    embi_hint_zones_measure(&z, (float)f.font.metrics.units_per_em, (float)f.font.metrics.x_height, extent_cb, &f);
+    for (int px = 9; px <= 36; px++) {
+        check_stems(&f, &z, 'H', px, 2, true);
+    }
+    face_close(&f);
+}
+
+/* Over many glyphs and sizes: deterministic, every point moves at most a px (plus the rounding), the map is monotone and the
+ * contours keep their orientation. */
+static void check_x_moves(const char *rel)
+{
+    face f;
+    EMB_REQUIRE(face_open(&f, rel));
+    const float upem = (float)f.font.metrics.units_per_em;
+    embi_hint_zones z;
+    embi_hint_zones_measure(&z, upem, (float)f.font.metrics.x_height, extent_cb, &f);
+    for (int px = 9; px <= 36; px++) {
+        const float s = (float)px / upem;
+        for (const char *g = "HeznxopdtlmiguwIT"; *g != 0; g++) {
+            uint32_t n;
+            embi_qcurve *in = face_curves(&f, (uint32_t)*g, &n);
+            EMB_REQUIRE(in != nullptr);
+            embi_qcurve *out = SDL_malloc(sizeof *out * 4u * n), *out2 = SDL_malloc(sizeof *out * 4u * n);
+            uint32_t *map = SDL_malloc(sizeof *map * (n + 1u)), *map2 = SDL_malloc(sizeof *map * (n + 1u));
+            const uint32_t m = embi_hint_glyph_fit(&z, upem, s, in, n, out, map, true);
+            const uint32_t m2 = embi_hint_glyph_fit(&z, upem, s, in, n, out2, map2, true);
+            EMB_CHECK(m > 0u && m == m2);
+            EMB_CHECK(SDL_memcmp(out, out2, sizeof *out * m) == 0 && SDL_memcmp(map, map2, sizeof *map * (n + 1u)) == 0);
+            if (m > 0u) {
+                EMB_CHECK(map[n] == m);
+                for (uint32_t i = 0; i < n; i++) {
+                    EMB_CHECK(map[i] < map[i + 1]);
+                    EMB_CHECK(SDL_fabsf(out[map[i]].x0 - in[i].x0) * s <= 1.0f + 1.0f / 64.0f);
+                }
+                int sa[64], sb[64];
+                const uint32_t ka = contour_signs(in, n, sa, 64), kb = contour_signs(out, m, sb, 64);
+                EMB_CHECK(ka == kb);
+                for (uint32_t i = 0; i < ka && i < kb; i++) {
+                    EMB_CHECK(sa[i] == sb[i]);
+                }
+                /* The points move up to a px: an edge goes to the column that keeps its stem centre within half a px, and the
+                 * width then rounds by up to half a px more, so an edge is off by up to 0.5 + 0.5. (The stem centres are held to
+                 * 0.5 px in check_stems.) */
+                /* A y-only fit of the same glyph keeps its y: x fitting does not touch the rows. */
+                embi_qcurve *yo = SDL_malloc(sizeof *yo * 2u * n);
+                const uint32_t my = embi_hint_glyph_map(&z, upem, s, in, n, yo, nullptr);
+                if (my > 0u) {
+                    float l0, h0, l1, h1;
+                    embi_hint_extent(yo, my, &l0, &h0);
+                    embi_hint_extent(out, m, &l1, &h1);
+                    EMB_CHECK(SDL_fabsf(l0 - l1) * s < 1.0f / 64.0f && SDL_fabsf(h0 - h1) * s < 1.0f / 64.0f);
+                }
+                SDL_free(yo);
+            }
+            SDL_free(in);
+            SDL_free(out);
+            SDL_free(out2);
+            SDL_free(map);
+            SDL_free(map2);
+        }
+    }
+    face_close(&f);
+}
+
+EMB_TEST(hint_x_moves_notosans)
+{
+    check_x_moves("tests/fonts/NotoSans-Regular.ttf");
+}
+
+EMB_TEST(hint_x_moves_sourcesans)
+{
+    check_x_moves("tests/fonts/SourceSans3-Regular.otf");
+}
+
+/* The fitted l and H rasterized by the reference coverage: a full-coverage column in every stem on a row above the baseline. */
+EMB_TEST(hint_x_stem_coverage)
+{
+    face f;
+    EMB_REQUIRE(face_open(&f, "tests/fonts/NotoSans-Regular.ttf"));
+    const float upem = (float)f.font.metrics.units_per_em;
+    embi_hint_zones z;
+    embi_hint_zones_measure(&z, upem, (float)f.font.metrics.x_height, extent_cb, &f);
+    const float s = 12.0f / upem;
+    for (const char *g = "lH"; *g != 0; g++) {
+        uint32_t n;
+        embi_qcurve *in = face_curves(&f, (uint32_t)*g, &n);
+        EMB_REQUIRE(in != nullptr);
+        embi_qcurve *out = SDL_malloc(sizeof *out * 4u * n);
+        const uint32_t m = embi_hint_glyph_fit(&z, upem, s, in, n, out, nullptr, true);
+        EMB_REQUIRE(m > 0u);
+        float xs[16];
+        const uint32_t k = vedges(out, m, s, xs, 16);
+        float *cov = SDL_calloc(FID_W * FID_H, sizeof(float));
+        fid_raster(out, m, s, cov);
+        const int row = FID_BASE - 2;
+        for (uint32_t e = 0; e + 1 < k; e += 2) {
+            float best = 0.0f;
+            for (int x = (int)SDL_floorf(xs[e] + 4.0f + 0.01f); x < (int)SDL_ceilf(xs[e + 1] + 4.0f - 0.01f); x++) {
+                best = cov[row * FID_W + x] > best ? cov[row * FID_W + x] : best;
+                const float c = cov[row * FID_W + x];
+                EMB_CHECK(c >= 0.95f);
+            }
+            EMB_CHECK(best >= 0.95f);
+            SDL_Log("stem %c %.2f..%.2f best column %.3f", *g, (double)xs[e], (double)xs[e + 1], (double)best);
+        }
+        SDL_free(cov);
+        SDL_free(in);
+        SDL_free(out);
+    }
+    face_close(&f);
+}
+
+/* ------------------------------------------------------------------ pixel-art glyphs */
+
+/* A square (x, y of its lower left corner, side d) as four axis-aligned segments, clockwise. */
+static uint32_t square(embi_qcurve *out, float x, float y, float d)
+{
+    const float p[4][2] = {{x, y}, {x, y + d}, {x + d, y + d}, {x + d, y}};
+    return poly(out, p, 4);
+}
+
+EMB_TEST(hint_pixel_grid_detect)
+{
+    embi_qcurve c[16];
+    float u = 0.0f;
+    /* Three squares of a 64 unit grid: the step is 64. */
+    uint32_t n = square(c, 0, 0, 64);
+    n += square(c + n, 128, 64, 64);
+    n += square(c + n, 192, 192, 64);
+    EMB_CHECK(embi_hint_pixel_grid(c, n, &u) && u == 64.0f);
+    /* Ahem's square: the em, from 0.2 em below the baseline to 0.8 above. */
+    n = square(c, 0, -200, 1000);
+    EMB_CHECK(embi_hint_pixel_grid(c, n, &u) && u == 1000.0f);
+    /* A 5 x 7 bitmap glyph on a grid of 125 units (an L of 1 x 3 and 3 x 1 cells). */
+    {
+        const float l[6][2] = {{0, 0}, {0, 375}, {125, 375}, {125, 125}, {375, 125}, {375, 0}};
+        n = poly(c, l, 6);
+        EMB_CHECK(embi_hint_pixel_grid(c, n, &u) && u == 125.0f);
+    }
+    /* A diagonal edge. */
+    {
+        const float tri[3][2] = {{0, 0}, {0, 64}, {64, 0}};
+        n = poly(c, tri, 3);
+        EMB_CHECK(!embi_hint_pixel_grid(c, n, &u));
+    }
+    /* A control point off its segment: a curve. */
+    n = square(c, 0, 0, 64);
+    c[0].cx += 16.0f;
+    EMB_CHECK(!embi_hint_pixel_grid(c, n, &u));
+    /* A point off the grid: the step shrinks under a unit, or the glyph spans too many steps; never 64. */
+    n = square(c, 0, 0, 64);
+    n += square(c + n, 128, 64, 64.5f);
+    EMB_CHECK(!embi_hint_pixel_grid(c, n, &u));
+    n = square(c, 0, 0, 64);
+    n += square(c + n, 128, 64, 70);
+    /* (steps of 2 units: 99 of them across the glyph, more than the 64 allowed) */
+    EMB_CHECK(!embi_hint_pixel_grid(c, n, &u));
+    /* A round glyph of a real face. */
+    {
+        face f;
+        EMB_REQUIRE(face_open(&f, "tests/fonts/NotoSans-Regular.ttf"));
+        uint32_t k;
+        embi_qcurve *o = face_curves(&f, 'o', &k);
+        EMB_REQUIRE(o != nullptr);
+        EMB_CHECK(!embi_hint_pixel_grid(o, k, &u));
+        SDL_free(o);
+        face_close(&f);
+    }
+    EMB_CHECK(!embi_hint_pixel_grid(c, 0, &u));
+}
+
+/* The face decision: a text face is not pixel art, whatever its '.', '-' and 'I' are made of. */
+static void check_face_not_pixel(const char *rel)
+{
+    face f;
+    EMB_REQUIRE(face_open(&f, rel));
+    const float upem = (float)f.font.metrics.units_per_em;
+    static const char samples[] = "Hoaex0g";
+    embi_qcurve *g[8];
+    uint32_t cnt[8], k = 0;
+    for (const char *c = samples; *c != 0; c++) {
+        g[k] = face_curves(&f, (uint32_t)*c, &cnt[k]);
+        k++;
+    }
+    float u = 0.0f;
+    EMB_CHECK(!embi_hint_pixel_face((const embi_qcurve *const *)g, cnt, k, upem, &u));
+    for (uint32_t i = 0; i < k; i++) {
+        SDL_free(g[i]);
+    }
+    /* The rectangles of the face, alone, are no face either: the round letters decide. */
+    static const char rects[] = ".-I";
+    for (const char *c = rects; *c != 0; c++) {
+        uint32_t n;
+        embi_qcurve *r = face_curves(&f, (uint32_t)*c, &n);
+        EMB_CHECK(r != nullptr);
+        SDL_free(r);
+    }
+    face_close(&f);
+}
+
+EMB_TEST(hint_pixel_face_text_faces_are_not)
+{
+    check_face_not_pixel("tests/fonts/NotoSans-Regular.ttf");
+    check_face_not_pixel("tests/fonts/SourceSans3-Regular.otf");
+}
+
+EMB_TEST(hint_pixel_face_decision)
+{
+    /* A synthetic pixel face on a 125 unit grid in a 1000 unit em: blocks and an L. */
+    embi_qcurve a[16], b[16], c[16];
+    uint32_t na = square(a, 125, 0, 250), nb, nc;
+    const float l[6][2] = {{0, 0}, {0, 375}, {125, 375}, {125, 125}, {375, 125}, {375, 0}};
+    nb = poly(b, l, 6);
+    nc = square(c, 0, 0, 500);
+    const embi_qcurve *g[3] = {a, b, c};
+    uint32_t cnt[3] = {na, nb, nc};
+    float u = 0.0f;
+    EMB_CHECK(embi_hint_pixel_face(g, cnt, 3, 1000.0f, &u) && u == 125.0f);
+    /* A glyph without an outline is skipped; the other two share a step of 250, four of which make the em: too coarse. */
+    cnt[1] = 0;
+    EMB_CHECK(!embi_hint_pixel_face(g, cnt, 3, 1000.0f, &u));
+    EMB_CHECK(embi_hint_pixel_face(g, cnt, 3, 1250.0f, &u) && u == 250.0f);
+    /* No glyph at all, or a diagonal one: not a face. */
+    EMB_CHECK(!embi_hint_pixel_face(g, cnt, 0, 1000.0f, &u));
+    const float tri[3][2] = {{0, 0}, {0, 125}, {125, 0}};
+    embi_qcurve d[3];
+    const uint32_t nd = poly(d, tri, 3);
+    const embi_qcurve *g2[2] = {a, d};
+    const uint32_t cnt2[2] = {na, nd};
+    EMB_CHECK(!embi_hint_pixel_face(g2, cnt2, 2, 1000.0f, &u));
+    /* The em must span 5 to 64 steps: a 1000 unit step (Ahem's squares) is one, a 125 unit step in a 100000 unit em is 800. */
+    embi_qcurve e[4];
+    const uint32_t ne = square(e, 0, -200, 1000);
+    const embi_qcurve *g3[1] = {e};
+    const uint32_t cnt3[1] = {ne};
+    EMB_CHECK(!embi_hint_pixel_face(g3, cnt3, 1, 1000.0f, &u));
+    const uint32_t cnt4[3] = {na, nb, nc};
+    EMB_CHECK(!embi_hint_pixel_face(g, cnt4, 3, 100000.0f, &u));
+    EMB_CHECK(embi_hint_pixel_face(g, cnt4, 3, 1000.0f, &u) && u == 125.0f);
+    /* The glyph test against a face step. */
+    EMB_CHECK(embi_hint_pixel_on_grid(a, na, 125.0f) && embi_hint_pixel_on_grid(a, na, 250.0f) &&
+              !embi_hint_pixel_on_grid(a, na, 100.0f) && !embi_hint_pixel_on_grid(d, nd, 125.0f));
+}
+
+EMB_TEST(hint_pixel_scale_rule)
+{
+    /* Natural: only when unit * scale is within 0.02 of a whole number of at least 1. */
+    EMB_CHECK(embi_hint_pixel_scale(64.0f, 0.25f, false) == 0.25f);
+    EMB_CHECK(SDL_fabsf(embi_hint_pixel_scale(64.0f, 3.0f / 64.0f + 0.0002f, false) - 3.0f / 64.0f) < 1e-9f);
+    EMB_CHECK(embi_hint_pixel_scale(64.0f, 1.5f / 64.0f, false) == 0.0f);
+    EMB_CHECK(embi_hint_pixel_scale(64.0f, 2.1f / 64.0f, false) == 0.0f);
+    EMB_CHECK(embi_hint_pixel_scale(64.0f, 0.5f / 64.0f, false) == 0.0f);
+    EMB_CHECK(embi_hint_pixel_scale(1000.0f, 0.013f, false) == 0.013f);
+    EMB_CHECK(embi_hint_pixel_scale(1000.0f, 0.0135f, false) == 0.0f);
+    /* Sharp: always, at max(1, round(unit * scale)) px per unit. */
+    EMB_CHECK(embi_hint_pixel_scale(64.0f, 1.5f / 64.0f, true) == 2.0f / 64.0f);
+    EMB_CHECK(embi_hint_pixel_scale(64.0f, 2.4f / 64.0f, true) == 2.0f / 64.0f);
+    EMB_CHECK(embi_hint_pixel_scale(64.0f, 0.6f / 64.0f, true) == 1.0f / 64.0f);
+    EMB_CHECK(embi_hint_pixel_scale(1000.0f, 0.0135f, true) == 0.014f);
+    EMB_CHECK(embi_hint_pixel_scale(64.0f, 0.4f / 64.0f, true) == 0.0f);
+    EMB_CHECK(embi_hint_pixel_scale(0.0f, 1.0f, true) == 0.0f);
+}
+
+EMB_TEST(hint_pixel_snap_edges)
+{
+    /* Ahem's square at 13.5 px: sharp snaps to 14 px per em, and every edge falls on a whole px with the control points on
+     * their segments; the box is 14 px tall, 3 below and 11 above the baseline. */
+    embi_qcurve c[4], o[4];
+    const uint32_t n = square(c, 0, -200, 1000);
+    float u;
+    EMB_REQUIRE(embi_hint_pixel_grid(c, n, &u));
+    EMB_CHECK(embi_hint_pixel_scale(u, 13.5f / 1000.0f, false) == 0.0f);
+    const float s = embi_hint_pixel_scale(u, 13.5f / 1000.0f, true);
+    EMB_REQUIRE(s > 0.0f);
+    embi_hint_pixel_snap(c, n, s, o);
+    float lo = 1e9f, hi = -1e9f, left = 1e9f, right = -1e9f;
+    for (uint32_t i = 0; i < n; i++) {
+        EMB_CHECK(frac_off(o[i].x0 * s) < 1.0f / 64.0f && frac_off(o[i].y0 * s) < 1.0f / 64.0f);
+        EMB_CHECK(frac_off(o[i].x1 * s) < 1.0f / 64.0f && frac_off(o[i].y1 * s) < 1.0f / 64.0f);
+        EMB_CHECK(o[i].x1 == o[(i + 1) % n].x0 && o[i].y1 == o[(i + 1) % n].y0);
+        const bool vert = o[i].x0 == o[i].x1;
+        EMB_CHECK(vert ? o[i].cx == o[i].x0 : o[i].cy == o[i].y0);
+        lo = o[i].y0 < lo ? o[i].y0 : lo;
+        hi = o[i].y0 > hi ? o[i].y0 : hi;
+        left = o[i].x0 < left ? o[i].x0 : left;
+        right = o[i].x0 > right ? o[i].x0 : right;
+    }
+    EMB_CHECK(SDL_fabsf((hi - lo) * s - 14.0f) < 1.0f / 64.0f && SDL_fabsf(lo * s + 3.0f) < 1.0f / 64.0f);
+    EMB_CHECK(SDL_fabsf((right - left) * s - 14.0f) < 1.0f / 64.0f);
+    /* At 13 px, natural keeps the scale and gets the same edges as the plain outline (3 below, 10 above: 2.6 and 10.4 round). */
+    const float sn = embi_hint_pixel_scale(u, 13.0f / 1000.0f, false);
+    EMB_CHECK(sn == 13.0f / 1000.0f);
+    embi_hint_pixel_snap(c, n, sn, o);
+    EMB_CHECK(SDL_fabsf(o[0].y0 * sn + 3.0f) < 1.0f / 64.0f && SDL_fabsf(o[1].y0 * sn - 10.0f) < 1.0f / 64.0f);
+}
+
 int main(void)
 {
     const bool video = SDL_Init(SDL_INIT_VIDEO);

@@ -133,6 +133,7 @@ enum { EMBI_MC_ADD = 0, EMBI_MC_SUBTRACT, EMBI_MC_INTERSECT, EMBI_MC_EXCLUDE };
 #define EMBI_DF_NEAREST 0x02u /* image: nearest sampling (image-rendering: pixelated, crisp-edges) */
 #define EMBI_DF_TILE 0x04u    /* image: a tiled image, see EMBI_DI_IMAGE */
 #define EMBI_DF_NOFOLD 0x10u  /* text: its glyphs overlap (negative letter-spacing), so an opacity layer may not fold into its color */
+#define EMBI_DF_GEOMPREC 0x20u /* text: text-rendering: geometricPrecision, drawn with text hinting NONE whatever the view's mode */
 #define EMBI_DF_ISOLATE 0x08u /* LAYER_BEGIN, EMBI_LS_COMPOSITE: a plain isolated group */
 /* PATH (R4c): the path is a center line that the renderer strokes when it draws (a stroke costs the list its center line,
  * not the expanded outline): f[0] the width, f[1] the miter limit, styles[1] the cap (0 butt, 1 round, 2 square), styles[2]

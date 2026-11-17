@@ -68,6 +68,7 @@ struct emb_view {
     emb_view_mode mode;
     emb_color_scheme scheme;
     emb_text_aa text_aa;
+    emb_text_hinting text_hinting;
     bool transparent; /* offscreen: the canvas clears to transparent (emb_view_desc.transparent) */
     /* The device: the host's (offscreen) or Ember's own (windowed). */
     embi_gpu *gpu;

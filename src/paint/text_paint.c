@@ -568,6 +568,14 @@ static void emit_decorations(embi_pst *p, const embi_frag *f, const embi_box *b,
     }
 }
 
+/* Marks the text item emitted last with EMBI_DF_GEOMPREC when the text is text-rendering: geometricPrecision. */
+static void mark_geom(embi_pst *p, bool geom)
+{
+    if (geom) {
+        p->d->items.data[p->d->items.len - 1].flags |= EMBI_DF_GEOMPREC;
+    }
+}
+
 /* One text item: the run's bytes [tb, te) with their baseline origin moved by (dx, dy). */
 static void emit_text_item(embi_pst *p, const float rect[4], uint32_t ri, uint32_t tb, uint32_t te, float baseline,
                            uint32_t color, uint32_t xf, uint32_t clip, float dx, float dy)
@@ -731,6 +739,7 @@ void embi_pb_text(embi_pst *p, const embi_frag *f, const embi_box *b, const floa
     }
     uint32_t ri = p->d->runs.len;
     embi_vec_push(&p->d->runs, (const void *)b->lt);
+    const bool geom = embi_pb_kw(s, EMBI_PROP_text_rendering) == EMBI_KW_geometricprecision;
     const embi_value *shv = embi_style_value(s, EMBI_PROP_text_shadow);
     bool shadows = shv != nullptr && shv->kind == EMBI_V_SHADOWS && shv->shadows.n > 0;
 
@@ -795,6 +804,7 @@ void embi_pb_text(embi_pst *p, const embi_frag *f, const embi_box *b, const floa
                     emit_decorations(p, f, b, ents, nents, 3u, rect, deco_base, xf, clip, ox, oy, true, sc);
                 }
                 emit_text_item(p, rect, ri, tb, te, baseline, sc, xf, clip, ox, oy);
+                mark_geom(p, geom);
                 if (mask != 0) {
                     emit_decorations(p, f, b, ents, nents, 4u, rect, deco_base, xf, clip, ox, oy, true, sc);
                 }
@@ -813,6 +823,7 @@ void embi_pb_text(embi_pst *p, const embi_frag *f, const embi_box *b, const floa
                 emit_decorations(p, f, b, ents, nents, 3u, rect, deco_base, xf, clip, ox, oy, true, sc);
             }
             emit_text_item(p, rect, ri, tb, te, baseline, sc, xf, clip, ox, oy);
+            mark_geom(p, geom);
             if (mask != 0) {
                 emit_decorations(p, f, b, ents, nents, 4u, rect, deco_base, xf, clip, ox, oy, true, sc);
             }
@@ -824,6 +835,7 @@ void embi_pb_text(embi_pst *p, const embi_frag *f, const embi_box *b, const floa
         emit_decorations(p, f, b, ents, nents, 3u, rect, deco_base, xf, clip, 0.0f, 0.0f, false, 0);
     }
     emit_text_item(p, rect, ri, tb, te, baseline, color, xf, clip, 0.0f, 0.0f);
+    mark_geom(p, geom);
     {
         /* Glyphs that overlap each other (letter-spacing below -0.1em; a smaller overlap is hairline and folds) must be composited as a group by an opacity layer, which
          * would otherwise fold the alpha into the one text item and darken the overlaps (opacity-overlapping-letters). */

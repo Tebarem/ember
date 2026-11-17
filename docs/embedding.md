@@ -160,8 +160,15 @@ bool draw_frame(SDL_GPUDevice *dev, SDL_Window *win, emb_view *view)
 - While an animation or a smooth scroll runs, `emb_view_render` keeps returning true: keep calling it every frame.
 - `emb_view_texture` returns the view's texture. Any size or scale change that alters the pixel size replaces it, so fetch
   it again after `emb_view_resize` or `emb_view_set_scale`.
-- `emb_view_set_scale`, `emb_view_set_color_scheme` (feeds `prefers-color-scheme`) and `emb_view_set_text_aa` repaint the
-  view.
+- `emb_view_set_scale`, `emb_view_set_color_scheme` (feeds `prefers-color-scheme`), `emb_view_set_text_aa` and
+  `emb_view_set_text_hinting` repaint the view.
+- Text hinting is chosen per view with `emb_view_desc.text_hinting` (or `emb_view_set_text_hinting`):
+  `EMB_TEXT_HINTING_NATURAL` (the default) hints vertically under 36 px, snaps baselines and darkens stems;
+  `EMB_TEXT_HINTING_SHARP` does the same and also fits x and rounds the pen x of every glyph to a whole device px, for HUD
+  text and pixel fonts; `EMB_TEXT_HINTING_NONE` does no fitting at all (no hinting, no snap, no darkening, as Chrome's
+  `text-rendering: geometricPrecision`), with the contrast curve kept. A page can draw one element's text as NONE with
+  `text-rendering: geometricPrecision`. A descriptor without the field (the older size) is NATURAL. Canvas text and the
+  text of form controls are drawn NATURAL whatever the mode.
 - Offscreen text uses grayscale antialiasing in `EMB_TEXT_AA_AUTO`, since you may composite the texture over anything.
 - The texture is RGBA8 UNORM by default; `emb_view_desc.format` can make it BGRA8. Colors are premultiplied alpha in gamma
   (sRGB-encoded) space, so composite with `ONE` / `ONE_MINUS_SRC_ALPHA`, and sample the texture as UNORM, not as an `_SRGB`

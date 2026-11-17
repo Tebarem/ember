@@ -130,6 +130,7 @@ struct embi_frame {
     uint32_t tex_w, tex_h;    /* the target's size; the frame's own size when it draws the whole target */
     bool region_clear;        /* set at embi_frame_end: the damage is cleared first */
     embi_text_aa text_aa;     /* text antialiasing of the frame */
+    embi_text_hinting text_hinting; /* text hinting of the frame (embi_frame_set_text_hinting) */
     bool animating;           /* a transform animation runs: text under transforms is gray, unfitted */
     EMBI_VEC(uint8_t) xstill; /* per transform: 1 for a translation that no animation moves (a scroll offset): text keeps its fit */
     bool opaque_backdrop;     /* text may use LCD: the target is opaque under everything drawn */
@@ -831,6 +832,7 @@ static void embi_frame_reset(embi_frame *f)
     f->overflow = false;
     f->region_clear = false;
     f->text_aa = EMBI_TEXT_AA_GRAY;
+    f->text_hinting = EMBI_TEXT_HINTING_NATURAL;
     f->animating = false;
     embi_vec_clear(&f->xstill);
     f->opaque_backdrop = false;
@@ -1948,6 +1950,18 @@ void embi_frame_set_text_aa(embi_frame *f, embi_text_aa mode, bool transforms_an
     f->text_aa = (mode == EMBI_TEXT_AA_LCD_RGB || mode == EMBI_TEXT_AA_LCD_BGR) ? mode
                                                                                 : EMBI_TEXT_AA_GRAY;
     f->animating = transforms_animating;
+}
+
+void embi_frame_set_text_hinting(embi_frame *f, embi_text_hinting mode)
+{
+    if (f != nullptr) {
+        f->text_hinting = (mode == EMBI_TEXT_HINTING_SHARP || mode == EMBI_TEXT_HINTING_NONE) ? mode : EMBI_TEXT_HINTING_NATURAL;
+    }
+}
+
+embi_text_hinting embi_frame_text_hinting(const embi_frame *f)
+{
+    return f != nullptr ? f->text_hinting : EMBI_TEXT_HINTING_NATURAL;
 }
 
 void embi_frame_set_opaque_backdrop(embi_frame *f, bool opaque)

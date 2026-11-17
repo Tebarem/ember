@@ -437,6 +437,7 @@ emb_view *embi_view_new_child(emb_view *parent)
     v->mode = EMB_VIEW_OFFSCREEN;
     v->scheme = parent->scheme;
     v->text_aa = EMB_TEXT_AA_GRAY; /* a frame's texture is transparent where its document paints nothing */
+    v->text_hinting = parent->text_hinting;
     v->css_w = 300; /* the default object size of an iframe; the parent's layout sets the real one */
     v->css_h = 150;
     v->scale = parent->scale;
@@ -482,10 +483,12 @@ void embi_view_set_child_size(emb_view *v, uint32_t css_w, uint32_t css_h)
     emb_view *root = embi_frames_root(v);
     v->css_w = css_w > 0 ? css_w : 1;
     v->css_h = css_h > 0 ? css_h : 1;
-    if (v->scale != root->scale || v->raster != root->raster || v->scheme != root->scheme) {
+    if (v->scale != root->scale || v->raster != root->raster || v->scheme != root->scheme ||
+        v->text_hinting != root->text_hinting) {
         v->scale = root->scale;
         v->raster = root->raster;
         v->scheme = root->scheme;
+        v->text_hinting = root->text_hinting;
         v->force_full = true;
     }
     sync_doc_viewport(v);
@@ -505,6 +508,10 @@ emb_view *emb_view_create(emb_runtime *rt, const emb_view_desc *desc)
     v->scheme = desc->scheme;
     if (desc->size >= offsetof(emb_view_desc, text_aa) + sizeof desc->text_aa) {
         v->text_aa = desc->text_aa;
+    }
+    if (desc->size >= offsetof(emb_view_desc, text_hinting) + sizeof desc->text_hinting &&
+        (unsigned)desc->text_hinting <= (unsigned)EMB_TEXT_HINTING_NONE) {
+        v->text_hinting = desc->text_hinting;
     }
     if (desc->size >= offsetof(emb_view_desc, transparent) + sizeof desc->transparent) {
         v->transparent = desc->mode == EMB_VIEW_OFFSCREEN && desc->transparent;
@@ -893,6 +900,16 @@ void emb_view_set_text_aa(emb_view *view, emb_text_aa mode)
         return;
     }
     view->text_aa = mode;
+    view->force_full = true;
+    view->paint_dirty = true;
+}
+
+void emb_view_set_text_hinting(emb_view *view, emb_text_hinting mode)
+{
+    if (view == nullptr || view->text_hinting == mode || (unsigned)mode > (unsigned)EMB_TEXT_HINTING_NONE) {
+        return;
+    }
+    view->text_hinting = mode;
     view->force_full = true;
     view->paint_dirty = true;
 }
@@ -1394,6 +1411,7 @@ static void fill_target(emb_view *v, embi_gfx_target *t, SDL_GPUTexture *tex, ui
     const bool child = embi_frames_parent(v) != nullptr;
     t->clear_rgba = child || v->transparent ? 0u : embi_doc_canvas_rgba(v->doc);
     t->text_aa = resolve_text_aa(v);
+    t->text_hinting = (int)v->text_hinting;
     t->animating = embi_view_animating(v);
 }
 

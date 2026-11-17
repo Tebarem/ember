@@ -240,6 +240,18 @@ typedef enum embi_text_aa {
  * animating: a transform animation runs, so text under any transform other than the device scale is
  * drawn gray and unfitted. */
 void embi_frame_set_text_aa(embi_frame *f, embi_text_aa mode, bool transforms_animating);
+
+/* Text hinting of a view (emb_text_hinting, the same values). NATURAL: vertical hinting under 36 px, baseline snap and stem
+ * darkening. SHARP: NATURAL plus x fitting and the pen x of each glyph on a whole device px (axis-aligned targets). NONE: no
+ * hinting, no fit scale, no baseline snap, no darkening; the contrast curve stays. Default NATURAL after embi_frame_begin. */
+typedef enum embi_text_hinting {
+    EMBI_TEXT_HINTING_NATURAL = 0,
+    EMBI_TEXT_HINTING_SHARP = 1,
+    EMBI_TEXT_HINTING_NONE = 2,
+} embi_text_hinting;
+
+void embi_frame_set_text_hinting(embi_frame *f, embi_text_hinting mode);
+embi_text_hinting embi_frame_text_hinting(const embi_frame *f);
 /* Marks a transform of the frame as a translation that no animation moves (a scroll offset): the text under it keeps its
  * grid fit and LCD while a transform animation runs elsewhere (embi_frame_set_text_aa). */
 void embi_frame_xform_set_still(embi_frame *f, uint32_t xform);

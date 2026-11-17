@@ -115,6 +115,7 @@ typedef struct embi_gfx_target {
     uint32_t clear_rgba;   /* the canvas color of a full redraw, non-premultiplied, r in the low byte */
     int text_aa;           /* 0 gray, 1 LCD RGB, 2 LCD BGR (embi_text_aa of gpu/render.h), already resolved */
     bool animating;        /* a transform animation runs: text under transforms is drawn gray and unfitted */
+    int text_hinting;      /* 0 natural, 1 sharp, 2 none (embi_text_hinting of gpu/render.h) */
     int32_t tex_x, tex_y;  /* the top-left of the rectangle (w x h) in the texture (tex_w x tex_h); 0, 0 is the texture's corner */
     uint32_t tex_w, tex_h; /* the texture's size in device px; 0 means w and h (the whole texture) */
 } embi_gfx_target;

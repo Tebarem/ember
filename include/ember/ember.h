@@ -218,6 +218,16 @@ typedef enum emb_text_aa {
     EMB_TEXT_AA_LCD_BGR,
 } emb_text_aa;
 
+/* Text hinting, per view (emb_view_desc.text_hinting) and per element (text-rendering: geometricPrecision draws NONE).
+ * NATURAL (default): vertical hinting under 36 px, baseline snap and stem darkening. SHARP: NATURAL plus x fitting of the
+ * hinter and the pen x of every glyph on a whole device px. NONE: no fitting at all (no hinting, no baseline snap, no
+ * darkening); the contrast curve stays. */
+typedef enum emb_text_hinting {
+    EMB_TEXT_HINTING_NATURAL = 0,
+    EMB_TEXT_HINTING_SHARP,
+    EMB_TEXT_HINTING_NONE,
+} emb_text_hinting;
+
 /* emb_view_desc.flags. NO_TEXTURE: the view never makes a texture of its own; it is drawn only with emb_view_render_to
  * (emb_view_texture is nullptr and emb_view_render records nothing and returns false). MIPMAPS: the view's texture has a
  * full mip chain, made again after every frame that changed it (offscreen; ignored with NO_TEXTURE). */
@@ -244,6 +254,7 @@ typedef struct emb_view_desc {
     uint32_t format;        /* offscreen: the SDL_GPUTextureFormat of the view's texture and of every emb_view_render_to target:
                              * 0 (or SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM itself) is RGBA8; SDL_GPU_TEXTUREFORMAT_B8G8R8A8_UNORM is the other one
                              * accepted (creation fails, logged, for any other). Read only when size covers it */
+    emb_text_hinting text_hinting; /* 0 is EMB_TEXT_HINTING_NATURAL. Read only when size covers it */
 } emb_view_desc;
 
 /* The stages of the most recent run of each, in milliseconds. The first_paint fields hold the
@@ -318,6 +329,8 @@ EMB_API void emb_view_set_scale(emb_view *view, float scale);
 EMB_API void emb_view_set_color_scheme(emb_view *view, emb_color_scheme scheme);
 /* Sets the text antialiasing (see emb_text_aa). Everything is repainted. */
 EMB_API void emb_view_set_text_aa(emb_view *view, emb_text_aa mode);
+/* Sets the text hinting of the view (see emb_text_hinting). Everything is repainted. */
+EMB_API void emb_view_set_text_hinting(emb_view *view, emb_text_hinting mode);
 /* Offscreen: an extra resolution factor for the view's pixels, on top of the scale (values <= 0 are ignored, 1 is none).
  * The document does not see it (devicePixelRatio, media queries and layout stay as they are): only the drawing is redone,
  * at scale x raster device px per CSS px. Meant for a panel in a 3D world, whose size on screen changes every frame: pick

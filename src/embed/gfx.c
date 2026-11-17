@@ -62,6 +62,7 @@ struct embi_gfx {
     embi_image_cache *images;
     size_t image_bytes;
     int text_aa;        /* embi_text_aa of the draw in progress */
+    int text_hinting;   /* embi_text_hinting of the draw in progress */
     bool animating;
     void *user;
     bool (*fetch)(void *user, embi_str url, uint8_t **data, size_t *len);
@@ -403,6 +404,7 @@ static void seg_begin(seg *s)
         /* LCD text needs an opaque backdrop in the same target: the root target when the canvas is
          * opaque. A layer starts transparent, so text in it is drawn gray. */
         embi_frame_set_text_aa(s->f, (embi_text_aa)s->gx->text_aa, s->gx->animating);
+        embi_frame_set_text_hinting(s->f, (embi_text_hinting)s->gx->text_hinting);
         embi_frame_set_opaque_backdrop(s->f, s->depth == 0 && (s->clear_rgba >> 24) == 0xFFu);
         memset(s->xmap, 0xFF, s->nx * sizeof *s->xmap);
         memset(s->cmap, 0xFF, s->nc * sizeof *s->cmap);
@@ -812,7 +814,16 @@ static void draw_item(seg *s, const embi_ditem *it, float alpha)
     case EMBI_DI_TEXT: {
         const embi_lay_shaped *run = (const embi_lay_shaped *)s->d->runs.data[it->aux];
         embi_frame_set_lcd_allowed(s->f, alpha >= 1.0f);
+        /* text-rendering: geometricPrecision (EMBI_DF_GEOMPREC) draws with no fitting, whatever the view's hinting. */
+        const bool geom = (it->flags & EMBI_DF_GEOMPREC) != 0;
+        const embi_text_hinting view_mode = embi_frame_text_hinting(s->f);
+        if (geom) {
+            embi_frame_set_text_hinting(s->f, EMBI_TEXT_HINTING_NONE);
+        }
         embi_tshim_draw_range(gx->text, s->f, run, it->aux3, it->aux2, it->f[0], it->f[1], scale_rgba(it->colors[0], alpha), xf, cl);
+        if (geom) {
+            embi_frame_set_text_hinting(s->f, view_mode);
+        }
         break;
     }
     case EMBI_DI_DECORATION:
@@ -1946,6 +1957,7 @@ bool embi_gfx_draw(embi_gfx *gx, SDL_GPUCommandBuffer *cmd, const embi_gfx_targe
         return true;
     }
     gx->text_aa = t->text_aa;
+    gx->text_hinting = t->text_hinting;
     gx->animating = t->animating;
     gx->cmd = cmd;
     if (gx->canvas != nullptr) {
