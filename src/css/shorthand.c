@@ -482,6 +482,7 @@ uint32_t embi_css_expand_shorthand(embi_arena *a, embi_prop_id prop, embi_css_sl
     case EMBI_PROP_outline:
     case EMBI_PROP_text_decoration:
     case EMBI_PROP_text_emphasis:
+    case EMBI_PROP__webkit_text_stroke:
     case EMBI_PROP_flex_flow:
     case EMBI_PROP_column_rule:
     case EMBI_PROP_columns:

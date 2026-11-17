@@ -585,9 +585,10 @@ static void emit_text_item(embi_pst *p, const float rect[4], uint32_t ri, uint32
     it->colors[0] = color;
 }
 
-/* -webkit-text-stroke (Compatibility section 6): a stroke along the glyph outlines, approximated by eight copies of the text in
- * the stroke color moved by half the stroke width (in the four axis and four diagonal directions), drawn under the fill. The
- * width keywords are 1, 3 and 5 px, as in browsers. */
+/* -webkit-text-stroke (Compatibility section 6): the outline of the fragment's glyphs stroked in the stroke color, one
+ * EMBI_DI_PATH item centred on the outline, drawn over the fill. The stroke joins are miter with limit 4 and the ends butt,
+ * as Chromium strokes text with the default paint. The width keywords are 1, 3 and 5 px, as in browsers. Glyphs without an
+ * outline (bitmap and colour glyphs) get no stroke. */
 static void emit_text_stroke(embi_pst *p, const embi_style *s, const float rect[4], uint32_t ri, uint32_t tb, uint32_t te,
                              float baseline, uint32_t color, uint32_t xf, uint32_t clip)
 {
@@ -614,11 +615,28 @@ static void emit_text_stroke(embi_pst *p, const embi_style *s, const float rect[
     if ((c >> 24) == 0) {
         return;
     }
-    const float h = 0.5f * w, k = 0.70710678f * h;
-    const float d[8][2] = {{-h, 0.0f}, {h, 0.0f}, {0.0f, -h}, {0.0f, h}, {-k, -k}, {k, -k}, {-k, k}, {k, k}};
-    for (uint32_t i = 0; i < 8; i++) {
-        emit_text_item(p, rect, ri, tb, te, baseline, c, xf, clip, d[i][0], d[i][1]);
+    const embi_lay_shaped *sh = (const embi_lay_shaped *)p->d->runs.data[ri];
+    float b[4];
+    struct embi_path *path = embi_tshim_glyph_path(sh, tb, te, rect[0], baseline, b);
+    if (path == nullptr) {
+        return;
     }
+    /* The bounds of the item grow by the largest miter reach: half the width at the miter limit. */
+    const float miter_limit = 4.0f;
+    const float grow = 0.5f * w * miter_limit;
+    uint32_t pi = embi_dl_add_path(p->d, path, embi_tshim_path_hash(path));
+    embi_ditem *it = embi_pb_item(p, EMBI_DI_PATH, xf, clip);
+    it->flags = EMBI_DF_STROKE;
+    it->rect[0] = b[0] - grow;
+    it->rect[1] = b[1] - grow;
+    it->rect[2] = b[2] - b[0] + 2.0f * grow;
+    it->rect[3] = b[3] - b[1] + 2.0f * grow;
+    it->aux = pi;
+    it->colors[0] = c;
+    it->f[0] = w;
+    it->f[1] = miter_limit;
+    it->styles[1] = 0; /* butt caps (EMBI_CAP_BUTT) */
+    it->styles[2] = 0; /* miter joins (EMBI_JOIN_MITER) */
 }
 
 /* ::first-line (CSS Pseudo-Elements 4 section 3): the color of the first formatted line of a block container. The text of a
@@ -805,7 +823,6 @@ void embi_pb_text(embi_pst *p, const embi_frag *f, const embi_box *b, const floa
     if (mask != 0) {
         emit_decorations(p, f, b, ents, nents, 3u, rect, deco_base, xf, clip, 0.0f, 0.0f, false, 0);
     }
-    emit_text_stroke(p, s, rect, ri, tb, te, baseline, color, xf, clip);
     emit_text_item(p, rect, ri, tb, te, baseline, color, xf, clip, 0.0f, 0.0f);
     {
         /* Glyphs that overlap each other (letter-spacing below -0.1em; a smaller overlap is hairline and folds) must be composited as a group by an opacity layer, which
@@ -817,6 +834,7 @@ void embi_pb_text(embi_pst *p, const embi_frag *f, const embi_box *b, const floa
             p->d->items.data[p->d->items.len - 1].flags |= EMBI_DF_NOFOLD;
         }
     }
+    emit_text_stroke(p, s, rect, ri, tb, te, baseline, color, xf, clip);
     if (mask != 0) {
         emit_decorations(p, f, b, ents, nents, 4u, rect, deco_base, xf, clip, 0.0f, 0.0f, false, 0);
     }
