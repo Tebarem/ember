@@ -143,6 +143,12 @@ typedef struct scene {
     embi_text *t;
     embi_text_layout lay;
     embi_text_vruns vr;
+    /* 0: the text through embi_text_draw (a plain fill, as the skew turns the grid fit off). 1: the same device outlines
+     * through embi_frame_fill_text, the path of real text, which applies the text contrast curve. */
+    int mode;
+    float size;
+    const float (*q)[6];
+    uint32_t nq;
 } scene;
 
 static void draw_scene(embi_frame *f, void *user)
@@ -150,6 +156,12 @@ static void draw_scene(embi_frame *f, void *user)
     scene *s = user;
     const float xf[6] = {1.0f, 0.0f, SKEW, 1.0f, 0.0f, 0.0f};
     embi_frame_set_text_aa(f, EMBI_TEXT_AA_GRAY, false);
+    if (s->mode != 0) {
+        const float id[6] = {1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f};
+        embi_frame_fill_text(f, 0x7000u + (uint64_t)s->size, (const embi_qcurve *)s->q, s->nq, id,
+                             RGBA(255, 255, 255, 255), 0.0f, false, 0, 0);
+        return;
+    }
     embi_text_draw(s->t, f, &s->lay, &s->vr, TEXT_X, TEXT_Y, RGBA(255, 255, 255, 255), embi_frame_xform(f, xf), 0);
 }
 
@@ -166,10 +178,10 @@ typedef struct stats {
 
 enum { M_OK = 0, M_FAIL = 1, M_NO_GPU = 2 };
 
-static int measure(embi_text *t, const char *family, float size, stats *st)
+static int measure(embi_text *t, const char *family, float size, int mode, stats *st)
 {
     SDL_memset(st, 0, sizeof *st);
-    scene s = {.t = t};
+    scene s = {.t = t, .mode = mode, .size = size};
     embi_str fam = tx_s(family);
     embi_text_style style;
     tx_style(&style, &fam, 1, size);
@@ -180,14 +192,17 @@ static int measure(embi_text *t, const char *family, float size, stats *st)
         embi_text_layout_free(&s.lay);
         return M_FAIL;
     }
+    curve_buf cb = {0};
+    embi_text_outline(t, &s.lay, &s.vr, TEXT_X, TEXT_Y, collect, &cb);
+    s.q = (const float (*)[6])cb.q;
+    s.nq = cb.n;
     uint8_t *px = emb_test_render(TW, TH, draw_scene, &s);
     if (px == nullptr) {
+        SDL_free(cb.q);
         embi_text_vruns_free(&s.vr);
         embi_text_layout_free(&s.lay);
         return emb_test_cur_skip != nullptr ? M_NO_GPU : M_FAIL;
     }
-    curve_buf cb = {0};
-    embi_text_outline(t, &s.lay, &s.vr, TEXT_X, TEXT_Y, collect, &cb);
     float *ref = SDL_calloc((size_t)TW * TH, sizeof(float));
     float *diff = SDL_calloc((size_t)TW * TH, sizeof(float));
     bool ok = ref != nullptr && diff != nullptr && cb.n > 0;
@@ -251,17 +266,20 @@ EMB_TEST(coverage_against_reference)
     }
     for (uint32_t i = 0; i < 2; i++) {
         for (uint32_t k = 0; k < sizeof sizes / sizeof sizes[0]; k++) {
-            stats st;
-            const int rc = measure(t, fonts[i].family, sizes[k], &st);
-            if (rc == M_NO_GPU) {
-                embi_text_destroy(t);
-                EMB_SKIP("no GPU device");
+            static const char *const mode_name[2] = {"coverage", "coverage_text"};
+            for (int mode = 0; mode < 2; mode++) {
+                stats st;
+                const int rc = measure(t, fonts[i].family, sizes[k], mode, &st);
+                if (rc == M_NO_GPU) {
+                    embi_text_destroy(t);
+                    EMB_SKIP("no GPU device");
+                }
+                EMB_CHECK(rc == M_OK);
+                SDL_Log("%s %s %.0fpx mean=%.4f p99=%.4f max=%.4f holes=%u leaks=%u (glyph px %u)", mode_name[mode],
+                        fonts[i].label, (double)sizes[k], st.mean, st.p99, st.max, st.holes, st.leaks, st.glyph_px);
+                EMB_CHECK(st.holes + st.leaks <= st.glyph_px / 100u);
+                EMB_CHECK(st.mean <= 0.08);
             }
-            EMB_CHECK(rc == M_OK);
-            SDL_Log("coverage %s %.0fpx mean=%.4f p99=%.4f max=%.4f holes=%u leaks=%u (glyph px %u)", fonts[i].label,
-                    (double)sizes[k], st.mean, st.p99, st.max, st.holes, st.leaks, st.glyph_px);
-            EMB_CHECK(st.holes + st.leaks <= st.glyph_px / 100u);
-            EMB_CHECK(st.mean <= 0.08);
         }
     }
     embi_text_destroy(t);

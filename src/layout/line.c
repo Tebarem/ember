@@ -268,7 +268,8 @@ void embi_lay_text_style(const embi_style *s, embi_lay_tstyle *ts, embi_str *fam
                EMBI_LAY_MAX_FEATS, &ts->nfeats, false);
     read_feats(embi_style_value(s, EMBI_PROP_font_variation_settings), ts->vars,
                EMBI_LAY_MAX_VARS, &ts->nvars, true);
-    ts->optical_sizing = true;
+    /* font-optical-sizing: none leaves a variable font's opsz axis at its default. */
+    ts->optical_sizing = !kw_is_none(s, EMBI_PROP_font_optical_sizing);
     ts->synth = 7;
     if (kw_is_none(s, EMBI_PROP_font_synthesis_weight)) {
         ts->synth &= ~1u;
