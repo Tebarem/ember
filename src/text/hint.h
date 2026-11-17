@@ -48,3 +48,8 @@ void embi_hint_extent(const embi_qcurve *c, uint32_t n, float *ymin, float *ymax
  * glyph has no edge to fit (the caller then draws it with the plain scale). Deterministic. */
 uint32_t embi_hint_glyph(const embi_hint_zones *zones, float upem, float s, const embi_qcurve *in, uint32_t n,
                          embi_qcurve *out);
+
+/* As embi_hint_glyph, and map (n + 1 entries, or nullptr) receives the index in out of the first curve that each input curve
+ * became, with map[n] the number written. */
+uint32_t embi_hint_glyph_map(const embi_hint_zones *zones, float upem, float s, const embi_qcurve *in, uint32_t n,
+                             embi_qcurve *out, uint32_t *map);

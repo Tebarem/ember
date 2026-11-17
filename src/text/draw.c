@@ -11,6 +11,7 @@
 
 #include "text/text_int.h"
 
+#include "text/embolden.h"
 #include "text/hint.h"
 
 #include "font/font.h"
@@ -29,6 +30,8 @@ static void bitmap_free(embi_text *t);
 typedef struct outline_entry {
     embi_qcurve *curves;
     uint32_t n;
+    uint32_t *starts; /* the first curve of each contour (nstarts of them, ascending) */
+    uint32_t nstarts;
     bool boxy;        /* every segment is axis-aligned (a glyph made of rectangles, such as Ahem's) */
     float ymin, ymax; /* the vertical extent in glyph units */
 } outline_entry;
@@ -37,6 +40,7 @@ typedef struct outline_state {
     embi_hashmap map;    /* key -> outline_entry* */
     embi_hashmap zones;  /* (uid, inst) -> embi_hint_zones* (nullptr: the face is not hinted) */
     embi_hashmap hinted; /* hint key -> outline_entry* (n == 0: the glyph is drawn unhinted at this size) */
+    embi_hashmap bold;   /* variant key -> outline_entry* (the emboldened curves of a glyph at a strength) */
     size_t bytes;
     size_t hint_bytes;
     size_t budget;
@@ -57,6 +61,7 @@ static outline_state *outline_of(embi_text *t)
         embi_hashmap_init(&o->map);
         embi_hashmap_init(&o->zones);
         embi_hashmap_init(&o->hinted);
+        embi_hashmap_init(&o->bold);
         o->budget = EMBI_OUTLINE_BUDGET;
         t->outline = o;
     }
@@ -66,6 +71,9 @@ static outline_state *outline_of(embi_text *t)
 static void outline_entry_free(outline_state *o, outline_entry *e)
 {
     embi_free(e->curves, sizeof(embi_qcurve) * e->n);
+    if (e->starts != nullptr) {
+        embi_free(e->starts, sizeof(uint32_t) * e->nstarts);
+    }
     embi_free(e, sizeof *e);
     (void)o;
 }
@@ -103,6 +111,11 @@ void embi_outline_clear(embi_text *t)
         outline_entry_free(o, (outline_entry *)(uintptr_t)v);
     }
     embi_hashmap_clear(&o->map);
+    it = embi_hashmap_iter_begin(&o->bold);
+    while (embi_hashmap_iter_next(&it, &k, &v)) {
+        outline_entry_free(o, (outline_entry *)(uintptr_t)v);
+    }
+    embi_hashmap_clear(&o->bold);
     o->bytes = 0;
 }
 
@@ -117,6 +130,7 @@ void embi_outline_fini(embi_text *t)
     embi_hashmap_free(&o->map);
     embi_hashmap_free(&o->zones);
     embi_hashmap_free(&o->hinted);
+    embi_hashmap_free(&o->bold);
     embi_free(o, sizeof *o);
     t->outline = nullptr;
 }
@@ -140,6 +154,12 @@ static outline_entry *outline_get(embi_text *t, embi_face *face, uint32_t inst, 
         for (uint32_t i = 0; i < e->n; i++) {
             const embi_quad *q = &ol.quads.data[i];
             e->curves[i] = (embi_qcurve){q->p0.x, q->p0.y, q->p1.x, q->p1.y, q->p2.x, q->p2.y};
+        }
+        /* The contour starts as the font gives them: a contour may touch its own start point, so they are not found by position. */
+        e->nstarts = ol.contours.len > 0 ? ol.contours.len : 1u;
+        e->starts = embi_alloc(sizeof(uint32_t) * e->nstarts);
+        for (uint32_t c = 0; c < e->nstarts; c++) {
+            e->starts[c] = ol.contours.len > 0 ? ol.contours.data[c] : 0u;
         }
         e->boxy = true;
         e->ymin = e->ymax = e->curves[0].y0;
@@ -175,6 +195,10 @@ static outline_entry *outline_get(embi_text *t, embi_face *face, uint32_t inst, 
         float ring[2][4] = {{x0, y0, x1, y1}, {x0 + w, y0 + w, x1 - w, y1 - w}};
         e->n = 8;
         e->curves = embi_alloc(sizeof(embi_qcurve) * e->n);
+        e->nstarts = 2;
+        e->starts = embi_alloc(sizeof(uint32_t) * 2u);
+        e->starts[0] = 0;
+        e->starts[1] = 4;
         for (uint32_t r = 0; r < 2; r++) {
             const float *b = ring[r];
             /* The outer ring runs counter-clockwise, the inner one clockwise: nonzero winding leaves a frame. */
@@ -185,7 +209,7 @@ static outline_entry *outline_get(embi_text *t, embi_face *face, uint32_t inst, 
             }
         }
     }
-    o->bytes += sizeof(embi_qcurve) * e->n + sizeof *e;
+    o->bytes += sizeof(embi_qcurve) * e->n + sizeof(uint32_t) * e->nstarts + sizeof *e;
     embi_hashmap_put(&o->map, key, (uint64_t)(uintptr_t)e);
     return e;
 }
@@ -202,15 +226,62 @@ static uint64_t mix64(uint64_t x)
     return x ^ (x >> 31);
 }
 
-/* The blob and cache key of the hinted variant of a glyph at a size (ppem64: px per em in 1/64). Bit 62 is set, bit 63 clear. */
-static uint64_t hint_key(uint32_t uid, uint32_t inst, uint32_t gid, uint32_t ppem64)
+/* The key of a synthetic bold variant of a glyph (strength64: the emboldening in 1/64 font units). Bit 61 is set, bits 62 and 63
+ * clear. Uids are small sequential counters, so the uid << 40 of glyph_key cannot reach bit 61 in practice. */
+static uint64_t variant_key(uint32_t uid, uint32_t inst, uint32_t gid, uint32_t strength64)
+{
+    uint64_t h = mix64(uid);
+    h = mix64(h ^ inst);
+    h = mix64(h ^ gid);
+    h = mix64(h ^ (0x8000000000000000ull | strength64));
+    return (1ull << 61) | (h & ((1ull << 61) - 1u));
+}
+
+/* The blob and cache key of the hinted variant of a glyph at a size (ppem64: px per em in 1/64). Bit 62 is set, bit 63 clear.
+ * variant is the synthetic bold key of the outline (0 for the regular one). */
+static uint64_t hint_key(uint32_t uid, uint32_t inst, uint32_t gid, uint32_t ppem64, uint64_t variant)
 {
     SDL_assert(uid < (1u << 22));
     uint64_t h = mix64(uid);
     h = mix64(h ^ inst);
     h = mix64(h ^ gid);
     h = mix64(h ^ ppem64);
+    if (variant != 0) {
+        h = mix64(h ^ variant);
+    }
     return (1ull << 62) | (h & ((1ull << 62) - 1u));
+}
+
+/* The emboldened curves of glyph gid at a strength (strength64 / 64 font units), centred, for the unhinted drawing. Built on a
+ * miss; the flags and the extent come from the regular outline and the new curves. */
+static outline_entry *bold_get(embi_text *t, embi_face *face, uint32_t inst, uint32_t gid, uint32_t strength64)
+{
+    outline_state *o = outline_of(t);
+    const uint64_t key = variant_key(face->uid, inst, gid, strength64);
+    uint64_t v;
+    if (embi_hashmap_get(&o->bold, key, &v)) {
+        return (outline_entry *)(uintptr_t)v;
+    }
+    const outline_entry *base = outline_get(t, face, inst, gid);
+    outline_entry *e = embi_calloc(1, sizeof *e);
+    if (base != nullptr && base->n > 0) {
+        const float str = (float)strength64 / 64.0f;
+        e->n = base->n;
+        e->curves = embi_alloc(sizeof(embi_qcurve) * e->n);
+        embi_embolden(base->curves, base->n, base->starts, base->nstarts, str, str, false, e->curves);
+        e->boxy = base->boxy;
+        e->ymin = e->ymax = e->curves[0].y0;
+        for (uint32_t i = 0; i < e->n; i++) {
+            const float ys[2] = {e->curves[i].y0, e->curves[i].y1};
+            for (int k = 0; k < 2; k++) {
+                e->ymin = ys[k] < e->ymin ? ys[k] : e->ymin;
+                e->ymax = ys[k] > e->ymax ? ys[k] : e->ymax;
+            }
+        }
+    }
+    o->bytes += sizeof(embi_qcurve) * e->n + sizeof *e;
+    embi_hashmap_put(&o->bold, key, (uint64_t)(uintptr_t)e);
+    return e;
 }
 
 typedef struct extent_ctx {
@@ -265,49 +336,95 @@ static const embi_hint_zones *hint_zones(embi_text *t, outline_state *o, embi_fa
 /* A smaller x-height than this (px) is not hinted: the rows are too few to fit. */
 #define EMBI_HINT_MIN_XHEIGHT_PX 3.0f
 
-/* The hinted curves of glyph gid at s device px per font unit (vertically), or nullptr to draw it unhinted. The result is
- * cached by size; a glyph without edges is remembered as unhinted. */
+/* The scheme of the hinted synthetic bold: the key of the bold variant is mixed with this, so it never meets the centred one. */
+#define EMBI_BOLD_HINT_SCHEME 0x9E3779B97F4A7C15ull
+
+/* The cache key of the hinted outline of glyph gid at ppem64 (px per em in 1/64) with the synthetic bold strength64 (0: regular). */
+static uint64_t hint_key_for(embi_face *face, uint32_t inst, uint32_t gid, uint32_t ppem64, uint32_t strength64)
+{
+    const uint64_t variant = strength64 != 0 ? (variant_key(face->uid, inst, gid, strength64) ^ EMBI_BOLD_HINT_SCHEME) : 0;
+    return hint_key(face->uid, inst, gid, ppem64, variant);
+}
+
+/* The hinted curves of glyph gid at s device px per font unit (vertically), or nullptr to draw it unhinted. oe is the regular
+ * outline. A bold request (strength64 != 0) hints the regular outline and then emboldens the hinted curves: the stems grow to the
+ * right, the baseline and the left edges stay, and the top grows by the strength rounded to whole device px (FreeType's
+ * EmboldenXY with the bottom-left anchor), so the top edges stay on their rows. The result is cached by size and strength; the
+ * key (*key_out) names the curves. A glyph without edges is remembered as unhinted. */
 static const outline_entry *hint_get(embi_text *t, embi_face *face, uint32_t inst, uint32_t gid, const outline_entry *oe,
-                                     float s)
+                                     float s, uint32_t strength64, uint64_t *key_out)
 {
     outline_state *o = outline_of(t);
     const float upem = (float)face->font.metrics.units_per_em;
     const uint32_t ppem64 = (uint32_t)SDL_roundf(s * upem * 64.0f);
-    const uint64_t key = hint_key(face->uid, inst, gid, ppem64);
     /* The curves are a function of the key alone: hinted at the size the key names, not at s, whose float sum may land on
      * either side of a rounding (the same key must always carry the same curves, gpu/slug.h). The drawing still uses the
      * true scale, which differs by at most 1/128 px per em. */
     if (ppem64 == 0 || !(upem > 0.0f)) {
+        *key_out = 0;
         return nullptr;
     }
     s = (float)ppem64 / (64.0f * upem);
+    const uint64_t key = hint_key_for(face, inst, gid, ppem64, strength64);
+    *key_out = key;
     uint64_t v;
     if (embi_hashmap_get(&o->hinted, key, &v)) {
         const outline_entry *e = (const outline_entry *)(uintptr_t)v;
         return e->n > 0 ? e : nullptr;
     }
     outline_entry *e = embi_calloc(1, sizeof *e);
-    const embi_hint_zones *z = hint_zones(t, o, face, inst);
-    if (z != nullptr) {
-        const embi_hint_zone *xz = (z->n_valid_mask & (1u << EMBI_HINT_XHEIGHT)) != 0 ? &z->z[EMBI_HINT_XHEIGHT]
-                                                                                       : &z->z[EMBI_HINT_CAP];
-        if (xz->flat * s >= EMBI_HINT_MIN_XHEIGHT_PX) {
-            embi_qcurve *buf = embi_alloc(sizeof(embi_qcurve) * 2u * oe->n);
-            uint32_t m = embi_hint_glyph(z, upem, s, oe->curves, oe->n, buf);
-            if (m > 0) {
-                e->curves = buf;
-                e->n = m;
-                e->ymin = oe->ymin;
-                e->ymax = oe->ymax;
-                /* The buffer holds 2 * n curves; keep the exact size so that it frees with the entry. */
-                embi_qcurve *fit = embi_alloc(sizeof(embi_qcurve) * m);
-                SDL_memcpy(fit, buf, sizeof(embi_qcurve) * m);
-                e->curves = fit;
+    if (strength64 == 0) {
+        const embi_hint_zones *z = hint_zones(t, o, face, inst);
+        if (z != nullptr) {
+            const embi_hint_zone *xz = (z->n_valid_mask & (1u << EMBI_HINT_XHEIGHT)) != 0 ? &z->z[EMBI_HINT_XHEIGHT]
+                                                                                           : &z->z[EMBI_HINT_CAP];
+            if (xz->flat * s >= EMBI_HINT_MIN_XHEIGHT_PX) {
+                embi_qcurve *buf = embi_alloc(sizeof(embi_qcurve) * 2u * oe->n);
+                uint32_t *map = embi_alloc(sizeof(uint32_t) * (oe->n + 1u));
+                uint32_t m = embi_hint_glyph_map(z, upem, s, oe->curves, oe->n, buf, map);
+                if (m > 0) {
+                    /* The buffer holds 2 * n curves; keep the exact size so that it frees with the entry. */
+                    embi_qcurve *fit = embi_alloc(sizeof(embi_qcurve) * m);
+                    SDL_memcpy(fit, buf, sizeof(embi_qcurve) * m);
+                    e->curves = fit;
+                    e->n = m;
+                    e->ymin = oe->ymin;
+                    e->ymax = oe->ymax;
+                    /* A contour starts where its regular start went. */
+                    e->nstarts = oe->nstarts;
+                    e->starts = embi_alloc(sizeof(uint32_t) * e->nstarts);
+                    for (uint32_t c = 0; c < e->nstarts; c++) {
+                        e->starts[c] = map[oe->starts[c]];
+                    }
+                }
+                embi_free(buf, sizeof(embi_qcurve) * 2u * oe->n);
+                embi_free(map, sizeof(uint32_t) * (oe->n + 1u));
             }
-            embi_free(buf, sizeof(embi_qcurve) * 2u * oe->n);
+        }
+    } else {
+        uint64_t rkey = 0;
+        const outline_entry *r = hint_get(t, face, inst, gid, oe, s, 0, &rkey);
+        if (r != nullptr && r->n > 0) {
+            const float str = (float)strength64 / 64.0f;
+            /* The strength in whole device px, as a function of the key (strength64 and ppem64). */
+            const float ystr = SDL_roundf(str * s) / s;
+            e->n = r->n;
+            e->curves = embi_alloc(sizeof(embi_qcurve) * e->n);
+            embi_embolden(r->curves, r->n, r->starts, r->nstarts, str, ystr, true, e->curves);
+            e->nstarts = r->nstarts;
+            e->starts = embi_alloc(sizeof(uint32_t) * e->nstarts);
+            SDL_memcpy(e->starts, r->starts, sizeof(uint32_t) * e->nstarts);
+            e->ymin = e->ymax = e->curves[0].y0;
+            for (uint32_t i = 0; i < e->n; i++) {
+                const float ys[2] = {e->curves[i].y0, e->curves[i].y1};
+                for (int k = 0; k < 2; k++) {
+                    e->ymin = ys[k] < e->ymin ? ys[k] : e->ymin;
+                    e->ymax = ys[k] > e->ymax ? ys[k] : e->ymax;
+                }
+            }
         }
     }
-    o->hint_bytes += sizeof *e + sizeof(embi_qcurve) * e->n;
+    o->hint_bytes += sizeof *e + sizeof(embi_qcurve) * e->n + sizeof(uint32_t) * e->nstarts;
     embi_hashmap_put(&o->hinted, key, (uint64_t)(uintptr_t)e);
     return e->n > 0 ? e : nullptr;
 }
@@ -579,7 +696,6 @@ typedef struct text_fit {
     float darken;
     bool lcd;
     bool hint;  /* glyphs are hinted (text/hint.c) instead of scaled by k */
-    float dy;   /* local px added to the baseline after it is put on a pixel row (synthetic bold copies) */
 } text_fit;
 
 /* The top of the outline of glyph gid (font units), or 0 when it has none. */
@@ -764,10 +880,11 @@ static bool draw_bitmap_glyph(embi_text *t, embi_frame *f, embi_face *face, uint
     return t->bitmap_fn(t->bitmap_user, f, px, key, rect, xform, clip);
 }
 
-/* Draws one glyph at the glyph-units-to-local transform G. fit says how crisp text is done. */
+/* Draws one glyph at the glyph-units-to-local transform G. fit says how crisp text is done. strength64 is the synthetic bold
+ * emboldening in 1/64 font units (0: regular outline); colour layers and bitmaps are never emboldened. */
 static void draw_glyph(embi_text *t, embi_frame *f, embi_face *face, uint32_t inst,
                        uint32_t gid, const float G[6], uint32_t color, uint32_t xform,
-                       uint32_t clip, const text_fit *fit, float bsize, float bscale)
+                       uint32_t clip, const text_fit *fit, float bsize, float bscale, uint32_t strength64)
 {
     const int16_t *coords = embi_face_inst_coords(face, inst);
     if (face->font.metrics.has_colr) {
@@ -793,10 +910,17 @@ static void draw_glyph(embi_text *t, embi_frame *f, embi_face *face, uint32_t in
             return;
         }
     }
-    outline_entry *oe = outline_get(t, face, inst, gid);
+    /* The regular outline is what hinting works on; the bold one (centred) is what is drawn unhinted. */
+    const outline_entry *ro = outline_get(t, face, inst, gid);
+    if (ro == nullptr || ro->n == 0) {
+        return;
+    }
+    const outline_entry *oe = strength64 != 0 ? bold_get(t, face, inst, gid, strength64) : ro;
     if (oe == nullptr || oe->n == 0) {
         return;
     }
+    /* The cache key of the unhinted curves drawn: the bold variant, or the glyph. */
+    const uint64_t ckey = strength64 != 0 ? variant_key(face->uid, inst, gid, strength64) : glyph_key(face->uid, inst, gid);
     float M[6];
     SDL_memcpy(M, G, sizeof M);
     if (oe->boxy && xform == 0 && G[1] == 0.0f && G[2] == 0.0f && G[3] < 0.0f && oe->ymax > oe->ymin) {
@@ -821,25 +945,23 @@ static void draw_glyph(embi_text *t, embi_frame *f, embi_face *face, uint32_t in
              * different float sums (a reftest and its reference) land on the same row at an exact .5. */
             float snap = SDL_floorf(devy + 0.5f + 0.002f) - devy;
             M[3] = G[3] * fit->k;
-            M[5] = G[5] + snap / fit->m3 + fit->dy;
+            M[5] = G[5] + snap / fit->m3;
             if (fit->hint) {
-                const outline_entry *he = hint_get(t, face, inst, gid, oe, -G[3] * fit->m3);
+                uint64_t hkey = 0;
+                const outline_entry *he = hint_get(t, face, inst, gid, ro, -G[3] * fit->m3, strength64, &hkey);
                 if (he != nullptr) {
-                    const float upem = (float)face->font.metrics.units_per_em;
-                    const uint32_t ppem64 = (uint32_t)SDL_roundf(-G[3] * fit->m3 * upem * 64.0f);
                     M[3] = G[3];
-                    embi_frame_fill_text(f, hint_key(face->uid, inst, gid, ppem64), he->curves, he->n, M, color,
-                                         fit->darken, fit->lcd, xform, clip);
+                    embi_frame_fill_text(f, hkey, he->curves, he->n, M, color, fit->darken, fit->lcd, xform, clip);
                     return;
                 }
             }
         }
-        embi_frame_fill_text(f, glyph_key(face->uid, inst, gid), oe->curves, oe->n, M, color,
+        embi_frame_fill_text(f, ckey, oe->curves, oe->n, M, color,
                              fit->darken, fit->lcd, xform, clip);
         return;
     }
     embi_paint paint = embi_paint_solid(color);
-    embi_frame_fill_quads(f, glyph_key(face->uid, inst, gid), oe->curves, oe->n, M, &paint,
+    embi_frame_fill_quads(f, ckey, oe->curves, oe->n, M, &paint,
                           EMBI_FILL_NONZERO, xform, clip);
 }
 
@@ -887,11 +1009,19 @@ void embi_text_draw(embi_text *t, embi_frame *f, const embi_text_layout *lay,
             fit.hint = size_px <= EMBI_FIT_MAX_PX;
         }
         /* Synthetic bold: the outline grows by about size / 24 (Skia's fake bold: a 24th of the em up to 9 px, 32nd from
-         * 36 px), drawn as four copies a half of that away in the diagonals. Synthetic oblique: a skew of 14 degrees. */
+         * 36 px), emboldened geometrically (embolden.c). Synthetic oblique: a skew of 14 degrees. */
         float embolden = 0.0f;
+        uint32_t strength64 = 0;
         if ((run->synth & EMBI_RUN_SYNTH_BOLD) != 0) {
             float k = run->size <= 9.0f ? 1.0f / 24.0f : (run->size >= 36.0f ? 1.0f / 32.0f : 1.0f / 24.0f - (run->size - 9.0f) / 27.0f * (1.0f / 24.0f - 1.0f / 32.0f));
             embolden = run->size * k;
+            /* The strength is quantised coarsely in device px (1/16), so that a size that moves a little keeps its variants, and
+             * then taken in font units at 1/64: the cache key and the curves both come from that value. */
+            const float dscale = have_target ? tt.m[3] : 1.0f;
+            const float dev16 = SDL_roundf(embolden * dscale * 16.0f);
+            const float fu = (dev16 > 0.0f ? dev16 / 16.0f : 1.0f / 16.0f) / (dscale * s);
+            strength64 = (uint32_t)SDL_roundf(fu * 64.0f);
+            strength64 = strength64 > 0 ? strength64 : 1u;
         }
         float skew = (run->synth & EMBI_RUN_SYNTH_OBLIQUE) != 0 ? s * EMBI_OBLIQUE_SKEW : 0.0f;
         /* Bitmap strikes draw where the face has them, when a sink is set. On a face with a COLR table the glyph is
@@ -907,22 +1037,8 @@ void embi_text_draw(embi_text *t, embi_frame *f, const embi_text_layout *lay,
                 pen += gl->advance;
                 continue;
             }
-            float G[6] = {s, 0.0f, skew, -s, pen + gl->x_offset, y - gl->y_offset};
-            if (embolden > 0.0f) {
-                const float h = embolden * 0.5f;
-                static const float dx[4] = {-1.0f, 1.0f, -1.0f, 1.0f}, dy[4] = {-1.0f, -1.0f, 1.0f, 1.0f};
-                for (int c = 0; c < 4; c++) {
-                    float Gc[6] = {G[0], G[1], G[2], G[3], G[4] + dx[c] * h, G[5]};
-                    text_fit fc = fit;
-                    fc.dy = dy[c] * h;
-                    if (!fit.on) {
-                        Gc[5] += fc.dy;
-                    }
-                    draw_glyph(t, f, run->face, run->inst, gl->gid, Gc, color, xform, clip, &fc, 0.0f, bscale);
-                }
-            } else {
-                draw_glyph(t, f, run->face, run->inst, gl->gid, G, color, xform, clip, &fit, colr_bm, bscale);
-            }
+            const float G[6] = {s, 0.0f, skew, -s, pen + gl->x_offset, y - gl->y_offset};
+            draw_glyph(t, f, run->face, run->inst, gl->gid, G, color, xform, clip, &fit, colr_bm, bscale, strength64);
             pen += gl->advance;
         }
     }

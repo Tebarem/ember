@@ -408,6 +408,12 @@ static uint32_t find_contours(const embi_hint_zones *zones, float upem, float s,
 uint32_t embi_hint_glyph(const embi_hint_zones *zones, float upem, float s, const embi_qcurve *in, uint32_t n,
                          embi_qcurve *out)
 {
+    return embi_hint_glyph_map(zones, upem, s, in, n, out, nullptr);
+}
+
+uint32_t embi_hint_glyph_map(const embi_hint_zones *zones, float upem, float s, const embi_qcurve *in, uint32_t n,
+                             embi_qcurve *out, uint32_t *map)
+{
     if (n == 0 || n > HINT_MAX_QUADS || !(s > 0.0f) || !(upem > 0.0f) || !embi_hint_zones_usable(zones)) {
         return 0;
     }
@@ -537,6 +543,9 @@ uint32_t embi_hint_glyph(const embi_hint_zones *zones, float upem, float s, cons
     for (uint32_t i = 0; i < n; i++) {
         const embi_qcurve *q = &in[i];
         const uint32_t first = written;
+        if (map != nullptr) {
+            map[i] = written;
+        }
         float den = q->y0 - 2.0f * q->cy + q->y1;
         float t = SDL_fabsf(den) > 1e-9f ? (q->y0 - q->cy) / den : -1.0f;
         if (t > 1e-4f && t < 1.0f - 1e-4f) {
@@ -585,6 +594,9 @@ uint32_t embi_hint_glyph(const embi_hint_zones *zones, float upem, float s, cons
                 *ys[k] = px * inv;
             }
         }
+    }
+    if (map != nullptr) {
+        map[n] = written;
     }
     embi_free(ay, sizeof(float) * ne * 3u);
     embi_free(e, sizeof *e * n);
