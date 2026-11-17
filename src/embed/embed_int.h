@@ -82,6 +82,8 @@ struct emb_view {
     SDL_GPUTexture *tex;       /* the view's texture, dev_w x dev_h device px */
     uint32_t dev_w, dev_h;
     float scale;               /* device px per CSS px */
+    float raster;              /* offscreen: an extra factor for the drawn pixels (emb_view_set_raster_scale), 1 by default */
+    uint32_t flags;            /* offscreen: the EMB_VIEW_* of emb_view_desc.flags */
     uint32_t css_w, css_h;     /* the viewport in CSS px */
     /* The document and the display lists: two of them, the current one drawn and the one being built. */
     embi_doc *doc;
@@ -129,7 +131,20 @@ struct emb_view {
     void *host_user;
     /* IF1: the view's frames (its iframes' child views) and, for a child view, its place under its parent (frames.c). */
     struct embi_frames *frames;
+    /* emb_view_render_to: the target of the last picture drawn into a host texture, valid while rt_valid. drew_own is set
+     * when the last picture went to the view's own texture (a render_to then draws the whole rectangle). */
+    SDL_GPUTexture *rt_tex;
+    int32_t rt_x, rt_y;
+    uint32_t rt_w, rt_h;
+    bool rt_valid;
+    bool drew_own;
 };
+
+/* The device px per CSS px the view draws at: the scale times the raster scale. The document keeps the scale alone. */
+static inline float embi_view_draw_scale(const emb_view *v)
+{
+    return v->scale * v->raster;
+}
 
 /* ------------------------------------------------------------------ runtime (runtime.c) */
 

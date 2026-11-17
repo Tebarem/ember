@@ -126,6 +126,8 @@ struct embi_frame {
     uint32_t degenerate_xform; /* index of a zero transform, or 0 when not created yet */
     bool overflow;             /* a cap was hit during recording; the frame draws nothing */
     bool region;              /* a partial redraw (embi_frame_begin_region) */
+    int32_t tx, ty;           /* the frame's rectangle in its target (embi_frame_set_target_offset) */
+    uint32_t tex_w, tex_h;    /* the target's size; the frame's own size when it draws the whole target */
     bool region_clear;        /* set at embi_frame_end: the damage is cleared first */
     embi_text_aa text_aa;     /* text antialiasing of the frame */
     bool animating;           /* a transform animation runs: text under transforms is gray, unfitted */
@@ -886,6 +888,10 @@ static embi_frame *embi_frame_open(embi_renderer *r, uint32_t width_px, uint32_t
     f->scale = device_scale;
     f->region = region;
     f->damage = damage;
+    f->tx = 0;
+    f->ty = 0;
+    f->tex_w = width_px;
+    f->tex_h = height_px;
     embi_frame_reset(f);
 
     embi_slug_begin_frame(r->slug);
@@ -921,6 +927,17 @@ embi_frame *embi_frame_begin_region(embi_renderer *r, uint32_t width_px, uint32_
         d.y = (int32_t)y0;
     }
     return embi_frame_open(r, width_px, height_px, device_scale, true, d);
+}
+
+void embi_frame_set_target_offset(embi_frame *f, int32_t x, int32_t y, uint32_t tex_w, uint32_t tex_h)
+{
+    if (f == nullptr) {
+        return;
+    }
+    f->tx = x;
+    f->ty = y;
+    f->tex_w = tex_w;
+    f->tex_h = tex_h;
 }
 
 uint32_t embi_frame_xform(embi_frame *f, const float m[6])
@@ -2193,9 +2210,10 @@ void embi_frame_end(embi_frame *f, SDL_GPUCommandBuffer *cmd, SDL_GPUTexture *ta
     if (ns > 0) {
         SDL_memcpy(mapped + off_stops, f->stops.data, (size_t)ns * sizeof(embi_stop));
     }
+    /* pad carries the frame's origin in its target: the clip test of the fragment shader is in frame px. */
     const embi_frame_params fp = {
         .viewport = {(float)f->w, (float)f->h},
-        .pad = {0.0f, 0.0f},
+        .pad = {(float)f->tx, (float)f->ty},
     };
     SDL_memcpy(mapped + off_frame, &fp, sizeof fp);
     {
@@ -2285,6 +2303,15 @@ void embi_frame_end(embi_frame *f, SDL_GPUCommandBuffer *cmd, SDL_GPUTexture *ta
     }
 
     /* Render pass: one draw per batch, in order. The storage slots match shaders/lib/bind.slang. */
+    /* A frame that covers the whole target has no offset; any other frame draws into a rectangle of it. */
+    const bool whole = f->tx == 0 && f->ty == 0 && f->tex_w == f->w && f->tex_h == f->h;
+    if (clear && !f->region && !whole) {
+        static bool logged_clear;
+        if (!logged_clear) {
+            logged_clear = true;
+            embi_log_warn("render: a full frame in a rectangle of a target is drawn without clearing it");
+        }
+    }
     const float a = (float)((clear_rgba >> 24) & 255u) / 255.0f;
     const SDL_GPUColorTargetInfo color = {
         .texture = target,
@@ -2296,7 +2323,7 @@ void embi_frame_end(embi_frame *f, SDL_GPUCommandBuffer *cmd, SDL_GPUTexture *ta
                 .a = a,
             },
         /* A region frame never clears the target: its clear is the CLEAR prim, inside the damage. */
-        .load_op = (clear && !f->region) ? SDL_GPU_LOADOP_CLEAR : SDL_GPU_LOADOP_LOAD,
+        .load_op = (clear && !f->region && whole) ? SDL_GPU_LOADOP_CLEAR : SDL_GPU_LOADOP_LOAD,
         .store_op = SDL_GPU_STOREOP_STORE,
     };
     SDL_GPURenderPass *pass = SDL_BeginGPURenderPass(cmd, &color, 1, nullptr);
@@ -2305,8 +2332,15 @@ void embi_frame_end(embi_frame *f, SDL_GPUCommandBuffer *cmd, SDL_GPUTexture *ta
         r->last_draws = 0;
         return;
     }
+    if (!whole) {
+        const SDL_GPUViewport vp = {(float)f->tx, (float)f->ty, (float)f->w, (float)f->h, 0.0f, 1.0f};
+        SDL_SetGPUViewport(pass, &vp);
+    }
     if (f->region) {
-        const SDL_Rect sr = {f->damage.x, f->damage.y, f->damage.w, f->damage.h};
+        const SDL_Rect sr = {f->tx + f->damage.x, f->ty + f->damage.y, f->damage.w, f->damage.h};
+        SDL_SetGPUScissor(pass, &sr);
+    } else if (!whole) {
+        const SDL_Rect sr = {f->tx, f->ty, (int)f->w, (int)f->h};
         SDL_SetGPUScissor(pass, &sr);
     }
     /* The slug buffer is bound in every batch. Until a blob exists the dummy stands in for it. */

@@ -57,6 +57,8 @@ build/examples/viewer --net-allow example.com https://example.com/   # a remote 
 Vue 3 and TanStack Query app as one executable: the Vite build is embedded with `#embed` and the app's `fetch('api/...')`
 calls are answered by the host in C.
 
+`examples/world_panel` shows two views drawn into one atlas texture as panels in a 3D scene, with dynamic resolution and mouse input.
+
 ## Embedding
 
 The public API is in [`include/ember`](include/ember). A windowed view:

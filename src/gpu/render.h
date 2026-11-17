@@ -80,6 +80,13 @@ typedef struct embi_dev_rect {
                                                   uint32_t height_px, float device_scale,
                                                   embi_dev_rect damage);
 
+/* Draws the frame into the w x h rectangle at (x, y) of a target of tex_w x tex_h px (the frame's size is the rectangle's):
+ * the viewport is the rectangle and the scissor never leaves it. A frame with an offset never clears the whole target:
+ * embi_frame_end(clear == true) needs a region frame (embi_frame_begin_region) then, whose damage is in the rectangle's
+ * coordinates; a full frame with an offset and clear == true is drawn as if clear were false (logged once). Call it right
+ * after the begin. */
+void embi_frame_set_target_offset(embi_frame *f, int32_t x, int32_t y, uint32_t tex_w, uint32_t tex_h);
+
 /* Adds a 2x3 transform, CSS order (a, b, c, d, e, f) in local CSS px. Returns its index, which
  * is 0 for the identity. Consecutive equal transforms share one index. */
 uint32_t embi_frame_xform(embi_frame *f, const float m[6]);

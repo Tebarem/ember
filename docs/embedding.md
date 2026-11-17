@@ -163,7 +163,94 @@ bool draw_frame(SDL_GPUDevice *dev, SDL_Window *win, emb_view *view)
 - `emb_view_set_scale`, `emb_view_set_color_scheme` (feeds `prefers-color-scheme`) and `emb_view_set_text_aa` repaint the
   view.
 - Offscreen text uses grayscale antialiasing in `EMB_TEXT_AA_AUTO`, since you may composite the texture over anything.
+- The texture is RGBA8 UNORM by default; `emb_view_desc.format` can make it BGRA8. Colors are premultiplied alpha in gamma
+  (sRGB-encoded) space, so composite with `ONE` / `ONE_MINUS_SRC_ALPHA`, and sample the texture as UNORM, not as an `_SRGB`
+  texture.
 - `examples/offscreen/main.c` is the full loop: window and device creation, event handling, the blit.
+
+### Rendering into your own textures
+
+`emb_view_render_to` draws a view into a rectangle of a texture the host owns, such as an atlas that holds several views.
+Ember records into the command buffer you pass and never submits it.
+
+```c
+#include <ember/ember.h>
+#include <SDL3/SDL.h>
+#include <string.h>
+
+/* atlas: an RGBA8 texture of 2048 x 1024 with COLOR_TARGET | SAMPLER usage. left and right are two offscreen views. */
+bool draw_two_views(SDL_GPUCommandBuffer *cmd, SDL_GPUTexture *atlas, emb_view *left, emb_view *right, bool preserved)
+{
+    emb_render_target t;
+    memset(&t, 0, sizeof t);
+    t.size = sizeof t;
+    t.texture = atlas;
+    t.texture_w = 2048;
+    t.texture_h = 1024;
+    t.flags = preserved ? EMB_RENDER_PRESERVED : 0;
+    t.x = 0;                                             /* the left view's rectangle: top-left at (0, 0) */
+    bool a = emb_view_render_to(left, cmd, &t);
+    t.x = 1040;                                          /* the right one, with a 32 px gutter between them */
+    bool b = emb_view_render_to(right, cmd, &t);
+    return a || b;                                       /* true when either recorded a picture */
+}
+```
+
+- The rectangle is `emb_view_device_size` at (x, y). It must lie inside the texture; a rectangle that does not fit is refused
+  (logged, nothing recorded).
+- The texture must be in the view's format (`emb_view_desc.format`) and have COLOR_TARGET usage. Only mip level 0 is drawn.
+- Ember writes only inside the rectangle, and it never submits. Pass ordering and the submit are yours.
+- `EMB_RENDER_PRESERVED` says that the rectangle still holds the view's previous picture: the same texture, x, y and device
+  size, and nothing else drawn there since. Then only the damage is drawn again, and the call returns false when nothing
+  changed. Without the flag, or when any of those differ from the previous call, the whole rectangle is drawn. Ember keeps
+  the record itself, so passing the flag on every call is safe, the first one included and after an error.
+- Create a view with `EMB_VIEW_NO_TEXTURE` in `emb_view_desc.flags` when it is drawn only this way. The view then makes no
+  texture of its own: `emb_view_texture` returns nullptr, and `emb_view_render` records nothing and returns false.
+- A view drawn with `emb_view_render_to` can also be drawn with `emb_view_render`. Each switch between the two draws the
+  whole picture once.
+
+### UI in a 3D world
+
+A view drawn on a panel in a 3D scene shows its text at whatever size the panel has on screen. Text is rasterized from its
+outlines at the device pixel size, so a panel drawn at its CSS size and then magnified by the GPU looks blurred up close.
+`emb_view_set_raster_scale(view, r)` draws the view at `scale * r` device px per CSS px. The document does not see it:
+layout, style, `devicePixelRatio` and media queries stay as they are, and only the drawing is redone. The cost is one GPU
+redraw of the view each time the scale changes. What the page sizes in device pixels itself keeps that size and is
+magnified: a `<canvas>` backing store sized from `devicePixelRatio`, and the snapping of hairline borders.
+
+- Pick `r` from the panel's size on screen: its height in device px over its height in CSS px.
+- Quantize `r` and change it only when the wanted value leaves the current step. Each change redraws the whole view, so
+  a panel that breathes around a step should keep its scale:
+
+```c
+#include <math.h>
+
+/* The raster scale for the next frame. Steps are powers of 2^(1/4); a change needs the wanted value to leave the current
+ * step by more than 1/8 octave. max is the largest scale whose device size fits the panel's slot. */
+float next_raster(float current, float wanted, float max)
+{
+    float d = fminf(fmaxf(wanted, 0.25f), max);
+    if (fabsf(log2f(d) - log2f(current)) <= 0.125f) {
+        return current;                                  /* inside the hysteresis band: keep it */
+    }
+    return fminf(exp2f(roundf(4.0f * log2f(d)) / 4.0f), max);
+}
+```
+
+- Minification: a panel drawn smaller than its texture needs mipmaps. A view's own texture gets them with
+  `EMB_VIEW_MIPMAPS`, which makes the chain after each changed frame. An atlas gets them from the host: after the views
+  drew into it, call `SDL_GenerateMipmapsForGPUTexture` on the atlas when any of them recorded a picture. Mip level 0 must be
+  complete first, and the views write only level 0.
+- Mips of an atlas mix texels across the edges of neighbouring slots. Leave a gutter of 32 px between slots, and sample only
+  the panel's own sub-rectangle (its device size, not the slot's).
+- Text in a texture uses grayscale antialiasing, as for any offscreen view. Subpixel (LCD) antialiasing is not used, since the
+  panel may be rotated or scaled.
+- Input: cast the mouse ray through the inverse of the view-projection matrix, intersect it with the panel's plane, and
+  convert the hit to the panel's unit square (u, v in [0, 1]). The view gets `(u * css_width, v * css_height)` as the pointer
+  position. Send `emb_view_mouse_leave` to a view that is no longer hit, and send the wheel to the panel under the pointer.
+
+`examples/world_panel` puts these together: two views in one atlas, a perspective camera that moves, dynamic raster scales,
+and mouse input through the ray.
 
 ### Shared libraries and SDL
 

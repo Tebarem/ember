@@ -46,11 +46,11 @@ void embi_gfx_attach_text(embi_gfx *gx, embi_text *text);
  * (an iframe's picture, a window's present): it is then a one-layer 2D array, like every texture the shaders sample
  * (see gpu/atlas.h); Metal reads a plain 2D texture bound there wrongly. Without, it is a plain 2D texture (the target of
  * an offscreen view, which the embedder samples or blits as one). */
-SDL_GPUTexture *embi_gfx_texture_create(embi_gfx *gx, uint32_t w, uint32_t h, bool sampled);
+SDL_GPUTexture *embi_gfx_texture_create(embi_gfx *gx, uint32_t w, uint32_t h, bool sampled, uint32_t levels);
 /* The same on a device and a format, without a renderer (the view makes its target on a thread while the renderer is
  * still being made). Thread safe, like all SDL_gpu resource creation. */
 SDL_GPUTexture *embi_gfx_texture_create_on(SDL_GPUDevice *dev, SDL_GPUTextureFormat fmt, uint32_t w, uint32_t h,
-                                           bool sampled);
+                                           bool sampled, uint32_t levels);
 void embi_gfx_texture_destroy(embi_gfx *gx, SDL_GPUTexture *t);
 
 /* The natural size of an absolute image URL, fetching and decoding it when it was never requested. Returns false
@@ -115,6 +115,8 @@ typedef struct embi_gfx_target {
     uint32_t clear_rgba;   /* the canvas color of a full redraw, non-premultiplied, r in the low byte */
     int text_aa;           /* 0 gray, 1 LCD RGB, 2 LCD BGR (embi_text_aa of gpu/render.h), already resolved */
     bool animating;        /* a transform animation runs: text under transforms is drawn gray and unfitted */
+    int32_t tex_x, tex_y;  /* the top-left of the rectangle (w x h) in the texture (tex_w x tex_h); 0, 0 is the texture's corner */
+    uint32_t tex_w, tex_h; /* the texture's size in device px; 0 means w and h (the whole texture) */
 } embi_gfx_target;
 
 typedef struct embi_gfx_stats {
