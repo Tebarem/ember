@@ -6,8 +6,8 @@
  * window.falcon.onMessage) one at a time; after each, the view renders until it is idle (the page handles a message in a
  * setTimeout(0) task and re-renders its panels, reading layout in between: those reads force synchronous layouts).
  *
- *   bench_editor [--bundle DIR] [--messages FILE] [--rounds N] [--in-flight N] [--gpu-load N] [--system-fonts] [--quiet]
- *                [--verbose]
+ *   bench_editor [--bundle DIR] [--messages FILE] [--rounds N] [--in-flight N] [--gpu-load N] [--drag N] [--system-fonts]
+ *                [--quiet] [--verbose]
  *
  * --bundle DIR     the editor bundle (index.html and its scripts and styles; default ../falcon-editor-bundle)
  * --messages FILE  the messages (default ../editor_edit_messages.jsonl)
@@ -15,6 +15,10 @@
  * --in-flight N    frames in flight, as a host with a swapchain has them (default 0: each frame is waited for, so the GPU
  *                  is idle when the next one records; 2 is what Falcon has)
  * --gpu-load N     the GPU work of a game under each frame: N copies of a 64 MB texture, submitted before it (default 0)
+ * --drag N         after the messages, drags the left splitter (the page sets its --left variable on #workspace on every
+ *                  mousemove) over N moves of 3 px, one frame after each, as a host that sends one merged move per update:
+ *                  the cost of each move (the hit test, the page's handlers, the layouts they force) and of each frame
+ *                  (its style, layout and display list, the observers' layouts), averaged over the moves after the first
  * --system-fonts   the runtime indexes and uses the machine's fonts (default off, so the numbers do not depend on them)
  * --quiet          only the summary lines
  * --verbose        the view's stats of each message's last frame
@@ -230,10 +234,90 @@ static tally *tally_for(tally *t, uint32_t *nt, const char *type)
     return x;
 }
 
+/* --drag: the per-update cost of dragging the left splitter. Each update is one mousemove (the host merged the moves of its
+ * frame) and one frame. Printed per move with --verbose; the averages skip the first move (the press's styles). */
+static void drag_bench(SDL_GPUDevice *dev, emb_view *v, embi_layout_engine *le, int n, bool verbose)
+{
+    const float x0 = 262.0f, y = 450.0f; /* the left splitter: 4 px right of --left (260 px by default) */
+    uint64_t t = 0;
+    emb_view_mouse_move(v, x0, y, 0);
+    (void)run_until_idle(dev, v, le, &t);
+    emb_view_mouse_button(v, x0, y, EMB_BUTTON_PRIMARY, true, 0);
+    (void)run_until_idle(dev, v, le, &t);
+    double sum_move = 0, sum_frame = 0, max_move = 0, max_frame = 0, sum_mlay = 0, sum_flay = 0;
+    double sum_sty = 0, sum_lay = 0, sum_dl = 0, sum_paint = 0;
+    uint64_t mcalls = 0, fcalls = 0, mboxes = 0, fboxes = 0, kinds[EMBI_LAYOUT_PROF_KINDS] = {0};
+    if (verbose) {
+        printf("%4s %8s %5s %8s %7s %8s %5s %8s %7s %7s %7s %7s %7s\n", "move", "move_ms", "lays", "lay_ms", "boxes",
+               "frame_ms", "lays", "lay_ms", "boxes", "sty_ms", "lo_ms", "dl_ms", "upd_ms");
+    }
+    for (int i = 0; i < n; i++) {
+        const int k = (i + 1) % 100; /* out 150 px and back, so a long drag never reaches the splitter's limits */
+        const float x = x0 + 3.0f * (float)(k < 50 ? k : 100 - k);
+        embi_layout_prof p0, p1, p2;
+        embi_layout_prof_get(le, &p0);
+        uint64_t m0 = SDL_GetPerformanceCounter();
+        emb_view_mouse_move(v, x, y, 0);
+        const double move_ms = ticks_ms(SDL_GetPerformanceCounter() - m0);
+        embi_layout_prof_get(le, &p1);
+        embi_style_restyle_stats rs;
+        embi_style_restyle_stats_get(embi_doc_style_engine(v->doc), embi_doc_dom(v->doc), &rs);
+        uint64_t ft = 0;
+        (void)frame(dev, v, &ft);
+        embi_layout_prof_get(le, &p2);
+        const double frame_ms = ticks_ms(ft);
+        emb_view_stats vs;
+        memset(&vs, 0, sizeof vs);
+        vs.size = sizeof vs;
+        emb_view_stats_get(v, &vs);
+        if (verbose) {
+            printf("%4d %8.2f %5" PRIu64 " %8.2f %7" PRIu64 " %8.2f %5" PRIu64 " %8.2f %7" PRIu64 " %7.2f %7.2f %7.2f %7.2f"
+                   "  move restyled %u (custom only %u)\n",
+                   i + 1, move_ms, p1.calls - p0.calls, ticks_ms(p1.ticks - p0.ticks), p1.boxes - p0.boxes, frame_ms,
+                   p2.calls - p1.calls, ticks_ms(p2.ticks - p1.ticks), p2.boxes - p1.boxes, vs.style_ms, vs.layout_ms,
+                   vs.display_list_ms, vs.paint_ms, rs.last_restyled, rs.last_custom_only);
+        }
+        if (i == 0) {
+            continue;
+        }
+        sum_move += move_ms;
+        sum_frame += frame_ms;
+        max_move = move_ms > max_move ? move_ms : max_move;
+        max_frame = frame_ms > max_frame ? frame_ms : max_frame;
+        sum_mlay += ticks_ms(p1.ticks - p0.ticks);
+        sum_flay += ticks_ms(p2.ticks - p1.ticks);
+        mcalls += p1.calls - p0.calls;
+        fcalls += p2.calls - p1.calls;
+        mboxes += p1.boxes - p0.boxes;
+        fboxes += p2.boxes - p1.boxes;
+        sum_sty += vs.style_ms;
+        sum_lay += vs.layout_ms;
+        sum_dl += vs.display_list_ms;
+        sum_paint += vs.paint_ms;
+        for (int j = 0; j < EMBI_LAYOUT_PROF_KINDS; j++) {
+            kinds[j] += p2.kinds[j] - p0.kinds[j];
+        }
+    }
+    emb_view_mouse_button(v, x0, y, EMB_BUTTON_PRIMARY, false, 0);
+    (void)run_until_idle(dev, v, le, &t);
+    const double m = n > 1 ? (double)(n - 1) : 1.0;
+    printf("\ndrag of the left splitter: %d moves (averages over the moves after the first)\n", n);
+    printf("  move:   %.2f ms (max %.2f), %.2f layouts %.2f ms, %.0f boxes\n", sum_move / m, max_move, (double)mcalls / m,
+           sum_mlay / m, (double)mboxes / m);
+    printf("  frame:  %.2f ms (max %.2f), %.2f layouts %.2f ms, %.0f boxes; last layout style %.2f layout %.2f, display "
+           "list %.2f, update %.2f ms\n",
+           sum_frame / m, max_frame, (double)fcalls / m, sum_flay / m, (double)fboxes / m, sum_sty / m, sum_lay / m,
+           sum_dl / m, sum_paint / m);
+    printf("  update: %.2f ms; layout kinds none/paint/surg/part/full %" PRIu64 "/%" PRIu64 "/%" PRIu64 "/%" PRIu64 "/%" PRIu64
+           "\n",
+           (sum_move + sum_frame) / m, kinds[EMBI_LU_NONE], kinds[EMBI_LU_PAINT], kinds[EMBI_LU_SURGERY],
+           kinds[EMBI_LAYOUT_PROF_PARTIAL], kinds[EMBI_LU_FULL]);
+}
+
 int main(int argc, char **argv)
 {
     const char *bundle = "../falcon-editor-bundle", *msgs_path = "../editor_edit_messages.jsonl";
-    int rounds = 1;
+    int rounds = 1, drag = 0;
     bool system_fonts = false, quiet = false, verbose = false;
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--bundle") == 0 && i + 1 < argc) {
@@ -242,6 +326,9 @@ int main(int argc, char **argv)
             msgs_path = argv[++i];
         } else if (strcmp(argv[i], "--rounds") == 0 && i + 1 < argc) {
             rounds = atoi(argv[++i]);
+        } else if (strcmp(argv[i], "--drag") == 0 && i + 1 < argc) {
+            const int n = atoi(argv[++i]);
+            drag = SDL_max(n, 0);
         } else if (strcmp(argv[i], "--system-fonts") == 0) {
             system_fonts = true;
         } else if (strcmp(argv[i], "--quiet") == 0) {
@@ -255,8 +342,8 @@ int main(int argc, char **argv)
             const int n = atoi(argv[++i]);
             g_gpu_load = SDL_max(n, 0);
         } else {
-            fprintf(stderr, "usage: %s [--bundle DIR] [--messages FILE] [--rounds N] [--in-flight N] [--gpu-load N] [--system-fonts] "
-                            "[--quiet] [--verbose]\n", argv[0]);
+            fprintf(stderr, "usage: %s [--bundle DIR] [--messages FILE] [--rounds N] [--in-flight N] [--gpu-load N] [--drag N] "
+                            "[--system-fonts] [--quiet] [--verbose]\n", argv[0]);
             return 0;
         }
     }
@@ -443,6 +530,9 @@ int main(int argc, char **argv)
         size_t bytes = 0;
         embi_layout_stats(le, embi_doc_dom(v->doc), &nboxes, &nfrags, &bytes);
         printf("at the end: boxes %u, fragments %u, layout arenas %zu KB\n", nboxes, nfrags, bytes / 1024u);
+    }
+    if (drag > 0) {
+        drag_bench(dev, v, le, drag, verbose);
     }
     printf("replies from the page: %u\n", g_replies);
     while (g_nfences > 0) {
