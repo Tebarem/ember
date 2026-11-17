@@ -216,7 +216,8 @@ static uint32_t collect_edges(const embi_qcurve *in, uint32_t n, float tol, bool
         SDL_memset(&add, 0, sizeof add);
         if (SDL_fabsf(q->y0 - q->cy) <= tol && SDL_fabsf(q->cy - q->y1) <= tol && SDL_fabsf(q->y0 - q->y1) <= tol) {
             float dx = q->x1 - q->x0;
-            if (SDL_fabsf(dx) < 1e-3f * tol) {
+            /* A flat run narrower than tol is the notch where a spur meets a stem, not an edge. */
+            if (SDL_fabsf(dx) < tol) {
                 continue;
             }
             add.y = 0.5f * (q->y0 + q->y1);
@@ -507,16 +508,19 @@ static uint32_t hint_y(const embi_hint_zones *zones, float upem, float s, const 
     /* 3. Order: the targets of the anchors must grow with their edges. */
     uint32_t na = 0;
     float prev = -1e30f;
+    bool prev_top = false;
     float *ay = embi_alloc(sizeof(float) * ne * 3u);
     float *at = ay + ne, *ap = ay + 2u * ne;
     for (uint32_t i = 0; i < ne; i++) {
         if (!e[i].anchored) {
             continue;
         }
-        if (e[i].target <= prev) {
+        /* Two top edges of one zone (the flat top of a stem and the overshoot of a bowl) may share a row. */
+        if (e[i].target < prev || (e[i].target == prev && !(e[i].top && prev_top))) {
             continue;
         }
         prev = e[i].target;
+        prev_top = e[i].top;
         ay[na] = e[i].y;
         at[na] = e[i].target;
         na++;

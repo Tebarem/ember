@@ -386,6 +386,97 @@ EMB_TEST(hint_fidelity_sourcesans)
     check_fidelity("tests/fonts/SourceSans3-Regular.otf");
 }
 
+/* ------------------------------------------------------------------ round tops and bottoms */
+
+/* The rows (y up from the baseline, row k spans k to k + 1) of the highest and the lowest ink, with coverage of at least 0.25. */
+static bool ink_rows(const float *cv, int *top, int *bot)
+{
+    bool any = false;
+    *top = *bot = 0;
+    for (int y = 0; y < FID_H; y++) {
+        float m = 0.0f;
+        for (int x = 0; x < FID_W; x++) {
+            m = cv[y * FID_W + x] > m ? cv[y * FID_W + x] : m;
+        }
+        if (m >= 0.25f) {
+            const int row = FID_BASE - 1 - y;
+            *top = !any || row > *top ? row : *top;
+            *bot = !any || row < *bot ? row : *bot;
+            any = true;
+        }
+    }
+    return any;
+}
+
+/* A round-topped or round-bottomed glyph keeps its ink within 1 row of the unhinted one, and above its zone only by the
+ * overshoot of the zone (one row, and only where the overshoot is half a px or more). */
+static void check_round_rows(const char *rel)
+{
+    face f;
+    EMB_REQUIRE(face_open(&f, rel));
+    const float upem = (float)f.font.metrics.units_per_em;
+    embi_hint_zones z;
+    embi_hint_zones_measure(&z, upem, (float)f.font.metrics.x_height, extent_cb, &f);
+    static const struct {
+        const char *chars;
+        int zone;
+    } sets[] = {
+        {"oacegsqup", EMBI_HINT_XHEIGHT}, {"bd", EMBI_HINT_ASCENDER}, {"0123456789", EMBI_HINT_FIGURES}};
+    for (int px = 9; px <= 24; px++) {
+        const float s = (float)px / upem;
+        for (uint32_t k = 0; k < 3; k++) {
+            if ((z.n_valid_mask & (1u << sets[k].zone)) == 0) {
+                continue;
+            }
+            const embi_hint_zone *zz = &z.z[sets[k].zone];
+            const float over_px = (zz->over - zz->flat) * s;
+            const int flat_edge = (int)SDL_floorf(zz->flat * s + 0.5f);
+            const int max_top = flat_edge - 1 + (over_px >= 0.5f ? 1 : 0);
+            for (const char *g = sets[k].chars; *g != 0; g++) {
+                uint32_t n;
+                embi_qcurve *in = face_curves(&f, (uint32_t)*g, &n);
+                EMB_REQUIRE(in != nullptr);
+                embi_qcurve *out = SDL_malloc(sizeof *out * 2u * n);
+                uint32_t m = embi_hint_glyph(&z, upem, s, in, n, out);
+                if (m == 0u) {
+                    SDL_memcpy(out, in, sizeof *in * n);
+                    m = n;
+                }
+                float *ca = SDL_calloc(FID_W * FID_H, sizeof(float)), *cb = SDL_calloc(FID_W * FID_H, sizeof(float));
+                fid_raster(in, n, s, ca);
+                fid_raster(out, m, s, cb);
+                int ta, ba, tb, bb;
+                EMB_REQUIRE(ink_rows(ca, &ta, &ba) && ink_rows(cb, &tb, &bb));
+                const bool top_ok = tb - ta <= 1 && ta - tb <= 1, bot_ok = bb - ba <= 1 && ba - bb <= 1;
+                /* Only a glyph whose own top is in the zone is held to it (a round 'p' top, not the ascender of 'b' bowls). */
+                const bool in_zone = (float)ta + 1.0f >= zz->flat * s - 1.0f;
+                const bool zone_ok = !in_zone || tb <= max_top;
+                if (!top_ok || !bot_ok || !zone_ok) {
+                    SDL_Log("round %s %c %dpx: top %d->%d (zone max %d) bottom %d->%d", rel, *g, px, ta, tb, max_top, ba, bb);
+                }
+                EMB_CHECK(top_ok);
+                EMB_CHECK(bot_ok);
+                EMB_CHECK(zone_ok);
+                SDL_free(ca);
+                SDL_free(cb);
+                SDL_free(in);
+                SDL_free(out);
+            }
+        }
+    }
+    face_close(&f);
+}
+
+EMB_TEST(hint_round_rows_notosans)
+{
+    check_round_rows("tests/fonts/NotoSans-Regular.ttf");
+}
+
+EMB_TEST(hint_round_rows_sourcesans)
+{
+    check_round_rows("tests/fonts/SourceSans3-Regular.otf");
+}
+
 /* ------------------------------------------------------------------ through the renderer */
 
 #define CELL_W 40
@@ -555,8 +646,8 @@ static uint64_t natural_hash(const char *rel)
 EMB_TEST(hint_natural_unchanged)
 {
     /* The y fitting without x fitting is what it was before the sharp mode: the hash of its output over a set of glyphs. */
-    EMB_CHECK(natural_hash("tests/fonts/NotoSans-Regular.ttf") == 0x5fe65012925f767cull);
-    EMB_CHECK(natural_hash("tests/fonts/SourceSans3-Regular.otf") == 0x6566eb1f0bb7883dull);
+    EMB_CHECK(natural_hash("tests/fonts/NotoSans-Regular.ttf") == 0xe2be68ab3ecad6c4ull);
+    EMB_CHECK(natural_hash("tests/fonts/SourceSans3-Regular.otf") == 0x4fb9034d6368a944ull);
 }
 
 /* ------------------------------------------------------------------ x fitting */
