@@ -218,6 +218,24 @@ uint64_t embi_dstr_hash(embi_dstr d)
 void embi_dstr_append_utf8(embi_sb *sb, embi_dstr d)
 {
     uint32_t i = 0;
+    if (!d.wide) {
+        /* Runs of ASCII are their own UTF-8: copied in one go (a data: URL in an img src is 100 KB of them). */
+        const unsigned char *p = d.ptr;
+        while (i < d.len) {
+            uint32_t j = i;
+            while (j < d.len && p[j] < 0x80u) {
+                j++;
+            }
+            if (j > i) {
+                embi_sb_append(sb, (embi_str){(const char *)p + i, j - i});
+                i = j;
+            }
+            if (i < d.len) {
+                embi_sb_append_cp(sb, p[i++]);
+            }
+        }
+        return;
+    }
     while (i < d.len) {
         embi_sb_append_cp(sb, next_cp(d, &i));
     }

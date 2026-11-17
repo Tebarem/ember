@@ -39,6 +39,22 @@ uint64_t embi_hash64(uint64_t x)
     return mum(mum(x ^ EMBI_HASH_K0, EMBI_HASH_K1) ^ EMBI_HASH_K2, x ^ EMBI_HASH_K3);
 }
 
+uint64_t embi_hash_sampled(const void *p, size_t n, uint64_t seed)
+{
+    if (n <= 2048u) {
+        return embi_hash_bytes(p, n, seed); /* (past this the samples below stay between the two ends) */
+    }
+    const unsigned char *s = p;
+    uint64_t h = embi_hash_bytes(s, 512u, seed ^ (uint64_t)n);
+    h = embi_hash_bytes(s + n - 512u, 512u, h);
+    const size_t span = n - 1024u - 8u, step = span / 64u;
+    uint64_t w[64];
+    for (size_t i = 0; i < 64u; i++) {
+        memcpy(&w[i], s + 512u + i * step, 8);
+    }
+    return embi_hash_bytes(w, sizeof w, h);
+}
+
 uint64_t embi_hash_bytes(const void *p, size_t n, uint64_t seed)
 {
     const unsigned char *s = p;

@@ -195,7 +195,7 @@ static embi_image_entry *create_entry(embi_image_cache *c, embi_str url, uint64_
 
 static embi_image_entry *get_or_create(embi_image_cache *c, embi_str url)
 {
-    uint64_t hash = embi_hash_bytes(url.ptr, url.len, 0);
+    uint64_t hash = embi_hash_sampled(url.ptr, url.len, 0);
     embi_image_entry *e = find_entry(c, url, hash);
     if (!e) {
         e = create_entry(c, url, hash);
@@ -205,7 +205,7 @@ static embi_image_entry *get_or_create(embi_image_cache *c, embi_str url)
 
 static embi_image_entry *lookup(const embi_image_cache *c, embi_str url)
 {
-    return find_entry(c, url, embi_hash_bytes(url.ptr, url.len, 0));
+    return find_entry(c, url, embi_hash_sampled(url.ptr, url.len, 0)); /* (find_entry compares the URLs) */
 }
 
 /* ------------------------------------------------------------------ decoding */

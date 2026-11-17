@@ -150,6 +150,32 @@ EMB_TEST(hash_bytes_depends_on_content_length_and_seed)
     EMB_CHECK(embi_hash64(1) != embi_hash64(2));
 }
 
+/* Short inputs hash every byte; long ones read the ends and a sample of the middle, never past the end (each length is
+ * hashed from a heap copy of exactly that size, so a sanitizer build catches an overread). */
+EMB_TEST(hash_sampled_reads_the_ends_and_stays_in_bounds)
+{
+    static char text[9000];
+    for (size_t i = 0; i < sizeof text; i++) {
+        text[i] = (char)('a' + (i * 7u) % 26u);
+    }
+    EMB_CHECK(embi_hash_sampled(text, 100, 3) == embi_hash_bytes(text, 100, 3));
+    EMB_CHECK(embi_hash_sampled(text, 2048, 3) == embi_hash_bytes(text, 2048, 3));
+    for (size_t n = 1000; n < 9000; n += 7) {
+        char *copy = SDL_malloc(n);
+        EMB_REQUIRE(copy != nullptr);
+        SDL_memcpy(copy, text, n);
+        uint64_t h = embi_hash_sampled(copy, n, 0);
+        EMB_CHECK(h == embi_hash_sampled(text, n, 0)); /* the same bytes, the same hash */
+        EMB_CHECK(h != embi_hash_sampled(text, n - 1, 0)); /* the length counts */
+        copy[0] ^= 1; /* the first and the last bytes are always read */
+        EMB_CHECK(embi_hash_sampled(copy, n, 0) != h);
+        copy[0] ^= 1;
+        copy[n - 1] ^= 1;
+        EMB_CHECK(embi_hash_sampled(copy, n, 0) != h);
+        SDL_free(copy);
+    }
+}
+
 EMB_TEST(hashmap_take_remove_if_insert_new_and_ref)
 {
     embi_hashmap m;

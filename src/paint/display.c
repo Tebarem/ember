@@ -132,8 +132,10 @@ uint32_t embi_pb_url(embi_pst *p, embi_str url)
         }
     }
     uint32_t off = d->urltext.len;
-    for (uint32_t i = 0; i < url.len; i++) {
-        embi_vec_push(&d->urltext, url.ptr[i]);
+    if (url.len > 0) {
+        embi_vec_reserve(&d->urltext, off + url.len);
+        memcpy(d->urltext.data + off, url.ptr, url.len);
+        d->urltext.len = off + url.len;
     }
     embi_vec_push(&d->urls, off);
     embi_vec_push(&d->urls, url.len);

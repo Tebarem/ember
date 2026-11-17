@@ -382,7 +382,7 @@ embi_str embi_doc_resolve(embi_doc *d, embi_str raw)
     if (raw.len == 0) {
         return raw;
     }
-    uint64_t key = embi_hash_bytes(raw.ptr, raw.len, 0x5eed);
+    uint64_t key = embi_hash_sampled(raw.ptr, raw.len, 0x5eed); /* (a hit compares the text) */
     uint64_t v = 0;
     if (embi_hashmap_get(&d->rmap, key, &v)) {
         res_ent *e = (res_ent *)(uintptr_t)v;

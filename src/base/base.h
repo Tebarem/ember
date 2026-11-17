@@ -140,6 +140,9 @@ typedef struct embi_hashmap_iter {
 
 uint64_t embi_hash64(uint64_t x);
 uint64_t embi_hash_bytes(const void *p, size_t n, uint64_t seed);
+/* As embi_hash_bytes for short inputs; past 2 KB only the length, the first and last 512 bytes and 64 words spread over
+ * the rest are read. For keys whose hits compare the whole text anyway (a URL cache: a data: URL is 100 KB). */
+uint64_t embi_hash_sampled(const void *p, size_t n, uint64_t seed);
 
 void embi_hashmap_init(embi_hashmap *m);
 void embi_hashmap_free(embi_hashmap *m);

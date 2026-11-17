@@ -144,6 +144,29 @@ EMB_TEST(dstr_to_utf8_round_trip_and_lone_surrogates)
     embi_slab_release(s);
 }
 
+/* A narrow string is appended in runs of ASCII with the Latin-1 units between them encoded: the same bytes as unit by unit. */
+EMB_TEST(dstr_append_utf8_of_narrow_text_with_latin1_between_ascii_runs)
+{
+    embi_slab *s = embi_slab_new();
+    const char text[] = "data:x,abc\xC3\xA9\xC3\xA9 def\xC3\xBF" "g";
+    embi_dstr d = embi_dstr_from_utf8(s, (embi_str){text, (uint32_t)(sizeof text - 1)});
+    EMB_CHECK(!d.wide);
+    embi_sb sb = {0};
+    embi_sb_append(&sb, U8(">"));
+    embi_dstr_append_utf8(&sb, d);
+    EMB_CHECK_EQ_INT(sb.len, 1 + sizeof text - 1);
+    EMB_CHECK(SDL_memcmp(sb.data, ">", 1) == 0 && SDL_memcmp(sb.data + 1, text, sizeof text - 1) == 0);
+    embi_sb_clear(&sb);
+    embi_dstr only = embi_dstr_from_utf8(s, U8("\xC3\xA9"));
+    embi_dstr_append_utf8(&sb, only);
+    EMB_CHECK_EQ_INT(sb.len, 2);
+    EMB_CHECK(SDL_memcmp(sb.data, "\xC3\xA9", 2) == 0);
+    embi_sb_free(&sb);
+    embi_dstr_free(d);
+    embi_dstr_free(only);
+    embi_slab_release(s);
+}
+
 EMB_TEST(dstr_copy_is_independent)
 {
     embi_slab *s = embi_slab_new();
