@@ -238,6 +238,7 @@ typedef struct embi_layout_prof {
     uint64_t kind_ticks[EMBI_LAYOUT_PROF_KINDS];
     uint64_t boxes;
     uint64_t reused; /* boxes whose layout the layout cache gave back (lcache.c) */
+    uint64_t reused_xrun; /* ... of which an earlier layout run made (the cache is kept while the box tree is) */
 } embi_layout_prof;
 void embi_layout_prof_get(const embi_layout_engine *e, embi_layout_prof *out);
 /* The number of fragments the last layout run allocated: the boxes it laid out (0 when the last update ran no layout). */

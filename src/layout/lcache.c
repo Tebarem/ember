@@ -66,7 +66,7 @@ enum {
     LC_HRAW = 64u,
 };
 
-#define LC_SLOTS 4u
+#define LC_SLOTS 8u
 #define LC_RECTS_MAX 64u
 #define LC_GUT (EMBI_BF2_VGUT | EMBI_BF2_HGUT)
 /* The box states and references one run may keep (about 16 and 200 bytes each); past these the run stops caching. */
@@ -107,6 +107,8 @@ typedef struct embi_lc_ent {
     uint32_t ih_need;
     uint32_t soff, sn;   /* the boxes of the subtree, in lcs */
     uint32_t refoff, nref; /* the references, in lcref */
+    uint32_t run;    /* the run that made it (ld->lc_run) */
+    bool xrun;       /* a later run may reuse it (moved_by_final_pass) */
 } embi_lc_ent;
 
 static int g_lc_off = -1; /* -1: not read yet, 0: on, 1: off */
@@ -124,7 +126,7 @@ bool embi_lay_cache_enabled(void)
     return g_lc_off == 0;
 }
 
-void embi_lay_lc_begin(embi_lay_doc *ld, bool on)
+void embi_lay_lc_drop(embi_lay_doc *ld)
 {
     embi_hashmap_clear(&ld->lcmap);
     embi_hashmap_clear(&ld->lcf);
@@ -133,9 +135,27 @@ void embi_lay_lc_begin(embi_lay_doc *ld, bool on)
     embi_vec_clear(&ld->lcs);
     embi_vec_clear(&ld->lcref);
     embi_vec_clear(&ld->lct);
+    ld->lc_keep = false;
+}
+
+void embi_lay_lc_begin(embi_lay_doc *ld, bool on)
+{
+    ld->lc_on = on && !ld->scratch && embi_lay_cache_enabled();
+    if (!ld->lc_keep || !ld->lc_on) {
+        embi_lay_lc_drop(ld);
+    }
+    embi_vec_clear(&ld->lct);
     ld->lc_hits = 0;
     ld->lc_misses = 0;
-    ld->lc_on = on && !ld->scratch && embi_lay_cache_enabled();
+    ld->lc_xhits = 0;
+    ld->lc_run++;
+    ld->lc_keep = ld->lc_on; /* what this run caches may serve the next one (embi_lay_lc_end) */
+}
+
+void embi_lay_lc_end(embi_lay_doc *ld)
+{
+    ld->lc_on = false; /* the entries stay (ld->lc_keep) */
+    embi_vec_clear(&ld->lct);
 }
 
 void embi_lay_lc_free(embi_lay_doc *ld)
@@ -148,6 +168,15 @@ void embi_lay_lc_free(embi_lay_doc *ld)
     embi_vec_free(&ld->lcref);
     embi_vec_free(&ld->lct);
     ld->lc_on = false;
+    ld->lc_keep = false;
+}
+
+bool embi_lay_lc_keepable(const embi_lay_doc *ld, size_t fa_used)
+{
+    /* Each run adds the fragments of what it laid out to the arena (the earlier ones may still be given back); past three
+     * times what a run left in an empty arena, the next run starts it empty again, without the kept entries. */
+    return fa_used <= 3u * ld->lc_fa_base + (2u << 20) && ld->lcs.len <= LC_STATES_MAX / 2u &&
+           ld->lcref.len <= LC_REFS_MAX / 2u && ld->lcr.len <= (1u << 20);
 }
 
 /* The next box after x in a pre-order walk of the subtree of top (text boxes have no children). */
@@ -160,6 +189,65 @@ static embi_box *walk_next(const embi_box *top, embi_box *x)
         x = x->parent;
     }
     return x == top ? nullptr : x->next;
+}
+
+/* The entries of b no longer hold a layout of it. Entries whose trees reference them fail refs_hold from now on. */
+static void ent_kill(embi_lay_doc *ld, const embi_box *b)
+{
+    uint64_t v = 0;
+    if (!embi_hashmap_get(&ld->lcmap, (uint64_t)(uintptr_t)b, &v)) {
+        return;
+    }
+    for (uint32_t ei = (uint32_t)v; ei != 0; ei = ld->lcv.data[ei - 1].next) {
+        embi_lc_ent *e = &ld->lcv.data[ei - 1];
+        if (e->serial != 0) {
+            uint64_t fv = 0;
+            if (embi_hashmap_get(&ld->lcf, (uint64_t)(uintptr_t)e->r.frag, &fv) && fv == ei) {
+                (void)embi_hashmap_remove(&ld->lcf, (uint64_t)(uintptr_t)e->r.frag);
+            }
+            e->serial = 0;
+        }
+    }
+}
+
+void embi_lay_lc_dirty(embi_lay_doc *ld, const embi_box *b)
+{
+    if (embi_hashmap_len(&ld->lcmap) == 0) {
+        return;
+    }
+    for (const embi_box *p = b; p != nullptr; p = p->parent) {
+        ent_kill(ld, p);
+    }
+}
+
+void embi_lay_lc_dirty_subtree(embi_lay_doc *ld, const embi_box *b)
+{
+    if (embi_hashmap_len(&ld->lcmap) == 0 || b == nullptr) {
+        return;
+    }
+    embi_box *top = (embi_box *)(uintptr_t)b;
+    for (embi_box *x = top; x != nullptr; x = walk_next(top, x)) {
+        if (!embi_box_is_text(x)) {
+            ent_kill(ld, x);
+        }
+    }
+    embi_lay_lc_dirty(ld, b->parent);
+}
+
+/* A box below the top of an entry whose fragments the final pass moves or adds to (position.c: the relative and sticky
+ * offsets, the out-of-flow boxes placed in their containing blocks). An entry made in an earlier run holds its fragment tree
+ * as that run's final pass left it, so a later run reuses it only when that pass changed nothing below its top fragment
+ * (whose record the entry keeps as the layout left it). */
+static bool moved_by_final_pass(const embi_lctx *c, const embi_box *x)
+{
+    if ((x->flags & EMBI_BF_ABSPOS) != 0) {
+        return true;
+    }
+    if ((x->flags & EMBI_BF_ANON) != 0 || x->style == nullptr) {
+        return false; /* (an anonymous box holds its parent's style for the inherited properties) */
+    }
+    uint16_t pos = embi_lay_ssum_of(c, x->style)->pos;
+    return pos == EMBI_KW_relative || pos == EMBI_KW_sticky || pos == EMBI_KW_absolute || pos == EMBI_KW_fixed;
 }
 
 static bool same_bits(float a, float b)
@@ -267,7 +355,7 @@ bool embi_lay_lc_get(embi_lctx *c, embi_box *b, const embi_cs *cs, embi_lres *ou
         key_make(c, b, cs, &k);
         for (uint32_t ei = (uint32_t)v; ei != 0; ei = ld->lcv.data[ei - 1].next) {
             embi_lc_ent *e = &ld->lcv.data[ei - 1];
-            if (e->serial == 0 || !key_same(ld, e, &k, cs)) {
+            if (e->serial == 0 || (e->run != ld->lc_run && !e->xrun) || !key_same(ld, e, &k, cs)) {
                 continue;
             }
             /* the gutters the scroll containers below start from must be the ones the cached layout started from */
@@ -299,6 +387,9 @@ bool embi_lay_lc_get(embi_lctx *c, embi_box *b, const embi_cs *cs, embi_lres *ou
             c->ih_need += e->ih_need;
             e->used = ++ld->lc_serial;
             ld->lc_hits++;
+            if (e->run != ld->lc_run) {
+                ld->lc_xhits++;
+            }
             return true;
         }
     }
@@ -437,6 +528,8 @@ void embi_lay_lc_put(embi_lctx *c, embi_box *b, const embi_cs *cs, const embi_lr
     e->ih_need = c->ih_need - m->ih_need0;
     /* the boxes of the subtree */
     e->soff = ld->lcs.len;
+    e->run = ld->lc_run;
+    e->xrun = e->pos1 == e->pos0;
     uint32_t i = 0;
     bool ok = true;
     for (embi_box *x = b; x != nullptr; x = walk_next(b, x)) {
@@ -444,6 +537,9 @@ void embi_lay_lc_put(embi_lctx *c, embi_box *b, const embi_cs *cs, const embi_lr
             if (i >= tn) {
                 ok = false; /* the subtree changed shape: cannot happen within a run */
                 break;
+            }
+            if (x != b && e->xrun && moved_by_final_pass(c, x)) {
+                e->xrun = false;
             }
             embi_lc_bs s = {x->frag, ld->lct.data[t0 + i], (uint16_t)(x->flags2 & LC_GUT)};
             embi_vec_push(&ld->lcs, s);

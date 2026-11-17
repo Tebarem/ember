@@ -191,9 +191,20 @@ static void *embi_lay_alloc_raw(embi_arena *a, size_t size, size_t align)
     return embi_arena_alloc(a, size, align);
 }
 
+/* The bytes in use in an arena. */
+static size_t frag_bytes(const embi_arena *a)
+{
+    size_t total = 0;
+    for (const embi_arena_block *blk = a->first; blk != nullptr; blk = blk->next) {
+        total += blk->used;
+    }
+    return total;
+}
+
 /* Forgets the box tree: the element slots, the arena and what points into it. */
 static void doc_drop_tree(embi_lay_doc *ld)
 {
+    embi_lay_lc_drop(ld); /* the entries are keyed by the boxes' addresses */
     if (ld->root_box != nullptr && ld->doc != nullptr) {
         embi_lay_clear_boxes(ld->doc);
     }
@@ -231,9 +242,11 @@ static void doc_drop_tree(embi_lay_doc *ld)
 /* Resets the fragment arena (every layout). The box arena stays while the tree is kept (W3p), and so do
  * the shaped runs: the layout that follows reuses the ones it needs and, when it rebuilt the tree,
  * drops the rest when it ends (embi_lay_tcache_sweep). */
-static void doc_reset(embi_lay_doc *ld)
+static void doc_reset(embi_lay_doc *ld, bool keep_frags)
 {
-    embi_lay_rewind(&ld->fa);
+    if (!keep_frags) {
+        embi_lay_rewind(&ld->fa);
+    }
     ld->free_frag = nullptr;
     ld->free_ext = nullptr;
     memset(ld->mtab, 0, sizeof ld->mtab);
@@ -244,7 +257,7 @@ static void doc_reset(embi_lay_doc *ld)
 
 static void doc_destroy(embi_lay_doc *ld)
 {
-    doc_reset(ld);
+    doc_reset(ld, false);
     ld->root_box = nullptr;
     embi_lay_ifc_pool_free(ld);
     embi_hashmap_free(&ld->tkeys);
@@ -682,7 +695,13 @@ static bool layout_run(embi_layout_engine *e, embi_document *doc, uint32_t max_d
         ld->n_full++;
     }
     ld->fserial++;
-    doc_reset(ld);
+    /* The layout cache's entries of the last runs serve this one when the tree is kept and the arena they live in has not
+     * grown too much (lcache.c); otherwise the fragment arena starts empty. */
+    const bool keep = reuse && ld->lc_keep && embi_lay_lc_keepable(ld, frag_bytes(&ld->fa));
+    if (!keep) {
+        embi_lay_lc_drop(ld);
+    }
+    doc_reset(ld, keep);
     ld->frag_allocs = 0;
     ld->frag_reused = 0;
     if (!reuse) {
@@ -728,7 +747,10 @@ static bool layout_run(embi_layout_engine *e, embi_document *doc, uint32_t max_d
         embi_lay_position_finish(&c, icb);
         embi_ctr_free(&c.ctr);
         embi_table_models_free(&c);
-        embi_lay_lc_free(ld);
+        embi_lay_lc_end(ld);
+        if (!keep) {
+            ld->lc_fa_base = frag_bytes(&ld->fa);
+        }
         if (!reuse) {
             embi_lay_tcache_sweep(ld, false);
             embi_lay_incr_built(e, ld, doc);
@@ -781,7 +803,10 @@ static bool layout_run(embi_layout_engine *e, embi_document *doc, uint32_t max_d
     }
     /* The out-of-flow boxes are placed once the whole tree has its positions (position.c). */
     embi_lay_position_finish(&c, icb);
-    embi_lay_lc_free(ld); /* the cache is for one run: its entries point into arenas the next run rewinds */
+    embi_lay_lc_end(ld); /* the entries stay for the next run of the kept tree (lcache.c) */
+    if (!keep) {
+        ld->lc_fa_base = frag_bytes(&ld->fa);
+    }
     embi_ctr_free(&c.ctr);
     embi_table_models_free(&c);
     if (!reuse) {
@@ -1007,6 +1032,7 @@ bool embi_layout_document(embi_layout_engine *e, embi_document *doc)
             e->prof.boxes += pld->frag_allocs;
             if (!pld->last_partial) {
                 e->prof.reused += pld->lc_hits;
+                e->prof.reused_xrun += pld->lc_xhits;
             }
         }
     }

@@ -336,6 +336,10 @@ typedef struct embi_lay_doc {
     EMBI_VEC(uint16_t) lct;              /* the gutter flags of the boxes below the layouts in progress, as they started */
     uint32_t lc_serial;                  /* the last serial given to an entry */
     uint32_t lc_hits, lc_misses;         /* in the last layout run */
+    uint32_t lc_xhits;                   /* ... of which gave back a layout of an earlier run */
+    bool lc_keep;        /* the entries outlive the run: the next layout of the kept tree may reuse them (lcache.c) */
+    uint32_t lc_run;     /* the number of the run (an entry made in an earlier one needs EMBI_LC_XRUN to be reused) */
+    size_t lc_fa_base;   /* bytes of the fragment arena after the last run that started it empty */
 } embi_lay_doc;
 
 struct embi_layout_engine {
@@ -1061,9 +1065,19 @@ typedef struct embi_lc_mark {
 } embi_lc_mark;
 bool embi_lay_lc_get(embi_lctx *c, embi_box *b, const embi_cs *cs, embi_lres *out, embi_lc_mark *m);
 void embi_lay_lc_put(embi_lctx *c, embi_box *b, const embi_cs *cs, const embi_lres *out, const embi_lc_mark *m);
-/* Starts a layout run (on: the cache is used) and drops what the last run cached; embi_lay_lc_free frees it all. */
+/* Starts a layout run (on: the cache is used). The entries of the earlier runs stay (ld->lc_keep) unless embi_lay_lc_drop
+ * dropped them; embi_lay_lc_end ends the run and keeps them for the next one, embi_lay_lc_free frees it all. */
 void embi_lay_lc_begin(embi_lay_doc *ld, bool on);
+void embi_lay_lc_end(embi_lay_doc *ld);
+void embi_lay_lc_drop(embi_lay_doc *ld);
 void embi_lay_lc_free(embi_lay_doc *ld);
+/* True when the kept entries may serve the next layout of the kept tree: the fragment arena and the cache's own vectors
+ * have not grown past their bounds since the arena was last started empty. */
+bool embi_lay_lc_keepable(const embi_lay_doc *ld, size_t fa_used);
+/* The entries of b and of the boxes above it describe layouts that no longer hold (b's style or content changed); with
+ * subtree, those of the boxes below b too (b's subtree is about to be built again). */
+void embi_lay_lc_dirty(embi_lay_doc *ld, const embi_box *b);
+void embi_lay_lc_dirty_subtree(embi_lay_doc *ld, const embi_box *b);
 /* Test switch: enables or disables the layout cache (overrides EMBER_NO_LAYOUT_CACHE). */
 void embi_lay_set_cache_enabled(bool on);
 bool embi_lay_cache_enabled(void);

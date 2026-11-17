@@ -300,6 +300,64 @@ EMB_TEST(scrollbar_gutters_appear_and_go)
     done(&h);
 }
 
+/* An editor shell whose panel widths are custom properties on the root element, which a splitter drag sets: the grid's
+ * template and the right panel's width change, and the boxes of the grid items are kept (a box rebuilt in a grid takes the
+ * rebuild up to the nearest block, the body). The cache's entries outlive the layout run while the box tree is kept: the
+ * header, and the right panel when its width comes back to an earlier one, are given back from an earlier run. The rows
+ * that are relatively positioned or hold absolutely positioned boxes are moved by the final pass of each run, so an entry
+ * above them serves only its own run. */
+static const char *k_split =
+    "<style>:root{--lw:180px;--rw:220px} html,body{height:100%;margin:0} body{display:flex;flex-direction:column;font-size:13px} "
+    "header{display:flex;gap:6px;padding:4px} header .sp{flex:1} "
+    "main{flex:1;min-height:0;display:grid;grid-template-columns:var(--lw) 4px 1fr var(--rw)} "
+    "#left,#right{display:flex;flex-direction:column;overflow:auto;min-width:0} #right{width:var(--rw)} "
+    ".row{display:flex;gap:4px;padding:2px} .row .n{flex:1;min-width:0} .rel{position:relative;left:2px} "
+    ".ab{position:absolute;right:0;top:0} #mid{display:grid;place-items:center;position:relative} "
+    ".props{display:grid;grid-template-columns:minmax(40px,35%) 1fr;gap:2px}</style>"
+    "<header><span>File</span><span class=sp id=title>Scene</span><span>Play</span></header>"
+    "<main><div id=left><div class=row id=r1><span class=n>Camera</span><span>eye</span></div>"
+    "<div class='row rel' id=r2><span class=n>Light with a long name that wraps in a narrow panel</span><i class=ab>1</i></div>"
+    "<div class=row><span class=n>Player</span></div></div><div id=split></div>"
+    "<div id=mid><div id=vb>viewport</div><b class=ab>fps</b></div>"
+    "<div id=right><div class=props><span>Name</span><span id=nm>Player</span><span>Position</span><span>1 2 3</span></div>"
+    "<div class=row><span class=n>Add component</span></div></div></main>";
+
+static uint64_t reused_xrun(lh *h)
+{
+    embi_layout_prof p;
+    embi_layout_prof_get(h->eng, &p);
+    return p.reused_xrun;
+}
+
+EMB_TEST(a_splitter_drag_keeps_the_boxes_and_reuses_earlier_runs)
+{
+    lh h = make(k_split, 0.0f);
+    EMB_CHECK(matches_uncached(&h, k_split, "the first build"));
+    embi_element *root = embi_document_element(h.doc);
+    const void *r1 = by_id(&h, "r1")->box, *nm = by_id(&h, "nm")->box, *title = by_id(&h, "title")->box;
+    uint64_t x0 = reused_xrun(&h);
+    char st[64];
+    for (int i = 0; i < 24; i++) {
+        SDL_snprintf(st, sizeof st, "--lw:%dpx;--rw:%dpx", 180 + i * 7, i % 3 == 0 ? 220 : 260);
+        set_attr(&h, root, "style", st);
+        relayout(&h, k_split, st);
+        EMB_CHECK(by_id(&h, "r1")->box == r1); /* no box was built again */
+        EMB_CHECK(by_id(&h, "nm")->box == nm);
+        EMB_CHECK(by_id(&h, "title")->box == title);
+    }
+    EMB_CHECK(reused_xrun(&h) > x0);
+    /* other changes between the drags: the entries of the boxes they touch, and of the boxes above, are not given back */
+    set_text(&h, by_id(&h, "nm"), "A much longer name that wraps in the property grid of the right panel");
+    relayout(&h, k_split, "a text change in the right panel");
+    set_attr(&h, root, "style", "--lw:200px;--rw:260px");
+    relayout(&h, k_split, "a drag after the text change");
+    set_attr(&h, by_id(&h, "r1"), "class", "row rel");
+    relayout(&h, k_split, "a row that becomes relatively positioned");
+    set_attr(&h, root, "style", "--lw:210px;--rw:220px");
+    relayout(&h, k_split, "a drag after the row moved");
+    done(&h);
+}
+
 /* Random changes on both pages, each layout compared with an uncached build, and the library's verification on. */
 static uint32_t rng;
 
@@ -327,7 +385,8 @@ static void collect(lh *h, embi_element **out, uint32_t *n, uint32_t cap)
     }
 }
 
-static void fuzz(const char *page, float sb, uint32_t steps, uint32_t seed)
+/* drag: some steps set the root's custom properties, as a splitter drag does (k_split reads them). */
+static void fuzz_ex(const char *page, float sb, uint32_t steps, uint32_t seed, bool drag)
 {
     static const char *classes[] = {"", "row", "tall", "wide", "hid", "pct", "pad", "big", "f", "g", "c", "p", "h", "sc",
                                     "row big", "props", "ib"};
@@ -344,7 +403,7 @@ static void fuzz(const char *page, float sb, uint32_t steps, uint32_t seed)
         collect(&h, els, &n, 256);
         EMB_REQUIRE(n > 0);
         embi_element *el = els[rnd(n)];
-        switch (rnd(5)) {
+        switch (rnd(drag ? 7 : 5)) {
         case 0: {
             const char *v = classes[rnd(sizeof classes / sizeof classes[0])];
             set_attr(&h, el, "class", v);
@@ -363,6 +422,15 @@ static void fuzz(const char *page, float sb, uint32_t steps, uint32_t seed)
             }
             SDL_snprintf(what, sizeof what, "step %u: append", it);
             break;
+        case 5:
+        case 6:
+            if (drag) {
+                SDL_snprintf(what, sizeof what, "--lw:%upx;--rw:%upx", 60u + rnd(200), 80u + 40u * rnd(3));
+                set_attr(&h, embi_document_element(h.doc), "style", what);
+                SDL_snprintf(what, sizeof what, "step %u: drag", it);
+                break;
+            }
+            [[fallthrough]];
         default:
             if (el->base.first_child != nullptr && el->base.first_child->type == EMBI_NODE_TEXT) {
                 set_text(&h, el, texts[rnd(5)]);
@@ -379,6 +447,11 @@ static void fuzz(const char *page, float sb, uint32_t steps, uint32_t seed)
     done(&h);
 }
 
+static void fuzz(const char *page, float sb, uint32_t steps, uint32_t seed)
+{
+    fuzz_ex(page, sb, steps, seed, false);
+}
+
 EMB_TEST(fuzz_shell_equals_an_uncached_layout)
 {
     fuzz(k_shell, 0.0f, 300, 31);
@@ -387,6 +460,12 @@ EMB_TEST(fuzz_shell_equals_an_uncached_layout)
 EMB_TEST(fuzz_nested_with_scrollbars_equals_an_uncached_layout)
 {
     fuzz(k_nest, 12.0f, 300, 77);
+}
+
+EMB_TEST(fuzz_splitter_drags_between_changes_equal_an_uncached_layout)
+{
+    fuzz_ex(k_split, 0.0f, 300, 2024, true);
+    fuzz_ex(k_split, 12.0f, 300, 99, true);
 }
 
 EMB_TEST(fuzz_shell_with_scrollbars_equals_an_uncached_layout)

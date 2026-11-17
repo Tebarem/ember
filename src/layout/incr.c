@@ -283,6 +283,7 @@ static bool rebuild_for(sg *s, embi_element *a, uint32_t *boxes)
             embi_hashmap_get(&s->ld->prmap, (uint64_t)(uintptr_t)B, &ro.rec)) {
             ro.frag = B->frag;
         }
+        embi_lay_lc_dirty_subtree(s->ld, B); /* the boxes are built again (or the rebuild goes up to an ancestor) */
         if (!embi_lay_rebuild_element(&s->c, el, B)) {
             continue;
         }
@@ -529,6 +530,26 @@ static bool in_place_change(inplace *ip, const embi_style_change *ch)
     return !xf_moves_abspos(c, B, positioned);
 }
 
+/* A change the style engine classed LAYOUT whose layout properties are all sizing ones (EMBI_INPLACE_SIZING), on an element
+ * with a box of its own whose parent is not a plain block (a box rebuilt in a flex or grid container takes the rebuild up to
+ * the nearest block, which on an application page built of grids is the body): the boxes are kept, take the new style, and
+ * the kept tree is laid out again. A form control's box reads its width and height when it is built: not in place. */
+static bool sizing_in_place(const embi_style_change *ch)
+{
+    const embi_element *E = ch->el;
+    const embi_box *B = (const embi_box *)E->box;
+    const embi_style *ns = (const embi_style *)E->style;
+    if (B == nullptr || ns == nullptr || ch->pseudo || embi_box_is_text(B) || B->el != E || B->pe != 0 ||
+        B->parent == nullptr || (B->flags2 & (EMBI_BF2_CONTROL | EMBI_BF2_NOSTART | EMBI_BF2_NOEND)) != 0 ||
+        (B->kind != EMBI_BK_BLOCK && B->kind != EMBI_BK_FLEX && B->kind != EMBI_BK_GRID)) {
+        return false;
+    }
+    if (B->parent->kind == EMBI_BK_BLOCK && (B->parent->flags & EMBI_BF_IFC) == 0) {
+        return false; /* a rebuild stays local there, and the partial relayout can follow it */
+    }
+    return embi_style_classify_in_place(ch->old_style, ns, EMBI_INPLACE_SIZING) <= EMBI_SCH_PAINT;
+}
+
 static int incr_plan(embi_layout_engine *e, embi_lay_doc *ld, embi_document *doc, inplace *ip)
 {
     ld->plan = EMBI_LP_FULL;
@@ -587,7 +608,7 @@ static int incr_plan(embi_layout_engine *e, embi_lay_doc *ld, embi_document *doc
         layout = (d.origins[i].bits & (uint8_t)~EMBI_ORIG_PAINT) != 0;
     }
     for (uint32_t i = 0; i < d.nchanges && !layout; i++) {
-        layout = d.changes[i].cls == EMBI_SCH_LAYOUT && !in_place_change(ip, &d.changes[i]);
+        layout = d.changes[i].cls == EMBI_SCH_LAYOUT && !in_place_change(ip, &d.changes[i]) && !sizing_in_place(&d.changes[i]);
     }
     if (!layout && ld->has_contents) {
         layout = true; /* the text of a display: contents element is not found from its own box */
@@ -602,22 +623,34 @@ static int incr_plan(embi_layout_engine *e, embi_lay_doc *ld, embi_document *doc
     /* the style pointers of the boxes of the elements whose paint or nothing changed */
     bool restack = false;   /* some box needs a layout over the kept tree to get its stacking flag right */
     bool restacked = false; /* some box changed its stacking flag, in place or not */
+    bool resized = false;   /* some box changed its sizing properties in place: the kept tree is laid out again */
     for (uint32_t i = 0; i < d.nchanges; i++) {
         const embi_style_change *ch = &d.changes[i];
         bool stack = ch->cls == EMBI_SCH_LAYOUT && in_place_change(ip, ch);
-        if (ch->cls == EMBI_SCH_LAYOUT && !stack) {
+        bool size = ch->cls == EMBI_SCH_LAYOUT && !stack && sizing_in_place(ch);
+        if (ch->cls == EMBI_SCH_LAYOUT && !stack && !size) {
             continue;
         }
         if (!refresh_element(e->style, ch)) {
             pdirty_full(ld);
             return EMBI_LU_FULL;
         }
-        if (stack) {
+        if (size) {
+            /* what the box and the boxes above it cache about their content */
+            for (embi_box *p = (embi_box *)ch->el->box; p != nullptr; p = p->parent) {
+                p->flags &= (uint16_t)~EMBI_BF_INTR;
+                p->flags2 &= (uint16_t)~(EMBI_BF2_HIKNOWN | EMBI_BF2_HINDEP);
+                p->tflags &= (uint8_t)~EMBI_TF_FILL;
+            }
+            embi_lay_lc_dirty(ld, (embi_box *)ch->el->box);
+            resized = true;
+        } else if (stack) {
             /* W6e: the element crossed opacity 1, which flips the stacking-context flag of its fragment. The box is kept
              * (its style pointer is refreshed above) and the flag is recomputed in place; the picture needs a full repaint
              * (the paint cache holds the old context tree). When the fragment cannot be patched, the kept tree is laid out
              * again below. */
             ((embi_box *)(uintptr_t)ch->el->box)->flags2 &= (uint16_t)~EMBI_BF2_PPFLAGS0;
+            embi_lay_lc_dirty(ld, (embi_box *)(uintptr_t)ch->el->box);
             if (embi_lay_ssum_of(inplace_ctx(ip), (const embi_style *)ch->el->style)->xf) {
                 ld->has_xf = true; /* hit testing cannot prune by scrollable overflow then (hit.c) */
             }
@@ -639,7 +672,7 @@ static int incr_plan(embi_layout_engine *e, embi_lay_doc *ld, embi_document *doc
         ld->pover = true; /* the stacking contexts changed: the paint cache cannot patch that */
         embi_vec_clear(&ld->pdirty);
     }
-    if (!layout && restack) {
+    if (!layout && (restack || resized)) {
         /* No box is built: the kept tree is laid out again (the partial relayout has nothing to start from). */
         pdirty_full(ld);
         ld->surgeries++;
@@ -688,8 +721,10 @@ static int incr_plan(embi_layout_engine *e, embi_lay_doc *ld, embi_document *doc
         return EMBI_LU_FULL; /* the tree shrank to under half: built again, which frees the boxes and runs of the rest */
     }
     pdirty_full(ld);
-    if (restack) {
-        ld->abs_gone = true; /* the flags of the fragments that were not rebuilt are recomputed by a layout of the whole tree */
+    if (restack || resized) {
+        /* the flags of the fragments that were not rebuilt are recomputed, and the boxes resized in place laid out, by a
+         * layout of the whole tree */
+        ld->abs_gone = true;
     }
     ld->surgeries++;
     ld->builds++; /* embi_layout_tree_builds counts the trees built or patched */

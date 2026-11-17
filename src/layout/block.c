@@ -1120,8 +1120,8 @@ static float block_width(embi_lctx *c, embi_box *b, const embi_cs *cs, float edg
 /* Puts the fragments of the tree rooted at f on the free list of the document. */
 static void frag_release(embi_lay_doc *ld, embi_frag *f)
 {
-    if (ld->lc_on) {
-        return; /* the layout cache (lcache.c) may hold fragments of this tree: the arena takes them back after the run */
+    if (ld->lc_on || ld->lc_keep) {
+        return; /* the layout cache (lcache.c) may hold fragments of this tree: the arena takes them back when it is rewound */
     }
     if (ld->reuse_on && embi_hashmap_len(&ld->reusedmap) != 0) {
         embi_hashmap_remove(&ld->reusedmap, (uint64_t)(uintptr_t)f); /* the address is about to be recycled */
