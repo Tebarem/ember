@@ -5,6 +5,7 @@
 #include "layout/text_shim.h"
 
 #include "font/font.h"
+#include "text/glyph_path.h"
 #include "text/text.h"
 
 #include <SDL3/SDL_timer.h>
@@ -432,6 +433,19 @@ void embi_tshim_outline(embi_text *t, const embi_lay_shaped *s, float x, float y
         return;
     }
     embi_text_outline(t, &s->lay, &s->vr, x, y, fn, user);
+}
+
+struct embi_path *embi_tshim_glyph_path(const embi_lay_shaped *s, uint32_t lo, uint32_t hi, float x, float y, float bounds[4])
+{
+    if (s == nullptr) {
+        return nullptr;
+    }
+    return embi_glyph_path(&s->lay, &s->vr, lo, hi, x, y, bounds);
+}
+
+uint64_t embi_tshim_path_hash(const struct embi_path *p)
+{
+    return embi_glyph_path_hash(p);
 }
 
 void embi_tshim_draw_range(embi_text *t, embi_frame *f, const embi_lay_shaped *s, uint32_t lo, uint32_t hi, float x, float y,

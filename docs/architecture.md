@@ -26,7 +26,7 @@ lists the modules it depends on in `src/<module>/deps.txt`; CMake checks that th
 | `layout` | Box tree construction, block, inline, float, flex, grid, table and positioned layout, hit testing, transforms, clip paths, and incremental relayout. |
 | `anim` | Timing, keyframes, interpolation and the animator for CSS animations, transitions and the Web Animations API. |
 | `paint` | Builds the display list from the layout fragments, with stacking contexts, layers, scrolling, damage between lists, and incremental list updates. |
-| `gpu` | The renderer on SDL_gpu: one ubershader pipeline for boxes, gradients and images, outline rendering of glyphs and paths (Slug algorithm), glyph and image atlases, effects (blur, filters, blend modes), layer pool. |
+| `gpu` | The renderer on SDL_gpu: one ubershader pipeline for boxes, gradients and images, glyphs and paths filled per pixel from their outlines (Slug algorithm; there is no glyph atlas), image atlases, effects (blur, filters, blend modes), layer pool. |
 | `image` | Image decoding (own PNG decoder, JPEG and GIF through SDL_image), EXIF orientation, an image cache with a byte budget, GIF frame clock. |
 | `canvas` | Canvas 2D (optional, `EMBER_CANVAS`). |
 | `svg` | SVG parsing, geometry, painting, SVG images (optional, `EMBER_SVG`). |

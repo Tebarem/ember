@@ -80,6 +80,13 @@ typedef struct embi_dev_rect {
                                                   uint32_t height_px, float device_scale,
                                                   embi_dev_rect damage);
 
+/* Draws the frame into the w x h rectangle at (x, y) of a target of tex_w x tex_h px (the frame's size is the rectangle's):
+ * the viewport is the rectangle and the scissor never leaves it. A frame with an offset never clears the whole target:
+ * embi_frame_end(clear == true) needs a region frame (embi_frame_begin_region) then, whose damage is in the rectangle's
+ * coordinates; a full frame with an offset and clear == true is drawn as if clear were false (logged once). Call it right
+ * after the begin. */
+void embi_frame_set_target_offset(embi_frame *f, int32_t x, int32_t y, uint32_t tex_w, uint32_t tex_h);
+
 /* Adds a 2x3 transform, CSS order (a, b, c, d, e, f) in local CSS px. Returns its index, which
  * is 0 for the identity. Consecutive equal transforms share one index. */
 uint32_t embi_frame_xform(embi_frame *f, const float m[6]);
@@ -233,6 +240,18 @@ typedef enum embi_text_aa {
  * animating: a transform animation runs, so text under any transform other than the device scale is
  * drawn gray and unfitted. */
 void embi_frame_set_text_aa(embi_frame *f, embi_text_aa mode, bool transforms_animating);
+
+/* Text hinting of a view (emb_text_hinting, the same values). NATURAL: vertical hinting under 36 px, baseline snap and stem
+ * darkening. SHARP: NATURAL plus x fitting and the pen x of each glyph on a whole device px (axis-aligned targets). NONE: no
+ * hinting, no fit scale, no baseline snap, no darkening; the contrast curve stays. Default NATURAL after embi_frame_begin. */
+typedef enum embi_text_hinting {
+    EMBI_TEXT_HINTING_NATURAL = 0,
+    EMBI_TEXT_HINTING_SHARP = 1,
+    EMBI_TEXT_HINTING_NONE = 2,
+} embi_text_hinting;
+
+void embi_frame_set_text_hinting(embi_frame *f, embi_text_hinting mode);
+embi_text_hinting embi_frame_text_hinting(const embi_frame *f);
 /* Marks a transform of the frame as a translation that no animation moves (a scroll offset): the text under it keeps its
  * grid fit and LCD while a transform animation runs elsewhere (embi_frame_set_text_aa). */
 void embi_frame_xform_set_still(embi_frame *f, uint32_t xform);

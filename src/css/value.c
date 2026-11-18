@@ -1249,6 +1249,24 @@ bool embi_value_clearly_differs(const embi_value *x, const embi_value *y)
     }
 }
 
+/* Keywords from SVG that browsers serialize in camel case (the keyword table holds them lowercased, as matching is
+ * case-insensitive). */
+static const char *camel_kw_text(uint16_t kw)
+{
+    switch (kw) {
+    case EMBI_KW_optimizespeed:
+        return "optimizeSpeed";
+    case EMBI_KW_optimizelegibility:
+        return "optimizeLegibility";
+    case EMBI_KW_geometricprecision:
+        return "geometricPrecision";
+    case EMBI_KW_crispedges:
+        return "crispEdges";
+    default:
+        return nullptr;
+    }
+}
+
 void embi_value_serialize(embi_sb *sb, const embi_value *v)
 {
     switch (v->kind) {
@@ -1257,6 +1275,9 @@ void embi_value_serialize(embi_sb *sb, const embi_value *v)
         break;
     case EMBI_V_KEYWORD: {
         const char *name = embi_css_display_kw_text(v->kw);
+        if (name == nullptr) {
+            name = camel_kw_text(v->kw);
+        }
         if (name == nullptr) {
             name = embi_kw_name(v->kw);
         }

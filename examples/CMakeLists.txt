@@ -53,6 +53,20 @@ endif()
 ember_set_warnings(offscreen)
 add_dependencies(offscreen ember_shaders)
 
+# world_panel draws two views into one atlas texture and shows the atlas on textured quads in a 3D scene. Its quad shader is
+# shaders/host_panel.slang (ember_shaders/host_panel.h). It links the same way as offscreen.
+add_executable(world_panel world_panel/main.c)
+target_include_directories(world_panel PRIVATE
+    "${CMAKE_SOURCE_DIR}/include"
+    "${CMAKE_SOURCE_DIR}/src"
+    "${CMAKE_BINARY_DIR}/gen")
+target_link_libraries(world_panel PRIVATE ember SDL3::SDL3-static)
+if(EMBER_SHARED)
+    target_link_libraries(world_panel PRIVATE ember_gpu ember_base)
+endif()
+ember_set_warnings(world_panel)
+add_dependencies(world_panel ember_shaders)
+
 # vue_app ships a Vue 3 + TanStack Query app (vue-app/web, built to vue-app/web/dist with npm) as one executable: the
 # build is embedded with #embed (cmake/EmberEmbedAssets.cmake) and served from app://local/, and the host answers the
 # app's fetches to app://local/api/ in C. See vue-app/README.md.

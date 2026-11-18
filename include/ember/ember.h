@@ -218,6 +218,22 @@ typedef enum emb_text_aa {
     EMB_TEXT_AA_LCD_BGR,
 } emb_text_aa;
 
+/* Text hinting, per view (emb_view_desc.text_hinting) and per element (text-rendering: geometricPrecision draws NONE).
+ * NATURAL (default): vertical hinting under 36 px, baseline snap and stem darkening. SHARP: NATURAL plus x fitting of the
+ * hinter and the pen x of every glyph on a whole device px. NONE: no fitting at all (no hinting, no baseline snap, no
+ * darkening); the contrast curve stays. */
+typedef enum emb_text_hinting {
+    EMB_TEXT_HINTING_NATURAL = 0,
+    EMB_TEXT_HINTING_SHARP,
+    EMB_TEXT_HINTING_NONE,
+} emb_text_hinting;
+
+/* emb_view_desc.flags. NO_TEXTURE: the view never makes a texture of its own; it is drawn only with emb_view_render_to
+ * (emb_view_texture is nullptr and emb_view_render records nothing and returns false). MIPMAPS: the view's texture has a
+ * full mip chain, made again after every frame that changed it (offscreen; ignored with NO_TEXTURE). */
+#define EMB_VIEW_NO_TEXTURE 0x1u
+#define EMB_VIEW_MIPMAPS 0x2u
+
 typedef struct emb_view_desc {
     uint32_t size;          /* sizeof(emb_view_desc) */
     emb_view_mode mode;
@@ -232,6 +248,13 @@ typedef struct emb_view_desc {
     bool transparent;       /* offscreen, true: the canvas is transparent where the page paints nothing (no root or body
                              * background), for a host that composites the texture over its own picture; false: the
                              * Canvas color of the root's color scheme, as a browser tab. Read only when size covers it */
+    uint32_t reserved0;     /* 0. It fills what was the struct's tail padding, which older callers may leave unset, so no
+                             * field that is read lives there */
+    uint32_t flags;         /* EMB_VIEW_* below. Read only when size covers it */
+    uint32_t format;        /* offscreen: the SDL_GPUTextureFormat of the view's texture and of every emb_view_render_to target:
+                             * 0 (or SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM itself) is RGBA8; SDL_GPU_TEXTUREFORMAT_B8G8R8A8_UNORM is the other one
+                             * accepted (creation fails, logged, for any other). Read only when size covers it */
+    emb_text_hinting text_hinting; /* 0 is EMB_TEXT_HINTING_NATURAL. Read only when size covers it */
 } emb_view_desc;
 
 /* The stages of the most recent run of each, in milliseconds. The first_paint fields hold the
@@ -306,6 +329,19 @@ EMB_API void emb_view_set_scale(emb_view *view, float scale);
 EMB_API void emb_view_set_color_scheme(emb_view *view, emb_color_scheme scheme);
 /* Sets the text antialiasing (see emb_text_aa). Everything is repainted. */
 EMB_API void emb_view_set_text_aa(emb_view *view, emb_text_aa mode);
+/* Sets the text hinting of the view (see emb_text_hinting). Everything is repainted. */
+EMB_API void emb_view_set_text_hinting(emb_view *view, emb_text_hinting mode);
+/* Offscreen: an extra resolution factor for the view's pixels, on top of the scale (values <= 0 are ignored, 1 is none).
+ * The document does not see it (devicePixelRatio, media queries and layout stay as they are): only the drawing is redone,
+ * at scale x raster device px per CSS px. Meant for a panel in a 3D world, whose size on screen changes every frame: pick
+ * the factor from the panel's projected size and quantize it (for example to powers of 2^(1/4)), since each change redraws
+ * the whole view. The view's texture is replaced when its pixel size changes. Since the document keeps its scale, what it
+ * sizes in device px keeps that size and is magnified by the raster: a <canvas> backing store (sized by the page from
+ * devicePixelRatio) and the pixel snapping of hairline borders. Text, boxes, gradients, SVG and images are drawn at the full
+ * resolution. */
+EMB_API void emb_view_set_raster_scale(emb_view *view, float raster);
+/* The size in device px of the view's picture: the CSS size times scale times raster scale, rounded as the texture is. */
+EMB_API void emb_view_device_size(const emb_view *view, uint32_t *w, uint32_t *h);
 
 /* Scrolls the viewport by (dx, dy) CSS px at once, clamped to its range. Returns nothing; the
  * change shows on the next update. */
@@ -324,14 +360,44 @@ EMB_API const char *emb_view_title(const emb_view *view);
 
 /* The view's own texture (the frame's target in offscreen mode, and the source of the window's
  * present in windowed mode). It is replaced by any change of the device size (a resize or a scale change that
- * alters the pixel size), so fetch it again after each such change. */
+ * alters the pixel size), so fetch it again after each such change. The picture is premultiplied alpha in gamma space,
+ * in the format of emb_view_desc.format. nullptr with EMB_VIEW_NO_TEXTURE. */
 EMB_API SDL_GPUTexture *emb_view_texture(const emb_view *view);
 
 /* Offscreen mode. Updates the view (style, layout, display list, damage) and records the frame
  * damage into cmd and into emb_view_texture. Returns true when the picture changed. A frame that
  * changed nothing records no GPU work. The first call always draws the whole view. Records nothing
- * on a windowed view (use emb_view_pump there). */
+ * on a windowed view (use emb_view_pump there). The picture is premultiplied alpha in gamma space,
+ * in the format of emb_view_desc.format. */
 EMB_API bool emb_view_render(emb_view *view, SDL_GPUCommandBuffer *cmd);
+
+/* A rectangle of a texture of the host's, for emb_view_render_to. */
+typedef struct emb_render_target {
+    uint32_t size;              /* sizeof(emb_render_target) */
+    SDL_GPUTexture *texture;    /* the host's: a 2D texture (one layer, mip level 0 is drawn) with COLOR_TARGET usage, in
+                                 * the view's format (emb_view_desc.format) */
+    uint32_t texture_w, texture_h; /* its size in px */
+    int32_t x, y;               /* the top-left of the view's rectangle in it; the rectangle is emb_view_device_size and
+                                 * must lie inside the texture */
+    uint32_t flags;             /* EMB_RENDER_* */
+} emb_render_target;
+
+/* EMB_RENDER_PRESERVED: the rectangle still holds what the previous emb_view_render_to of this view drew there (same texture,
+ * x, y and device size, nothing else drew over it), so only what changed is drawn again. Without it, or when any of those
+ * differs from the previous call, the whole rectangle is drawn. It is safe to pass it always, the first call included: Ember
+ * keeps the record and draws whole whenever the record does not match. Mip levels the host makes of an atlas mix
+ * neighbouring rectangles at small levels: keep a gutter between rectangles (2^k px for k levels sampled). */
+#define EMB_RENDER_PRESERVED 0x1u
+
+/* Offscreen mode. Like emb_view_render, but draws into the rectangle of the host's texture instead of the view's own: the
+ * pixels outside the rectangle are never written. Updates the view and records into cmd (never submits). Returns true
+ * when it recorded a picture (always true for a full draw of the rectangle), false when nothing changed under
+ * EMB_RENDER_PRESERVED or on an error (logged: a bad target, a rectangle outside the texture). After an error the next
+ * call draws the whole rectangle, so a host that keeps passing EMB_RENDER_PRESERVED needs no error handling. The picture is
+ * premultiplied RGBA in gamma space, like emb_view_texture's. Many views may draw into one texture (an atlas), each into
+ * its own rectangle, in one command buffer. A view drawn this way can still be drawn with emb_view_render (each switch
+ * draws the whole picture once). */
+EMB_API bool emb_view_render_to(emb_view *view, SDL_GPUCommandBuffer *cmd, const emb_render_target *target);
 
 /* Windowed mode. Runs the event loop until the window is closed. Returns true when it closed
  * normally and false on an error (not a windowed view, or the GPU failed repeatedly). */

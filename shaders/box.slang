@@ -83,6 +83,7 @@ struct VSOut {
     float2 em : TEXCOORD1;      // outline only: the em point
     nointerpolation uint prim : TEXCOORD2;
     nointerpolation float2 foot : TEXCOORD3;   // outline only: device px per em unit, along em x, y
+    nointerpolation float2 origin : TEXCOORD4; // the frame's top-left in its target (0, 0 for a whole target)
 };
 
 
@@ -97,6 +98,7 @@ VSOut vsMain(uint vid : SV_VertexID, uint iid : SV_InstanceID)
                                  (c == 2u || c == 3u || c == 5u) ? 1.0 : 0.0);
 
     VSOut o;
+    o.origin = fr.pad;
     o.prim = iid;
     o.em = float2(0.0, 0.0);
     o.foot = float2(0.0, 0.0);
@@ -563,7 +565,8 @@ float4 fsMain(VSOut i) : SV_Target
     uint ci = p.clip;
     for (uint k = 0u; k < MAX_CLIP_DEPTH && ci != 0u; k++) {
         const Clip cl = loadClip(fsClips(), ci);
-        cov *= clipCoverage(cl, i.pos.xy);
+        // The clips are in the frame's device px; i.pos is in the target's, so the frame's origin is taken away.
+        cov *= clipCoverage(cl, i.pos.xy - i.origin);
         ci = cl.parent;
     }
 

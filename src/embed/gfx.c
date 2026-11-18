@@ -62,6 +62,7 @@ struct embi_gfx {
     embi_image_cache *images;
     size_t image_bytes;
     int text_aa;        /* embi_text_aa of the draw in progress */
+    int text_hinting;   /* embi_text_hinting of the draw in progress */
     bool animating;
     void *user;
     bool (*fetch)(void *user, embi_str url, uint8_t **data, size_t *len);
@@ -84,6 +85,8 @@ typedef struct seg {
     const embi_dl *d;
     SDL_GPUCommandBuffer *cmd;
     SDL_GPUTexture *target;
+    int32_t tx, ty;           /* the frame's rectangle in the target (0, 0 for a layer) */
+    uint32_t ttw, tth;        /* the target's size in device px (the frame's size for a layer) */
     uint32_t tw, th;          /* the frame's size in device px */
     uint32_t cw, ch;          /* the content size in device px (the composite covers it) */
     float scale;
@@ -380,15 +383,28 @@ static uint32_t frame_clip(seg *s, uint32_t dl_index)
 
 static void seg_begin(seg *s)
 {
+    /* A seg drawn into a rectangle of a larger target (an offset, or a texture larger than the frame) is a region frame
+     * over the whole rectangle when it is not a region already: only the rectangle is cleared then. Without the replacing
+     * pipeline the frame is not begun, and the draw fails. */
+    const bool offset = s->tx != 0 || s->ty != 0 || s->ttw != s->tw || s->tth != s->th;
     if (s->region) {
         s->f = embi_frame_begin_region(s->gx->r, s->tw, s->th, s->scale, s->rect);
+    } else if (offset) {
+        if (!embi_renderer_region_ok(s->gx->r)) {
+            s->f = nullptr;
+            return;
+        }
+        const embi_dev_rect whole = {0, 0, (int32_t)s->tw, (int32_t)s->th};
+        s->f = embi_frame_begin_region(s->gx->r, s->tw, s->th, s->scale, whole);
     } else {
         s->f = embi_frame_begin(s->gx->r, s->tw, s->th, s->scale);
     }
     if (s->f != nullptr) {
+        embi_frame_set_target_offset(s->f, s->tx, s->ty, s->ttw, s->tth);
         /* LCD text needs an opaque backdrop in the same target: the root target when the canvas is
          * opaque. A layer starts transparent, so text in it is drawn gray. */
         embi_frame_set_text_aa(s->f, (embi_text_aa)s->gx->text_aa, s->gx->animating);
+        embi_frame_set_text_hinting(s->f, (embi_text_hinting)s->gx->text_hinting);
         embi_frame_set_opaque_backdrop(s->f, s->depth == 0 && (s->clear_rgba >> 24) == 0xFFu);
         memset(s->xmap, 0xFF, s->nx * sizeof *s->xmap);
         memset(s->cmap, 0xFF, s->nc * sizeof *s->cmap);
@@ -798,7 +814,16 @@ static void draw_item(seg *s, const embi_ditem *it, float alpha)
     case EMBI_DI_TEXT: {
         const embi_lay_shaped *run = (const embi_lay_shaped *)s->d->runs.data[it->aux];
         embi_frame_set_lcd_allowed(s->f, alpha >= 1.0f);
+        /* text-rendering: geometricPrecision (EMBI_DF_GEOMPREC) draws with no fitting, whatever the view's hinting. */
+        const bool geom = (it->flags & EMBI_DF_GEOMPREC) != 0;
+        const embi_text_hinting view_mode = embi_frame_text_hinting(s->f);
+        if (geom) {
+            embi_frame_set_text_hinting(s->f, EMBI_TEXT_HINTING_NONE);
+        }
         embi_tshim_draw_range(gx->text, s->f, run, it->aux3, it->aux2, it->f[0], it->f[1], scale_rgba(it->colors[0], alpha), xf, cl);
+        if (geom) {
+            embi_frame_set_text_hinting(s->f, view_mode);
+        }
         break;
     }
     case EMBI_DI_DECORATION:
@@ -859,7 +884,7 @@ static void draw_item(seg *s, const embi_ditem *it, float alpha)
 
 static void replay_range(seg *s, uint32_t begin, uint32_t end, float alpha);
 static void render_backdrop(seg *s, const embi_ditem *it, float alpha, SDL_GPUTexture *from_tex, int32_t from_ox,
-                            int32_t from_oy, uint32_t from_w, uint32_t from_h);
+                            int32_t from_oy, uint32_t from_w, uint32_t from_h, int32_t from_tx, int32_t from_ty);
 
 /* Renders the group [begin, end) into a layer and composites it into the stream with opacity. With mask the layer is a
  * mask (R4c, EMBI_LS_SVGMASK): it multiplies what the stream holds by its alpha (destination-in) instead of drawing over it. */
@@ -881,6 +906,10 @@ static void render_group(seg *s, uint32_t begin, uint32_t end, float opacity, bo
     ls.target = L.tex;
     ls.tw = L.tex_w;
     ls.th = L.tex_h;
+    ls.tx = 0;
+    ls.ty = 0;
+    ls.ttw = L.tex_w;
+    ls.tth = L.tex_h;
     ls.region = false;
     ls.clear_pending = true;
     ls.clear_rgba = 0;
@@ -1061,6 +1090,10 @@ static void render_plane(seg *s, uint32_t bi, uint32_t end)
     ls.target = L.tex;
     ls.tw = L.tex_w;
     ls.th = L.tex_h;
+    ls.tx = 0;
+    ls.ty = 0;
+    ls.ttw = L.tex_w;
+    ls.tth = L.tex_h;
     ls.cw = w;
     ls.ch = h;
     ls.region = false;
@@ -1303,6 +1336,10 @@ static void layer_seg_open(seg *ls, const seg *s, const embi_layer *L, const ire
     ls->target = L->tex;
     ls->tw = L->tex_w;
     ls->th = L->tex_h;
+    ls->tx = 0;
+    ls->ty = 0;
+    ls->ttw = L->tex_w;
+    ls->tth = L->tex_h;
     ls->cw = L->w;
     ls->ch = L->h;
     ls->ox = lay->x0;
@@ -1489,7 +1526,7 @@ static bool apply_blend(seg *s, uint32_t mode, const irect *lay, const irect *vi
         return false;
     }
     const SDL_GPUTextureLocation from = {
-        .texture = s->target, .x = (Uint32)(vis->x0 - s->ox), .y = (Uint32)(vis->y0 - s->oy)};
+        .texture = s->target, .x = (Uint32)(vis->x0 - s->ox + s->tx), .y = (Uint32)(vis->y0 - s->oy + s->ty)};
     const SDL_GPUTextureLocation to = {
         .texture = bk.tex, .x = (Uint32)(vis->x0 - lay->x0), .y = (Uint32)(vis->y0 - lay->y0)};
     SDL_CopyGPUTextureToTexture(cp, &from, &to, (Uint32)(vis->x1 - vis->x0), (Uint32)(vis->y1 - vis->y0), 1, false);
@@ -1558,7 +1595,7 @@ static bool apply_plus(seg *s, const embi_ditem *b, const irect *lay, const irec
     bool ok = cp != nullptr;
     if (ok) {
         const SDL_GPUTextureLocation from = {
-            .texture = s->target, .x = (Uint32)(vis->x0 - s->ox), .y = (Uint32)(vis->y0 - s->oy)};
+            .texture = s->target, .x = (Uint32)(vis->x0 - s->ox + s->tx), .y = (Uint32)(vis->y0 - s->oy + s->ty)};
         const SDL_GPUTextureLocation to = {
             .texture = bk.tex, .x = (Uint32)(vis->x0 - lay->x0), .y = (Uint32)(vis->y0 - lay->y0)};
         SDL_CopyGPUTextureToTexture(cp, &from, &to, (Uint32)(vis->x1 - vis->x0), (Uint32)(vis->y1 - vis->y0), 1, false);
@@ -1572,7 +1609,7 @@ static bool apply_plus(seg *s, const embi_ditem *b, const irect *lay, const irec
             const SDL_GPUTextureLocation from = {
                 .texture = sum.tex, .x = (Uint32)(vis->x0 - lay->x0), .y = (Uint32)(vis->y0 - lay->y0)};
             const SDL_GPUTextureLocation to = {
-                .texture = s->target, .x = (Uint32)(vis->x0 - s->ox), .y = (Uint32)(vis->y0 - s->oy)};
+                .texture = s->target, .x = (Uint32)(vis->x0 - s->ox + s->tx), .y = (Uint32)(vis->y0 - s->oy + s->ty)};
             SDL_CopyGPUTextureToTexture(cp, &from, &to, (Uint32)(vis->x1 - vis->x0), (Uint32)(vis->y1 - vis->y0), 1, false);
             SDL_EndGPUCopyPass(cp);
         }
@@ -1661,7 +1698,7 @@ static void render_filter_group(seg *s, uint32_t begin, uint32_t end, float opac
      * the group is drawn into (the parent's), then the layer holds its result. */
     for (; first < end && d->items.data[first].kind == EMBI_DI_BACKDROP; first++) {
         if (ls.f != nullptr && !culled(&ls, &d->items.data[first])) {
-            render_backdrop(&ls, &d->items.data[first], 1.0f, s->target, s->ox, s->oy, s->cw, s->ch);
+            render_backdrop(&ls, &d->items.data[first], 1.0f, s->target, s->ox, s->oy, s->cw, s->ch, s->tx, s->ty);
         }
     }
     replay_range(&ls, first, end, 1.0f);
@@ -1712,7 +1749,7 @@ static void render_filter_group(seg *s, uint32_t begin, uint32_t end, float opac
  * without a backdrop-filter (the display list holds no item for them). from_tex is the texture the backdrop is read
  * from: the target of s, or the parent's target for the filter of the element a group is drawn for. */
 static void render_backdrop(seg *s, const embi_ditem *it, float alpha, SDL_GPUTexture *from_tex, int32_t from_ox,
-                            int32_t from_oy, uint32_t from_w, uint32_t from_h)
+                            int32_t from_oy, uint32_t from_w, uint32_t from_h, int32_t from_tx, int32_t from_ty)
 {
     embi_gfx *gx = s->gx;
     const embi_dl *d = s->d;
@@ -1744,7 +1781,7 @@ static void render_backdrop(seg *s, const embi_ditem *it, float alpha, SDL_GPUTe
     SDL_GPUCopyPass *cp = SDL_BeginGPUCopyPass(s->cmd);
     if (cp != nullptr) {
         const SDL_GPUTextureLocation from = {
-            .texture = from_tex, .x = (Uint32)(lay.x0 - from_ox), .y = (Uint32)(lay.y0 - from_oy)};
+            .texture = from_tex, .x = (Uint32)(lay.x0 - from_ox + from_tx), .y = (Uint32)(lay.y0 - from_oy + from_ty)};
         const SDL_GPUTextureLocation to = {.texture = L.tex};
         SDL_CopyGPUTextureToTexture(cp, &from, &to, L.w, L.h, 1, false);
         SDL_EndGPUCopyPass(cp);
@@ -1833,7 +1870,7 @@ static void replay_range(seg *s, uint32_t begin, uint32_t end, float alpha)
             uint32_t first = i + 1;
             for (; first < j && d->items.data[first].kind == EMBI_DI_BACKDROP; first++) {
                 if (s->f != nullptr && s->depth < EMBI_GFX_MAX_LAYER_DEPTH && !culled(s, &d->items.data[first])) {
-                    render_backdrop(s, &d->items.data[first], opacity, s->target, s->ox, s->oy, s->cw, s->ch);
+                    render_backdrop(s, &d->items.data[first], opacity, s->target, s->ox, s->oy, s->cw, s->ch, s->tx, s->ty);
                 }
             }
             int mode = s->group != nullptr ? s->group(d, i, j) : 1;
@@ -1849,7 +1886,7 @@ static void replay_range(seg *s, uint32_t begin, uint32_t end, float alpha)
         }
         if (it->kind == EMBI_DI_BACKDROP) {
             if (s->f != nullptr && s->depth < EMBI_GFX_MAX_LAYER_DEPTH && !culled(s, it)) {
-                render_backdrop(s, it, alpha, s->target, s->ox, s->oy, s->cw, s->ch);
+                render_backdrop(s, it, alpha, s->target, s->ox, s->oy, s->cw, s->ch, s->tx, s->ty);
             }
         } else if (it->kind != EMBI_DI_LAYER_END && s->f != nullptr) {
             if (culled(s, it)) {
@@ -1890,7 +1927,7 @@ static void canvas_under(seg *s, uint32_t canvas_rgba)
     }
     SDL_GPUCopyPass *cp = SDL_BeginGPUCopyPass(s->cmd);
     if (cp != nullptr) {
-        const SDL_GPUTextureLocation from = {.texture = s->target};
+        const SDL_GPUTextureLocation from = {.texture = s->target, .x = (Uint32)s->tx, .y = (Uint32)s->ty};
         const SDL_GPUTextureLocation to = {.texture = L.tex};
         SDL_CopyGPUTextureToTexture(cp, &from, &to, s->cw, s->ch, 1, false);
         SDL_EndGPUCopyPass(cp);
@@ -1920,6 +1957,7 @@ bool embi_gfx_draw(embi_gfx *gx, SDL_GPUCommandBuffer *cmd, const embi_gfx_targe
         return true;
     }
     gx->text_aa = t->text_aa;
+    gx->text_hinting = t->text_hinting;
     gx->animating = t->animating;
     gx->cmd = cmd;
     if (gx->canvas != nullptr) {
@@ -1936,6 +1974,10 @@ bool embi_gfx_draw(embi_gfx *gx, SDL_GPUCommandBuffer *cmd, const embi_gfx_targe
     s.target = t->tex;
     s.tw = t->w;
     s.th = t->h;
+    s.tx = t->tex_x;
+    s.ty = t->tex_y;
+    s.ttw = t->tex_w != 0 ? t->tex_w : t->w;
+    s.tth = t->tex_h != 0 ? t->tex_h : t->h;
     s.cw = t->w;
     s.ch = t->h;
     s.scale = t->scale;
@@ -2139,13 +2181,13 @@ void embi_gfx_destroy(embi_gfx *gx)
     embi_free(gx, sizeof *gx);
 }
 
-SDL_GPUTexture *embi_gfx_texture_create(embi_gfx *gx, uint32_t w, uint32_t h, bool sampled)
+SDL_GPUTexture *embi_gfx_texture_create(embi_gfx *gx, uint32_t w, uint32_t h, bool sampled, uint32_t levels)
 {
-    return embi_gfx_texture_create_on(gx->dev, gx->fmt, w, h, sampled);
+    return embi_gfx_texture_create_on(gx->dev, gx->fmt, w, h, sampled, levels);
 }
 
 SDL_GPUTexture *embi_gfx_texture_create_on(SDL_GPUDevice *dev, SDL_GPUTextureFormat fmt, uint32_t w, uint32_t h,
-                                           bool sampled)
+                                           bool sampled, uint32_t levels)
 {
     SDL_GPUTextureCreateInfo ci;
     memset(&ci, 0, sizeof ci);
@@ -2155,7 +2197,7 @@ SDL_GPUTexture *embi_gfx_texture_create_on(SDL_GPUDevice *dev, SDL_GPUTextureFor
     ci.width = w > 0 ? w : 1;
     ci.height = h > 0 ? h : 1;
     ci.layer_count_or_depth = 1;
-    ci.num_levels = 1;
+    ci.num_levels = levels > 0 ? levels : 1;
     return SDL_CreateGPUTexture(dev, &ci);
 }
 

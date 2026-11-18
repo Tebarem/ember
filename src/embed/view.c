@@ -228,10 +228,34 @@ void embi_view_canvas_env(emb_view *v, embi_canvas_env *e)
 
 /* ------------------------------------------------------------------ texture and sizes */
 
+/* The mip levels of a w x h texture of the view: a full chain with EMB_VIEW_MIPMAPS, else one level. */
+static uint32_t view_levels(const emb_view *v, uint32_t w, uint32_t h)
+{
+    if ((v->flags & EMB_VIEW_MIPMAPS) == 0 || (v->flags & EMB_VIEW_NO_TEXTURE) != 0) {
+        return 1;
+    }
+    uint32_t m = w > h ? w : h;
+    uint32_t levels = 1;
+    while (m > 1) {
+        m >>= 1;
+        levels++;
+    }
+    return levels;
+}
+
 /* Makes the view's texture the given device size. A new texture holds nothing, so the next damage is the whole view. */
 static void set_texture_size(emb_view *v, uint32_t dw, uint32_t dh)
 {
-    if (v->tex != nullptr && v->dev_w == dw && v->dev_h == dh) {
+    const bool no_texture = (v->flags & EMB_VIEW_NO_TEXTURE) != 0;
+    if ((v->tex != nullptr || no_texture) && v->dev_w == dw && v->dev_h == dh) {
+        return;
+    }
+    if (no_texture) {
+        /* The view draws only into the host's rectangles (emb_view_render_to): its size is kept, and nothing is made. */
+        v->dev_w = dw;
+        v->dev_h = dh;
+        v->force_full = true;
+        v->paint_dirty = true;
         return;
     }
     if (v->gfx == nullptr) {
@@ -244,7 +268,10 @@ static void set_texture_size(emb_view *v, uint32_t dw, uint32_t dh)
     embi_gfx_texture_destroy(v->gfx, v->tex);
     /* A frame's texture is drawn by its parent and a window's by the present: the renderer samples both. */
     const bool sampled = embi_frames_parent(v) != nullptr || v->mode == EMB_VIEW_WINDOWED;
-    v->tex = embi_gfx_texture_create(v->gfx, dw, dh, sampled);
+    v->tex = embi_gfx_texture_create(v->gfx, dw, dh, sampled, view_levels(v, dw, dh));
+    if (v->tex == nullptr) {
+        embi_rt_log(v->rt, EMB_LOG_ERROR, "the view's texture (%ux%u px) could not be created", (unsigned)dw, (unsigned)dh);
+    }
     v->dev_w = dw;
     v->dev_h = dh;
     v->force_full = true;
@@ -269,13 +296,14 @@ typedef struct gfx_job {
     SDL_GPUDevice *dev;
     uint32_t tex_w, tex_h;
     SDL_GPUTexture *tex;
+    uint32_t levels;
     SDL_Thread *tex_thread;
 } gfx_job;
 
 static int SDLCALL tex_job_main(void *arg)
 {
     gfx_job *j = arg;
-    j->tex = embi_gfx_texture_create_on(j->dev, j->cfg.format, j->tex_w, j->tex_h, false); /* an offscreen root view's */
+    j->tex = embi_gfx_texture_create_on(j->dev, j->cfg.format, j->tex_w, j->tex_h, false, j->levels); /* an offscreen root view's */
     return 0;
 }
 
@@ -303,12 +331,13 @@ static void create_gfx_start(emb_view *v, gfx_job *j, bool threaded, uint32_t te
     j->cfg.fetch = view_fetch_image;
     j->cfg.pending_count = view_pending_count;
     j->cfg.resolve = view_resolve;
+    j->levels = view_levels(v, tex_w, tex_h);
     if (threaded) {
         j->dev = v->dev;
         j->tex_w = tex_w;
         j->tex_h = tex_h;
         j->thread = SDL_CreateThread(gfx_job_main, "ember-gfx-create", j);
-        if (j->thread != nullptr) {
+        if (j->thread != nullptr && (v->flags & EMB_VIEW_NO_TEXTURE) == 0) {
             j->tex_thread = SDL_CreateThread(tex_job_main, "ember-view-tex", j);
         }
     }
@@ -408,9 +437,11 @@ emb_view *embi_view_new_child(emb_view *parent)
     v->mode = EMB_VIEW_OFFSCREEN;
     v->scheme = parent->scheme;
     v->text_aa = EMB_TEXT_AA_GRAY; /* a frame's texture is transparent where its document paints nothing */
+    v->text_hinting = parent->text_hinting;
     v->css_w = 300; /* the default object size of an iframe; the parent's layout sets the real one */
     v->css_h = 150;
     v->scale = parent->scale;
+    v->raster = parent->raster;
     v->st.size = sizeof v->st;
     v->fmt = parent->fmt;
     v->force_full = true;
@@ -440,9 +471,10 @@ void embi_view_child_gfx(emb_view *v)
         v->fmt = root->fmt;
         v->gpu = root->gpu;
         v->dev = root->dev;
+        v->raster = root->raster;
         v->dev_w = 0;
         v->dev_h = 0;
-        set_texture_size(v, device_px(v->css_w, v->scale), device_px(v->css_h, v->scale));
+        set_texture_size(v, device_px(v->css_w, embi_view_draw_scale(v)), device_px(v->css_h, embi_view_draw_scale(v)));
     }
 }
 
@@ -451,13 +483,16 @@ void embi_view_set_child_size(emb_view *v, uint32_t css_w, uint32_t css_h)
     emb_view *root = embi_frames_root(v);
     v->css_w = css_w > 0 ? css_w : 1;
     v->css_h = css_h > 0 ? css_h : 1;
-    if (v->scale != root->scale || v->scheme != root->scheme) {
+    if (v->scale != root->scale || v->raster != root->raster || v->scheme != root->scheme ||
+        v->text_hinting != root->text_hinting) {
         v->scale = root->scale;
+        v->raster = root->raster;
         v->scheme = root->scheme;
+        v->text_hinting = root->text_hinting;
         v->force_full = true;
     }
     sync_doc_viewport(v);
-    set_texture_size(v, device_px(v->css_w, v->scale), device_px(v->css_h, v->scale));
+    set_texture_size(v, device_px(v->css_w, embi_view_draw_scale(v)), device_px(v->css_h, embi_view_draw_scale(v)));
     v->paint_dirty = true;
 }
 
@@ -474,12 +509,20 @@ emb_view *emb_view_create(emb_runtime *rt, const emb_view_desc *desc)
     if (desc->size >= offsetof(emb_view_desc, text_aa) + sizeof desc->text_aa) {
         v->text_aa = desc->text_aa;
     }
+    if (desc->size >= offsetof(emb_view_desc, text_hinting) + sizeof desc->text_hinting &&
+        (unsigned)desc->text_hinting <= (unsigned)EMB_TEXT_HINTING_NONE) {
+        v->text_hinting = desc->text_hinting;
+    }
     if (desc->size >= offsetof(emb_view_desc, transparent) + sizeof desc->transparent) {
         v->transparent = desc->mode == EMB_VIEW_OFFSCREEN && desc->transparent;
     }
     v->css_w = desc->width > 0 ? desc->width : EMBI_VIEW_DEFAULT_W;
     v->css_h = desc->height > 0 ? desc->height : EMBI_VIEW_DEFAULT_H;
     v->scale = desc->scale > 0.0f ? desc->scale : 1.0f;
+    v->raster = 1.0f;
+    if (desc->size >= offsetof(emb_view_desc, flags) + sizeof desc->flags && desc->mode == EMB_VIEW_OFFSCREEN) {
+        v->flags = desc->flags;
+    }
     v->st.size = sizeof v->st;
     v->st.runtime_init_ms = rt->runtime_init_ms;
     v->fmt = SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM;
@@ -491,6 +534,16 @@ emb_view *emb_view_create(emb_runtime *rt, const emb_view_desc *desc)
 
     uint32_t dev_w = 0, dev_h = 0;
     if (v->mode == EMB_VIEW_OFFSCREEN) {
+        if (desc->size >= offsetof(emb_view_desc, format) + sizeof desc->format) {
+            /* 0 is the default format (RGBA8, which may also be named); the other accepted one is BGRA. */
+            if (desc->format == SDL_GPU_TEXTUREFORMAT_B8G8R8A8_UNORM) {
+                v->fmt = SDL_GPU_TEXTUREFORMAT_B8G8R8A8_UNORM;
+            } else if (desc->format != 0 && desc->format != SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM) {
+                embi_rt_log(rt, EMB_LOG_ERROR, "emb_view_create: unsupported format");
+                emb_view_destroy(v);
+                return nullptr;
+            }
+        }
         if (desc->device == nullptr) {
             embi_rt_log(rt, EMB_LOG_ERROR, "emb_view_create: offscreen mode needs a device");
             emb_view_destroy(v);
@@ -499,8 +552,8 @@ emb_view *emb_view_create(emb_runtime *rt, const emb_view_desc *desc)
         v->gpu = embi_gpu_create(desc->device, false);
         v->gpu_owned = false;
         v->dev = desc->device;
-        dev_w = device_px(v->css_w, v->scale);
-        dev_h = device_px(v->css_h, v->scale);
+        dev_w = device_px(v->css_w, embi_view_draw_scale(v));
+        dev_h = device_px(v->css_h, embi_view_draw_scale(v));
     } else {
         if (!embi_window_open(v, desc)) {
             emb_view_destroy(v);
@@ -545,7 +598,7 @@ emb_view *emb_view_create(emb_runtime *rt, const emb_view_desc *desc)
         v->paint_dirty = true;
     }
     set_texture_size(v, dev_w, dev_h);
-    if (v->mode == EMB_VIEW_OFFSCREEN && v->tex == nullptr) {
+    if (v->mode == EMB_VIEW_OFFSCREEN && v->tex == nullptr && (v->flags & EMB_VIEW_NO_TEXTURE) == 0) {
         embi_rt_log(rt, EMB_LOG_ERROR, "emb_view_create: the view texture could not be created");
         emb_view_destroy(v);
         return nullptr;
@@ -815,7 +868,7 @@ void emb_view_resize(emb_view *view, uint32_t width, uint32_t height)
         view->css_h = height;
     }
     sync_doc_viewport(view);
-    set_texture_size(view, device_px(view->css_w, view->scale), device_px(view->css_h, view->scale));
+    set_texture_size(view, device_px(view->css_w, embi_view_draw_scale(view)), device_px(view->css_h, embi_view_draw_scale(view)));
 }
 
 void emb_view_set_scale(emb_view *view, float scale)
@@ -825,7 +878,7 @@ void emb_view_set_scale(emb_view *view, float scale)
     }
     view->scale = scale;
     sync_doc_viewport(view);
-    set_texture_size(view, device_px(view->css_w, view->scale), device_px(view->css_h, view->scale));
+    set_texture_size(view, device_px(view->css_w, embi_view_draw_scale(view)), device_px(view->css_h, embi_view_draw_scale(view)));
     view->force_full = true;
     view->paint_dirty = true;
 }
@@ -849,6 +902,53 @@ void emb_view_set_text_aa(emb_view *view, emb_text_aa mode)
     view->text_aa = mode;
     view->force_full = true;
     view->paint_dirty = true;
+}
+
+void emb_view_set_text_hinting(emb_view *view, emb_text_hinting mode)
+{
+    if (view == nullptr || view->text_hinting == mode || (unsigned)mode > (unsigned)EMB_TEXT_HINTING_NONE) {
+        return;
+    }
+    view->text_hinting = mode;
+    view->force_full = true;
+    view->paint_dirty = true;
+}
+
+void emb_view_set_raster_scale(emb_view *view, float raster)
+{
+    if (view == nullptr || view->mode == EMB_VIEW_WINDOWED || !(raster > 0.0f) || !isfinite(raster)) {
+        return;
+    }
+    if (view->raster == raster) {
+        return;
+    }
+    /* The document keeps its scale: only the drawing and its texture change. The frames take the raster at their next
+     * update (embi_view_set_child_size). */
+    view->raster = raster;
+    set_texture_size(view, device_px(view->css_w, embi_view_draw_scale(view)), device_px(view->css_h, embi_view_draw_scale(view)));
+    view->force_full = true;
+    view->paint_dirty = true;
+    view->rt_valid = false;
+}
+
+void emb_view_device_size(const emb_view *view, uint32_t *w, uint32_t *h)
+{
+    uint32_t dw = 0, dh = 0;
+    if (view != nullptr) {
+        if (view->tex != nullptr) {
+            dw = view->dev_w;
+            dh = view->dev_h;
+        } else {
+            dw = device_px(view->css_w, embi_view_draw_scale(view));
+            dh = device_px(view->css_h, embi_view_draw_scale(view));
+        }
+    }
+    if (w != nullptr) {
+        *w = dw;
+    }
+    if (h != nullptr) {
+        *h = dh;
+    }
 }
 
 /* The antialiasing a view draws with (an embi_text_aa value): AUTO is LCD RGB on a windowed view on
@@ -1166,10 +1266,10 @@ bool embi_view_update(emb_view *v)
         /* IF1: only the pictures of frames (or of animated images a frame shows) changed: the list on screen stays, and the
          * damage is the rects of the items that show them. */
         SDL_free(sbs);
-        embi_damage_set_page_rects(&v->damage, nullptr, 0, v->scale, v->dev_w, v->dev_h);
+        embi_damage_set_page_rects(&v->damage, nullptr, 0, embi_view_draw_scale(v), v->dev_w, v->dev_h);
         embi_frames_add_damage(v, &v->damage, &v->dl[v->cur]);
         if (anim_kept) {
-            embi_gfx_anim_damage_keep(gfx_of(v), &v->damage, &v->dl[v->cur], v->scale, v->dev_w, v->dev_h);
+            embi_gfx_anim_damage_keep(gfx_of(v), &v->damage, &v->dl[v->cur], embi_view_draw_scale(v), v->dev_w, v->dev_h);
         }
         v->st.paint_ms = ticks_to_ms(SDL_GetPerformanceCounter() - t0);
         return v->damage.any;
@@ -1260,10 +1360,10 @@ bool embi_view_update(emb_view *v)
         if (whole) {
             embi_damage_set_full(&v->damage, v->dev_w, v->dev_h, out->items.len);
         } else {
-            embi_damage_set_page_rects(&v->damage, rr, nr, v->scale, v->dev_w, v->dev_h);
+            embi_damage_set_page_rects(&v->damage, rr, nr, embi_view_draw_scale(v), v->dev_w, v->dev_h);
         }
     } else {
-        embi_damage_compute(&v->damage, v->have_prev ? &v->dl[v->cur] : nullptr, out, v->scale, v->dev_w, v->dev_h, full);
+        embi_damage_compute(&v->damage, v->have_prev ? &v->dl[v->cur] : nullptr, out, embi_view_draw_scale(v), v->dev_w, v->dev_h, full);
     }
     SDL_free(old_tail);
     v->st.damage_ms = ticks_to_ms(SDL_GetPerformanceCounter() - td0);
@@ -1271,9 +1371,9 @@ bool embi_view_update(emb_view *v)
         /* An animated image that changed frame has the same item hash: its rects are damaged by URL. A frame leaves the
          * changes to its root, which forgets them after its frames have seen them. */
         if (child) {
-            embi_gfx_anim_damage_keep(gfx_of(v), &v->damage, out, v->scale, v->dev_w, v->dev_h);
+            embi_gfx_anim_damage_keep(gfx_of(v), &v->damage, out, embi_view_draw_scale(v), v->dev_w, v->dev_h);
         } else {
-            embi_gfx_anim_damage(gfx_of(v), &v->damage, out, v->scale, v->dev_w, v->dev_h);
+            embi_gfx_anim_damage(gfx_of(v), &v->damage, out, embi_view_draw_scale(v), v->dev_w, v->dev_h);
         }
     }
     /* IF1: a frame whose picture changed has the same item: its rect is damaged by name. */
@@ -1295,6 +1395,44 @@ bool embi_view_frame(emb_view *v, SDL_GPUCommandBuffer *cmd)
     /* IF1: the frames draw into their textures first: this view's list samples them. */
     embi_frames_draw(v, cmd);
     return embi_view_draw(v, cmd, changed);
+}
+
+/* The target of a draw into t's texture (the view's own, or a rectangle of a host's): the canvas color, text antialiasing and
+ * animation of the view. The caller gives the texture and its device size. */
+static void fill_target(emb_view *v, embi_gfx_target *t, SDL_GPUTexture *tex, uint32_t w, uint32_t h)
+{
+    memset(t, 0, sizeof *t);
+    t->tex = tex;
+    t->w = w;
+    t->h = h;
+    t->scale = embi_view_draw_scale(v);
+    /* A frame's canvas is transparent (IF1): the parent shows through where its document paints nothing; so is the canvas of
+     * an offscreen view made transparent (emb_view_desc.transparent). */
+    const bool child = embi_frames_parent(v) != nullptr;
+    t->clear_rgba = child || v->transparent ? 0u : embi_doc_canvas_rgba(v->doc);
+    t->text_aa = resolve_text_aa(v);
+    t->text_hinting = (int)v->text_hinting;
+    t->animating = embi_view_animating(v);
+}
+
+/* Records the damage of the last update into t. Returns whether the frame was recorded. */
+static bool draw_damage(emb_view *v, SDL_GPUCommandBuffer *cmd, const embi_gfx_target *t)
+{
+    const bool child = embi_frames_parent(v) != nullptr;
+    embi_gfx_stats gs;
+    memset(&gs, 0, sizeof gs);
+    bool ok = embi_gfx_draw(gfx_of(v), cmd, t, &v->dl[v->cur], &v->damage, embi_doc_group_mode, &gs);
+    v->st.upload_ms = gs.upload_ms;
+    v->st.gpu_ms = gs.record_ms;
+    v->st.layers = gs.layers;
+    v->st.draw_calls = gs.draw_calls;
+    v->st.items_recorded = gs.items_recorded;
+    v->st.items_culled = gs.items_culled;
+    v->st.batches = gs.batches;
+    if (!child) {
+        embi_gfx_trim(v->gfx); /* between frames: the root trims once its frames have drawn */
+    }
+    return ok;
 }
 
 bool embi_view_draw(emb_view *v, SDL_GPUCommandBuffer *cmd, bool changed)
@@ -1321,29 +1459,13 @@ bool embi_view_draw(emb_view *v, SDL_GPUCommandBuffer *cmd, bool changed)
         return false;
     }
     embi_gfx_target t;
-    t.tex = v->tex;
-    t.w = v->dev_w;
-    t.h = v->dev_h;
-    t.scale = v->scale;
-    /* A frame's canvas is transparent (IF1): the parent shows through where its document paints nothing; so is the canvas of
-     * an offscreen view made transparent (emb_view_desc.transparent). */
-    const bool child = embi_frames_parent(v) != nullptr;
-    t.clear_rgba = child || v->transparent ? 0u : embi_doc_canvas_rgba(v->doc);
-    t.text_aa = resolve_text_aa(v);
-    t.animating = embi_view_animating(v);
-    embi_gfx_stats gs;
-    memset(&gs, 0, sizeof gs);
-    bool ok = embi_gfx_draw(gfx_of(v), cmd, &t, &v->dl[v->cur], &v->damage, embi_doc_group_mode, &gs);
-    v->st.upload_ms = gs.upload_ms;
-    v->st.gpu_ms = gs.record_ms;
-    v->st.layers = gs.layers;
-    v->st.draw_calls = gs.draw_calls;
-    v->st.items_recorded = gs.items_recorded;
-    v->st.items_culled = gs.items_culled;
-    v->st.batches = gs.batches;
-    if (!child) {
-        embi_gfx_trim(v->gfx); /* between frames: the root trims once its frames have drawn */
+    fill_target(v, &t, v->tex, v->dev_w, v->dev_h);
+    const bool ok = draw_damage(v, cmd, &t);
+    if (ok && (v->flags & EMB_VIEW_MIPMAPS) != 0) {
+        SDL_GenerateMipmapsForGPUTexture(cmd, v->tex);
     }
+    v->drew_own = true;
+    v->rt_valid = false;
     if (!ok) {
         /* The damage is consumed but the texture was not drawn: the next frame redraws everything. */
         v->force_full = true;
@@ -1356,10 +1478,82 @@ bool embi_view_draw(emb_view *v, SDL_GPUCommandBuffer *cmd, bool changed)
 
 bool emb_view_render(emb_view *view, SDL_GPUCommandBuffer *cmd)
 {
-    if (view == nullptr || cmd == nullptr || view->mode != EMB_VIEW_OFFSCREEN) {
+    if (view == nullptr || cmd == nullptr || view->mode != EMB_VIEW_OFFSCREEN || (view->flags & EMB_VIEW_NO_TEXTURE) != 0) {
         return false;
     }
+    if (!view->drew_own && view->rt_tex != nullptr) {
+        /* The last picture went to a host rectangle: the view's own texture holds an older one, so it is drawn whole. */
+        view->force_full = true;
+        view->paint_dirty = true;
+    }
     return embi_view_frame(view, cmd);
+}
+
+bool emb_view_render_to(emb_view *view, SDL_GPUCommandBuffer *cmd, const emb_render_target *target)
+{
+    if (view == nullptr) {
+        return false;
+    }
+    if (view->mode != EMB_VIEW_OFFSCREEN || cmd == nullptr || target == nullptr) {
+        embi_rt_log(view->rt, EMB_LOG_WARN, "emb_view_render_to: needs an offscreen view, a command buffer and a target");
+        return false;
+    }
+    if (target->size < offsetof(emb_render_target, flags) + sizeof target->flags) {
+        embi_rt_log(view->rt, EMB_LOG_WARN, "emb_view_render_to: the target's size is too small");
+        return false;
+    }
+    if (target->texture == nullptr) {
+        embi_rt_log(view->rt, EMB_LOG_WARN, "emb_view_render_to: the target has no texture");
+        return false;
+    }
+    uint32_t w = 0, h = 0;
+    emb_view_device_size(view, &w, &h);
+    if (target->x < 0 || target->y < 0 || (uint64_t)target->x + w > target->texture_w ||
+        (uint64_t)target->y + h > target->texture_h) {
+        embi_rt_log(view->rt, EMB_LOG_WARN, "emb_view_render_to: the view's rectangle lies outside the target texture");
+        return false;
+    }
+
+    /* A rectangle that holds the previous picture of this view is drawn in part; any other is drawn whole. */
+    const bool preserved = (target->flags & EMB_RENDER_PRESERVED) != 0;
+    const bool same = preserved && view->rt_valid && view->rt_tex == target->texture && view->rt_x == target->x &&
+                      view->rt_y == target->y && view->rt_w == w && view->rt_h == h;
+    if (!same || view->drew_own) {
+        view->force_full = true;
+        view->paint_dirty = true;
+    }
+    const bool changed = embi_view_update(view);
+    /* IF1: the frames draw into their textures first: this view's list samples them. */
+    embi_frames_draw(view, cmd);
+    if (!changed) {
+        return embi_view_draw(view, cmd, false);
+    }
+    view->st.damage_rects = view->damage.rects.len;
+    view->st.damage_area = view->damage.area;
+    view->st.full_redraw = view->damage.full;
+
+    embi_gfx_target t;
+    fill_target(view, &t, target->texture, w, h);
+    t.tex_x = target->x;
+    t.tex_y = target->y;
+    t.tex_w = target->texture_w;
+    t.tex_h = target->texture_h;
+    const bool ok = draw_damage(view, cmd, &t);
+    if (ok) {
+        view->rt_tex = target->texture;
+        view->rt_x = target->x;
+        view->rt_y = target->y;
+        view->rt_w = w;
+        view->rt_h = h;
+        view->rt_valid = true;
+        view->drew_own = false;
+    } else {
+        view->rt_valid = false;
+        view->force_full = true;
+        view->paint_dirty = true;
+        embi_rt_log(view->rt, EMB_LOG_WARN, "emb_view_render_to: a frame could not be started");
+    }
+    return ok;
 }
 
 void emb_view_stats_get(const emb_view *view, emb_view_stats *out)

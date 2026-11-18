@@ -11,6 +11,12 @@ target_include_directories(ember_${_mod} PRIVATE
     "${_ember_sb_dir}/Headers"
     "${_ember_sb_dir}/Source")
 
+# No fused multiply-adds, as in src/font/module.cmake: the hinter and the emboldener round to pixel rows, and must round
+# the same on every platform.
+if(NOT MSVC)
+    target_compile_options(ember_${_mod} PRIVATE -ffp-contract=off)
+endif()
+
 set_source_files_properties(
     "${_dir}/kb_impl.c"
     "${_dir}/sheenbidi_impl.c"

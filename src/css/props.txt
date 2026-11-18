@@ -176,6 +176,7 @@ text-align|L|1|start,end,left,right,center,justify,match-parent,justify-all,-int
 text-align-last|L|1|auto,start,end,left,right,center,justify|-|auto|D|-|text|-
 text-indent|L|1|-|g:text_indent|0|L|len|text|-
 text-transform|L|1|none,capitalize,uppercase,lowercase,full-width,full-size-kana,math-auto|g:kwset|none|D|-|text|-
+text-rendering|L|1|auto,optimizespeed,optimizelegibility,geometricprecision|-|auto|D|-|text|-
 white-space|S|1|-|-|-|-|-|text|white-space-collapse,text-wrap-mode
 white-space-collapse|L|1|collapse,discard,preserve,preserve-breaks,preserve-spaces,break-spaces|-|collapse|D|-|text|-
 text-wrap-mode|L|1|wrap,nowrap|-|wrap|D|-|text|-

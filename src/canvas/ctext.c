@@ -4,6 +4,7 @@
 #include "canvas/canvas_int.h"
 
 #include "font/font.h"
+#include "text/glyph_path.h"
 #include "text/text.h"
 
 #include <string.h>
@@ -191,67 +192,61 @@ typedef struct bbox {
     bool any;
 } bbox;
 
+typedef struct gw_ctx {
+    bbox *bb;
+    embi_cpath *path;
+} gw_ctx;
+
+static void gw_glyph(void *user, const embi_outline *ol, double gx, double gy, double k)
+{
+    bbox *bb = ((gw_ctx *)user)->bb;
+    if (bb == nullptr) {
+        return;
+    }
+    double x0 = gx + ol->xmin * k, x1 = gx + ol->xmax * k;
+    double y0 = gy + ol->ymin * k, y1 = gy + ol->ymax * k;
+    if (!bb->any) {
+        bb->minx = x0;
+        bb->maxx = x1;
+        bb->miny = y0;
+        bb->maxy = y1;
+        bb->any = true;
+    } else {
+        bb->minx = x0 < bb->minx ? x0 : bb->minx;
+        bb->maxx = x1 > bb->maxx ? x1 : bb->maxx;
+        bb->miny = y0 < bb->miny ? y0 : bb->miny;
+        bb->maxy = y1 > bb->maxy ? y1 : bb->maxy;
+    }
+}
+
+static void gw_move(void *user, double x, double y)
+{
+    embi_cpath_move_to(((gw_ctx *)user)->path, nullptr, x, y);
+}
+
+static void gw_quad(void *user, double cx, double cy, double x, double y)
+{
+    embi_cpath_quad_to(((gw_ctx *)user)->path, nullptr, cx, cy, x, y);
+}
+
+static void gw_close(void *user)
+{
+    embi_cpath_close(((gw_ctx *)user)->path);
+}
+
 static void glyph_walk(const ctext_layout *l, bbox *bb, embi_cpath *path, double ox, double oy, double sx)
 {
     if (!l->have_vr) {
         return;
     }
-    embi_outline ol;
-    memset(&ol, 0, sizeof ol);
-    for (uint32_t vi = 0; vi < l->vr.items.len; vi++) {
-        const embi_text_vrun *v = &l->vr.items.data[vi];
-        const embi_text_run *run = &l->lay.runs.data[v->run];
-        const embi_font *font = run->face != nullptr ? embi_face_font(run->face) : nullptr;
-        if (font == nullptr || font->metrics.units_per_em == 0) {
-            continue;
-        }
-        double k = (double)run->size / (double)font->metrics.units_per_em;
-        double pen = v->x;
-        for (uint32_t gi = v->glyph_begin; gi < v->glyph_end; gi++) {
-            const embi_text_glyph *g = &l->lay.glyphs.data[gi];
-            if (embi_font_glyph_outline(font, g->gid, nullptr, &ol) && ol.quads.len > 0) {
-                double gx = pen + g->x_offset, gy = g->y_offset;
-                if (bb != nullptr) {
-                    double x0 = gx + ol.xmin * k, x1 = gx + ol.xmax * k;
-                    double y0 = gy + ol.ymin * k, y1 = gy + ol.ymax * k;
-                    if (!bb->any) {
-                        bb->minx = x0;
-                        bb->maxx = x1;
-                        bb->miny = y0;
-                        bb->maxy = y1;
-                        bb->any = true;
-                    } else {
-                        bb->minx = x0 < bb->minx ? x0 : bb->minx;
-                        bb->maxx = x1 > bb->maxx ? x1 : bb->maxx;
-                        bb->miny = y0 < bb->miny ? y0 : bb->miny;
-                        bb->maxy = y1 > bb->maxy ? y1 : bb->maxy;
-                    }
-                }
-                if (path != nullptr) {
-                    uint32_t ci = 0;
-                    bool open = false;
-                    for (uint32_t qi = 0; qi < ol.quads.len; qi++) {
-                        const embi_quad *q = &ol.quads.data[qi];
-                        if (ci < ol.contours.len && ol.contours.data[ci] == qi) {
-                            if (open) {
-                                embi_cpath_close(path);
-                            }
-                            embi_cpath_move_to(path, nullptr, ox + (gx + q->p0.x * k) * sx, oy - (gy + q->p0.y * k));
-                            ci++;
-                            open = true;
-                        }
-                        embi_cpath_quad_to(path, nullptr, ox + (gx + q->p1.x * k) * sx, oy - (gy + q->p1.y * k),
-                                           ox + (gx + q->p2.x * k) * sx, oy - (gy + q->p2.y * k));
-                    }
-                    if (open) {
-                        embi_cpath_close(path);
-                    }
-                }
-            }
-            pen += g->advance;
-        }
-    }
-    embi_outline_free(&ol);
+    gw_ctx c = {bb, path};
+    const embi_glyph_map m = {.ox = ox, .oy = oy, .sx = sx, .draw = false};
+    const embi_glyph_sink sink = {.user = &c,
+                                  .glyph = bb != nullptr ? gw_glyph : nullptr,
+                                  .move_to = path != nullptr ? gw_move : nullptr,
+                                  .quad_to = path != nullptr ? gw_quad : nullptr,
+                                  .close = path != nullptr ? gw_close : nullptr};
+    embi_glyph_walk(&l->lay, &l->vr, &m, &sink);
 }
 
 void ctext_outline(const ctext_layout *l, embi_cpath *dst, double ox, double oy, double sx)

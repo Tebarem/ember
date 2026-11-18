@@ -136,6 +136,11 @@ void embi_tshim_draw_range(embi_text *t, embi_frame *f, const embi_lay_shaped *s
 /* R4e: the outline of a shaped run as quadratic curves (x0, y0, cx, cy, x1, y1) with the baseline origin at (x, y), y down. */
 void embi_tshim_outline(embi_text *t, const embi_lay_shaped *s, float x, float y, void (*fn)(void *user, const float q[6]),
                         void *user);
+/* The outline of the bytes [lo, hi) of a shaped run as a path in local px, with the baseline origin at (x, y) and the glyphs
+ * made as embi_text_draw makes them (the run's instance, the synthetic oblique). bounds gets x0, y0, x1, y1. nullptr when the
+ * range has no outline. The caller owns the path until a display list takes it (embi_tshim_path_hash gives its content hash). */
+struct embi_path *embi_tshim_glyph_path(const embi_lay_shaped *s, uint32_t lo, uint32_t hi, float x, float y, float bounds[4]);
+uint64_t embi_tshim_path_hash(const struct embi_path *p);
 /* Draws the visual runs of a shaped run with the baseline origin at (x, y) (local px) through the text system's glyph path
  * (the renderer's Slug fill). t is the text system the run was shaped with. xform and clip are as for embi_frame_fill. */
 void embi_tshim_draw(embi_text *t, embi_frame *f, const embi_lay_shaped *s, float x, float y, uint32_t color,

@@ -499,6 +499,11 @@ static void emit_piece(svg_ctx *c, const tpiece *p, uint32_t ri, const float MR[
             it.f[0] = p->x + dx;
             it.f[1] = p->y + dy;
             it.colors[0] = fx->fill_rgba;
+            /* text-rendering: geometricPrecision draws the glyphs with no pixel fitting, as in HTML text. */
+            const embi_value *tr = embi_style_value(p->st, EMBI_PROP_text_rendering);
+            if (tr != nullptr && tr->kind == EMBI_V_KEYWORD && tr->kw == EMBI_KW_geometricprecision) {
+                it.flags |= EMBI_DF_GEOMPREC;
+            }
             embi_vec_push(&d->items, it);
         }
     }

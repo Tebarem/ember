@@ -273,6 +273,10 @@ EMB_TEST(added_properties_parse)
         {"text-emphasis", "none", true},
         {"text-emphasis", "\"x\" blue", true},
         {"text-emphasis", "filled filled", false},
+        {"-webkit-text-stroke", "4px red", true},
+        {"-webkit-text-stroke", "thin", true},
+        {"-webkit-text-stroke", "red 1px", true},
+        {"-webkit-text-stroke", "1px 2px", false},
     };
     embi_arena a = {0};
     embi_arena_init(&a, 1024);
@@ -287,6 +291,7 @@ EMB_TEST(added_properties_parse)
     }
     EMB_CHECK_EQ_INT(decl(&a, "scroll-margin", "1px 2px", out), 4);
     EMB_CHECK_EQ_INT(decl(&a, "text-emphasis", "filled circle red", out), 2);
+    EMB_CHECK_EQ_INT(decl(&a, "-webkit-text-stroke", "4px red", out), 2);
     /* Logical/physical mapping covers the new families. */
     EMB_CHECK(embi_prop_is_logical(prop_of("scroll-margin-inline-start")));
     EMB_CHECK(!embi_prop_is_logical(prop_of("scroll-padding-left")));

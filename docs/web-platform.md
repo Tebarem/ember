@@ -93,6 +93,13 @@ Known gaps (each has failing, tagged tests in `tests/reftest/expectations/`):
 - Shaping is done by kb_text_shape, bidirectional reordering by SheenBidi.
 - Glyphs are drawn from their outlines on the GPU (the Slug algorithm), not from a glyph atlas, so text stays sharp under
   scaling and transforms. Windowed views use LCD subpixel antialiasing where it is safe (`emb_text_aa`).
+- Text hinting is a view setting (`emb_text_hinting`: NATURAL, SHARP, NONE; see `docs/embedding.md`). NATURAL is vertical
+  hinting under 36 px, baseline snap and stem darkening. SHARP adds x fitting and whole-px pen positions. NONE is no fitting
+  at all, with the contrast curve kept.
+- `text-rendering` (inherited; the SVG presentation attribute maps to it): `auto`, `optimizeSpeed` and `optimizeLegibility`
+  use the view's hinting; `geometricPrecision` draws that text as NONE.
+- `-webkit-text-stroke` strokes the glyph outlines (miter join with limit 4, butt ends) over the fill. Synthetic bold
+  emboldens the outline by about a 24th of the em up to 9 px, a 32nd from 36 px, so the stems grow to the right.
 - Font selection: registered fonts, `@font-face`, system fonts (indexed on a background thread), generic family mapping set
   by the host, then per-character fallback and the bundled default font (Noto-based, 216 KB).
 
