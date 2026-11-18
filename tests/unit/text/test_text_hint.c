@@ -610,16 +610,26 @@ static uint64_t fnv(uint64_t h, const void *p, size_t n)
     return h;
 }
 
-static uint64_t natural_hash(const char *rel)
+/* A fingerprint of the y fitting without x fitting over a set of glyphs and sizes. The curve counts and maps are hashed
+ * exactly; the coordinates go into a weighted sum, because compilers may fuse multiply-adds (clang on arm64 does), which
+ * moves them by a few ulps. */
+typedef struct natural_print {
+    uint64_t shape;  /* hash of the curve counts and maps */
+    double sum;      /* weighted sum of the fitted coordinates, font units */
+    double mag;      /* sum of their magnitudes */
+} natural_print;
+
+static natural_print natural_fingerprint(const char *rel)
 {
+    natural_print np = {14695981039346656037ull, 0.0, 0.0};
     face f;
     if (!face_open(&f, rel)) {
-        return 0;
+        return np;
     }
     const float upem = (float)f.font.metrics.units_per_em;
     embi_hint_zones z;
     embi_hint_zones_measure(&z, upem, (float)f.font.metrics.x_height, extent_cb, &f);
-    uint64_t h = 14695981039346656037ull;
+    uint32_t k = 0;
     for (int size = 9; size <= 36; size++) {
         const float s = (float)size / upem;
         for (const char *g = "Hezxopdtlmnig"; *g != 0; g++) {
@@ -631,23 +641,41 @@ static uint64_t natural_hash(const char *rel)
             embi_qcurve *out = SDL_malloc(sizeof *out * 4u * n);
             uint32_t *map = SDL_malloc(sizeof *map * (n + 1u));
             const uint32_t m = embi_hint_glyph_fit(&z, upem, s, in, n, out, map, false);
-            h = fnv(h, &m, sizeof m);
-            h = fnv(h, out, sizeof *out * m);
-            h = fnv(h, map, sizeof *map * (m > 0 ? n + 1u : 0u));
+            np.shape = fnv(np.shape, &m, sizeof m);
+            np.shape = fnv(np.shape, map, sizeof *map * (m > 0 ? n + 1u : 0u));
+            for (uint32_t i = 0; i < m; i++) {
+                const float v[6] = {out[i].x0, out[i].y0, out[i].cx, out[i].cy, out[i].x1, out[i].y1};
+                for (int j = 0; j < 6; j++) {
+                    np.sum += (double)v[j] * (double)(1u + (k++ % 7u));
+                    np.mag += SDL_fabs((double)v[j]) * 7.0;
+                }
+            }
             SDL_free(in);
             SDL_free(out);
             SDL_free(map);
         }
     }
     face_close(&f);
-    return h;
+    return np;
+}
+
+/* The fingerprint matches: the same curves exactly, and coordinates within a few ulps of each (1e-8 of the weighted magnitudes). */
+static bool natural_matches(const char *rel, uint64_t shape, double sum)
+{
+    const natural_print np = natural_fingerprint(rel);
+    const bool ok = np.shape == shape && SDL_fabs(np.sum - sum) <= 1e-8 * np.mag + 1e-3;
+    if (!ok) {
+        SDL_Log("natural %s: shape 0x%016llxull sum %.4f mag %.0f (want 0x%016llxull %.4f)", rel, (unsigned long long)np.shape,
+                np.sum, np.mag, (unsigned long long)shape, sum);
+    }
+    return ok;
 }
 
 EMB_TEST(hint_natural_unchanged)
 {
-    /* The y fitting without x fitting is what it was before the sharp mode: the hash of its output over a set of glyphs. */
-    EMB_CHECK(natural_hash("tests/fonts/NotoSans-Regular.ttf") == 0xe2be68ab3ecad6c4ull);
-    EMB_CHECK(natural_hash("tests/fonts/SourceSans3-Regular.otf") == 0x4fb9034d6368a944ull);
+    /* The y fitting without x fitting is what it was before the sharp mode. */
+    EMB_CHECK(natural_matches("tests/fonts/NotoSans-Regular.ttf", 0xde2635aa82538ca5ull, 47213788.9647));
+    EMB_CHECK(natural_matches("tests/fonts/SourceSans3-Regular.otf", 0x928f79b3c186bbe5ull, 41615508.2023));
 }
 
 /* ------------------------------------------------------------------ x fitting */

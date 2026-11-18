@@ -222,6 +222,42 @@ static size_t rect_mismatch(const uint8_t *a, uint32_t tw, int32_t x, int32_t y,
     return bad;
 }
 
+/* The number of pixels of the rectangle (x, y, w, h) of a that differ from b by more than tol levels in a channel. Any
+ * difference is logged with its extent, so a failure on another GPU says whether it is rounding or a misplaced draw. */
+static size_t rect_far(const uint8_t *a, uint32_t tw, int32_t x, int32_t y, const uint8_t *b, uint32_t w, uint32_t h,
+                       int tol)
+{
+    size_t diff = 0, far = 0;
+    int maxd = 0;
+    uint32_t x0 = w, y0 = h, x1 = 0, y1 = 0;
+    for (uint32_t r = 0; r < h; r++) {
+        const uint8_t *ra = a + (((size_t)(y + (int32_t)r) * tw) + (size_t)x) * 4u;
+        const uint8_t *rb = b + (size_t)r * w * 4u;
+        for (uint32_t c = 0; c < w; c++) {
+            int m = 0;
+            for (int k = 0; k < 4; k++) {
+                const int d = SDL_abs((int)ra[c * 4u + (uint32_t)k] - (int)rb[c * 4u + (uint32_t)k]);
+                m = d > m ? d : m;
+            }
+            if (m == 0) {
+                continue;
+            }
+            diff++;
+            far += m > tol ? 1u : 0u;
+            maxd = m > maxd ? m : maxd;
+            x0 = c < x0 ? c : x0;
+            y0 = r < y0 ? r : y0;
+            x1 = c > x1 ? c : x1;
+            y1 = r > y1 ? r : y1;
+        }
+    }
+    if (diff > 0) {
+        SDL_Log("rect at (%d, %d): %u px differ, %u by more than %d, at most %d levels, within (%u, %u)-(%u, %u)", x, y,
+                (unsigned)diff, (unsigned)far, tol, maxd, x0, y0, x1, y1);
+    }
+    return far;
+}
+
 /* The number of pixels of the whole w x h picture that differ from the sentinel in the sentinel's channels. */
 static size_t count_not_sentinel(const uint8_t *px, uint32_t w, uint32_t h)
 {
@@ -808,12 +844,14 @@ EMB_TEST(offset_blend_and_backdrop)
     EMB_REQUIRE(px != nullptr);
     EMB_CHECK(outside_not_sentinel(px, HOST_W, HOST_H, 23, 17, VIEW_W, VIEW_H) == 0);
 
-    /* The copies from the target read the rectangle's own pixels, so the picture equals the whole-view draw. */
+    /* The copies from the target read the rectangle's own pixels, so the picture equals the whole-view draw. The layers
+     * are sampled at other target positions than in the whole-view draw, and a software rasterizer (WARP) may round
+     * those a level apart; a misplaced copy differs by far more. */
     uint32_t rw = 0, rh = 0;
     uint8_t *rp = draw_ref(rt, h.dev, k_page_blend, VIEW_W, VIEW_H, 1.0f, 1.0f, &rw, &rh);
     EMB_REQUIRE(rp != nullptr);
     EMB_CHECK(rw == VIEW_W && rh == VIEW_H);
-    EMB_CHECK(rect_mismatch(px, HOST_W, 23, 17, rp, VIEW_W, VIEW_H) == 0);
+    EMB_CHECK(rect_far(px, HOST_W, 23, 17, rp, VIEW_W, VIEW_H, 2) == 0);
 
     SDL_free(rp);
     SDL_free(px);
@@ -845,10 +883,11 @@ EMB_TEST(offset_canvas_under)
     EMB_CHECK(outside_not_sentinel(px, HOST_W, HOST_H, 41, 13, VIEW_W, VIEW_H) == 0);
 
     uint32_t rw = 0, rh = 0;
+    /* Within 2 levels, as in offset_blend_and_backdrop. */
     uint8_t *rp = draw_ref(rt, h.dev, k_page_canvas, VIEW_W, VIEW_H, 1.0f, 1.0f, &rw, &rh);
     EMB_REQUIRE(rp != nullptr);
     EMB_CHECK(rw == VIEW_W && rh == VIEW_H);
-    EMB_CHECK(rect_mismatch(px, HOST_W, 41, 13, rp, VIEW_W, VIEW_H) == 0);
+    EMB_CHECK(rect_far(px, HOST_W, 41, 13, rp, VIEW_W, VIEW_H, 2) == 0);
 
     SDL_free(rp);
     SDL_free(px);
